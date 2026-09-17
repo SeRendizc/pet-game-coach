@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,legalActions,SPECIES,rankEnemyActions,buildVersusOpponent} from './engine.js';
 import {newProfile} from './progression.js';
-import {runCoach,buildContext,requiredTool} from './coach/runtime.js';
+import {runCoach,buildContext,policyFor,requiredTool} from './coach/runtime.js';
 import {rosterAdvice} from './coach/strategist.js';
 import {freshMemory,rememberBattle,readMemory} from './coach/memory.js';
 const request=(message,game=createGame(),profile=newProfile(),memory=freshMemory())=>runCoach({message,context:buildContext(game,profile,'fox'),memory});
@@ -153,4 +153,26 @@ test('hard-requirement detection is programmatic, not left to the planner',async
  // 普通提问不强制调用，仍然由规划器判断
  assert.equal(requiredTool('这回合怎么打',ctx),null);
  assert.equal(requiredTool('谢谢',ctx),null);
+});
+test('tool policy is decided in code, and the model is only consulted when a tool is required',async()=>{
+ const ctx=buildContext(createGame(),newProfile(),'fox');
+ // 证据包已带当前局面：这类提问不该调工具
+ assert.equal(policyFor('我现在场上这只还剩多少血？能量够放技能吗？',ctx).need,null);
+ assert.equal(policyFor('你好',ctx).need,null);
+ assert.equal(policyFor('谢谢',ctx).need,null);
+ // 证据包结构上不包含的四类，必须调，且由政策而不是模型决定
+ assert.equal(policyFor('第5回合到底发生了什么？',ctx).need,'read_evidence');
+ assert.equal(policyFor('如果我这回合换宠，对方攻击会怎样？帮我模拟一下。',ctx).need,'simulate_branch');
+ assert.equal(policyFor('帮我看看整局的统计',ctx).need,'read_match');
+ assert.equal(policyFor('这个打法的战术反例是什么',ctx).need,'search_rules');
+ // 政策指定的工具真的会执行，且标记来源为 policy 而不是模型
+ let plannerCalls=0;
+ const res=await gatherAgentEvidence({message:'第5回合到底发生了什么？',context:ctx,mustCall:'read_evidence',
+  plan:async()=>{plannerCalls++;return {stop:true};}});
+ assert.equal(res.trace[0]?.tool,'read_evidence');
+ assert.equal(res.trace[0]?.chosenBy,'policy','首步必须由政策选择');
+ assert.equal(plannerCalls,1,'首步之后才咨询模型是否继续');
+ // gatherAgentEvidence 是底层循环，本身不查政策；政策由调用方 runCoach 执行，
+ // 上面已经断言 policyFor 对这类提问返回 null，这两层分工不要混。
+ assert.equal(requiredTool('你好',ctx),null);
 });

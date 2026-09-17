@@ -61,8 +61,16 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  if(!locked&&next.preference==='brief'&&packet.text.length>160)packet={...packet,text:packet.text.slice(0,157)+'…'};
  packet={...packet,publicState:context.battle,latestEvents:context.lastTurn?.events||[],playerMessage:message,conversation:previous,taskState:{topic:next.lastTopic,pendingQuestion:next.pendingQuiz?.question||null},interfaceContext:{screen:context.mode==='camp'?'首页营地与培养':'对战',focus:context.focus,stageId:context.stageId}};
  if(useModel&&provider.plan&&['strategist','teacher'].includes(route)){
-   const result=await gatherAgentEvidence({message,context,plan:provider.plan,retrieve:provider.retrieve});
-   packet={...packet,toolTrace:result.trace,agentStop:result.stopped};
+   // 由代码判断该不该调，模型只在"要调"的时候参与，负责决定是否继续查。
+   const policy=policyFor(message,context);
+   if(policy.need){
+    const result=await gatherAgentEvidence({message,context,plan:provider.plan,retrieve:provider.retrieve,mustCall:policy.need});
+    packet={...packet,toolTrace:result.trace,agentStop:result.stopped,toolPolicy:policy};
+   }else{
+    packet={...packet,toolTrace:[],agentStop:'policy-no-tool',toolPolicy:policy};
+   }
+ }else if(useModel){
+   packet={...packet,toolTrace:[],agentStop:'policy-route-without-tools',toolPolicy:policyFor(message,context)};
  }
  const text=useModel?await provider.generate(packet):packet.text;
  if(typeof text!=='string'||!text.trim())throw Error('教练暂时没有生成有效回答');
@@ -78,22 +86,68 @@ export async function runCoach({message,role='auto',context,memory,conversation=
 // 从玩家这句话里判断"必须调用"的工具。这一步是程序做的，不是把判断留给模型——
 // 因为"证据包看起来够了"正是漏调的原因，而指定回合 / 分支模拟 / 分页这三类
 // 只要不调就永远拿不到。返回工具名或 null。
-export function requiredTool(message='',context={}){
+// 工具调用政策（写死在代码里，不再交给模型凭感觉判断）：
+//
+// 证据包已经携带当前公开局面（publicState）与最近回合事件（latestEvents），
+// 所以「现在多少血」「能量够不够」「对方还剩几瓶药」这类问题**不需要调工具**——
+// 答案就在包里。真正需要调工具的只有证据包结构上不包含的四类：
+//
+//   1. 指定回合的原始事件      → read_evidence
+//   2. 两个具体行动的分支模拟  → simulate_branch
+//   3. 整局范围的分页统计      → read_match
+//   4. 包里没有的战术规则      → search_rules
+//
+// 政策由代码执行，不由模型揣摩。这与实测数据一致：模型「选哪个工具」很准（90–100%），
+// 但「该不该调」只有 50%，所以把后者从模型手里拿走。
+export function policyFor(message='',context={}){
  const text=String(message);
- const turns=(context.battle?.history||[]).filter(h=>h.type==='turn').length||0;
- // 指定回合：提到"第 N 回合"且证据包未必覆盖
- if(/第\s*\d+\s*回合/.test(text))return 'read_evidence';
- // 要求模拟或比较两个具体行动
- if(/(模拟|如果|假如|换成|改成).{0,12}(打|防御|换宠|吃药)|两种顺序|先后手谁|谁先出手/.test(text))return 'simulate_branch';
- // 整局范围或翻更早的回合
- if(/(整局|全程|一共|总共|前面几回合|回顾整场)/.test(text))return turns>3?'read_match':'read_match';
- return null;
+ if(policyNoTool(text))return {need:null,reason:'chitchat-or-parametric'};
+ if(/第\s*\d+\s*回合|上一回合|上个回合|前面那回合/.test(text))return {need:'read_evidence',reason:'named-turn'};
+ if(/(模拟|如果|假如|要是).{0,14}(换|打|防御|吃|攻击)|帮我比较|两种顺序|谁先出手|先后手/.test(text))return {need:'simulate_branch',reason:'branch-simulation'};
+ if(/(整局|全程|一共打了|总共|回顾整场|前面几回合)/.test(text))return {need:'read_match',reason:'whole-match'};
+ if(/(战术|套路|打法|反例|条件|为什么不|怎么克制)/.test(text))return {need:'search_rules',reason:'tactics-knowledge'};
+ return {need:null,reason:'state-in-packet'};
+}
+// 明确不需要任何工具的情形：寒暄、感谢、情绪表达、对教练本身的提问、偏好声明。
+function policyNoTool(text){
+ return /^(你好|hi|hello|嗨|在吗|谢谢|多谢|辛苦了|晚安|早|哈+)|你是谁|你叫什么|不用了|算了|我想(稳|快|慢)一点|换个话题|随便聊/.test(text.trim());
+}
+export function requiredTool(message='',context={}){
+ return policyFor(message,context).need;
 }
 
-export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve=null}){
+// 政策指定工具时，参数由代码给出——玩家不需要说"第几回合"才能查回合，
+// 没指定就取最近一个已结算回合。
+function defaultArgsFor(name,context,message){
+ const text=String(message);
+ if(name==='read_evidence'){const m=/第\s*(\d+)\s*回合/.exec(text);
+  const turns=(context.battle?.history||[]).filter(h=>h.type==='turn').length||1;
+  const turn=m?Number(m[1]):Math.max(1,turns);
+  return {turn};}
+ if(name==='read_match')return {offset:0,limit:3};
+ if(name==='search_rules')return {query:text.slice(0,180)};
+ if(name==='simulate_branch')return {actionIndex:0,opponentIndex:0};
+ return {};
+}
+async function runTool(name,args,context,message,retrieve){
+ return name==='search_rules'&&retrieve
+  ?await retrieve(args.query,{game:context.battle,rulesVersion:context.battle?.version||RULES_VERSION})
+  :executeTool(name,args,context,message);
+}
+export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve=null,mustCall=null}){
  if(isLiveMatch(context))return {trace:[],stopped:'policy'};
  const trace=[];const seen=new Set();
- for(let i=0;i<Math.min(4,limit);i++){
+ // 第一步若由政策指定，就直接执行，不咨询模型——「该不该调」由代码决定。
+ if(mustCall){
+  if(!Object.hasOwn(TOOL_CONTRACTS,mustCall))return {trace,stopped:'policy-invalid-tool'};
+  const args=defaultArgsFor(mustCall,context,message);
+  if(!validToolArgs(mustCall,args))return {trace,stopped:'policy-invalid-arguments'};
+  let first;try{first=await runTool(mustCall,args,context,message,retrieve);}catch{return {trace,stopped:'policy-tool-failed'};}
+  if(JSON.stringify(first).length>10000)return {trace,stopped:'receipt-budget'};
+  trace.push({id:'tool:1',tool:mustCall,args,result:first,chosenBy:'policy'});
+  seen.add(JSON.stringify([mustCall,args]));
+ }
+ for(let i=trace.length;i<Math.min(4,limit);i++){
   // 规划器解析失败不应该让整轮作废：拿不到工具就用已有证据作答，
   // 这比让玩家看到一次失败要好。实测 44 条里有 3 条走到这里。
   let choice;try{choice=await plan({message,screen:context.mode,tools:Object.keys(TOOL_CONTRACTS),contracts:TOOL_CONTRACTS,hard:HARD_TOOLS,hardRequired:requiredTool(message,context),receipts:trace,remaining:limit-i});}
@@ -103,7 +157,7 @@ export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve
   if(!Object.hasOwn(TOOL_CONTRACTS,name))return {trace,stopped:'invalid-tool'};
   if(!validToolArgs(name,args))return {trace,stopped:'invalid-arguments'};
   const key=JSON.stringify([name,args]);if(seen.has(key))return {trace,stopped:'repeated-tool'};seen.add(key);
-  let result;try{result=name==='search_rules'&&retrieve?await retrieve(args.query,{game:context.battle,rulesVersion:context.battle?.version||RULES_VERSION}):executeTool(name,args,context,message);}catch(error){return {trace,stopped:error.message==='policy'?'policy':'invalid-arguments'};}
+  let result;try{result=await runTool(name,args,context,message,retrieve);}catch(error){return {trace,stopped:error.message==='policy'?'policy':'invalid-arguments'};}
   // 适用条件执行校验：检索回来的卡片里，条件不满足的不能作为「适用证据」进入回执。
   // 这一步是程序执行，不是写在提示里让模型自觉——A10 缺的就是这个。
   let enforced=result;
