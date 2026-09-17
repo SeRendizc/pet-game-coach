@@ -55,3 +55,16 @@ test('app.js does not reference the removed dropdown loadout UI',()=>{
   assert(!src.includes('data-slot'),'the old <select data-slot> loadout picker is gone; remove leftover handlers');
   assert(!src.includes('roster-page='),'the old base/tactical paging is gone; remove leftover handlers');
 });
+
+// 军师的局内主动层是 app.js 与 coach/experience.js 之间的接线。
+// 接线断掉时页面照样能解析、单测也看不出来，只是「军师永远不开口」——
+// 所以这里对真实源码做一次存在性检查，并确认已删除的恒真门控没有回来。
+test('app.js wires the in-match strategist layer and dropped the always-true gate',()=>{
+  const src=readFileSync(join(root,'app.js'),'utf8');
+  for(const needed of ['strategistSession','strategistTrigger','incidentInfo','strategistEvaluate','strategistCue','strategistHintsAllowed','turnIncident','strategistPanel'])
+    assert(src.includes(needed),`app.js is missing the strategist wiring: ${needed}`);
+  assert(!/function\s+coachAllowedInMatch/.test(src),'the always-true coachAllowedInMatch() should be gone');
+  // 说明它被删掉的注释可以留着，但真实调用点不能再有（注释行先剔除再找）。
+  const code=src.split('\n').filter(line=>!line.trim().startsWith('//')).join('\n');
+  assert(!code.includes('coachAllowedInMatch'),'no remaining call sites of the removed helper');
+});

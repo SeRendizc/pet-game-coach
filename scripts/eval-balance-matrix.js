@@ -783,6 +783,52 @@ for(const pair of TYPE_PAIRS)for(const diff of DIFFS){
   ...verdictFor(keysFor(pair.a),keysFor(pair.b))});
 }
 
+// Ground truth for the replication check, copied from reports/balance-calibration.json
+// (studyA_composition, per policy, excluding the "ALL POLICIES" aggregate rows).
+report.archivedStudyA={"starter fox/turtle/deer | greedy-damage":{"winRate":0.3333333333333333,"meanRounds":17.666666666666668},"starter fox/turtle/deer | one-turn-rank":{"winRate":0.7916666666666666,"meanRounds":19.5},"starter fox/turtle/deer | rushed":{"winRate":0.3333333333333333,"meanRounds":17.666666666666668},"starter fox/turtle/deer | switch-seeking":{"winRate":0.6666666666666666,"meanRounds":13.666666666666666},"starter fox/turtle/deer | random":{"winRate":0,"meanRounds":26.833333333333332},"burn lion/shroom/otter | greedy-damage":{"winRate":0.3333333333333333,"meanRounds":14.333333333333334},"burn lion/shroom/otter | one-turn-rank":{"winRate":0.6666666666666666,"meanRounds":20},"burn lion/shroom/otter | rushed":{"winRate":0.3333333333333333,"meanRounds":14.333333333333334},"burn lion/shroom/otter | switch-seeking":{"winRate":0.3333333333333333,"meanRounds":14.833333333333334},"burn lion/shroom/otter | random":{"winRate":0,"meanRounds":36.583333333333336},"speed sparrow/badger/moth | greedy-damage":{"winRate":0,"meanRounds":17.666666666666668},"speed sparrow/badger/moth | one-turn-rank":{"winRate":0.3333333333333333,"meanRounds":23.333333333333332},"speed sparrow/badger/moth | rushed":{"winRate":0,"meanRounds":17},"speed sparrow/badger/moth | switch-seeking":{"winRate":0,"meanRounds":15.666666666666666},"speed sparrow/badger/moth | random":{"winRate":0,"meanRounds":21.25},"wind falcon/rhino/marten | greedy-damage":{"winRate":0.3333333333333333,"meanRounds":14.666666666666666},"wind falcon/rhino/marten | one-turn-rank":{"winRate":0.6666666666666666,"meanRounds":18},"wind falcon/rhino/marten | rushed":{"winRate":0,"meanRounds":14.333333333333334},"wind falcon/rhino/marten | switch-seeking":{"winRate":0.3333333333333333,"meanRounds":18.666666666666668},"wind falcon/rhino/marten | random":{"winRate":0,"meanRounds":19.75},"stall turtle/shroom/badger | greedy-damage":{"winRate":0,"meanRounds":22.416666666666668},"stall turtle/shroom/badger | one-turn-rank":{"winRate":0.3333333333333333,"meanRounds":42.333333333333336},"stall turtle/shroom/badger | rushed":{"winRate":0,"meanRounds":22.416666666666668},"stall turtle/shroom/badger | switch-seeking":{"winRate":0,"meanRounds":27.083333333333332},"stall turtle/shroom/badger | random":{"winRate":0,"meanRounds":34.958333333333336},"glass fox/sparrow/falcon | greedy-damage":{"winRate":0.6666666666666666,"meanRounds":12},"glass fox/sparrow/falcon | one-turn-rank":{"winRate":0.6666666666666666,"meanRounds":19.666666666666668},"glass fox/sparrow/falcon | rushed":{"winRate":0.6666666666666666,"meanRounds":12},"glass fox/sparrow/falcon | switch-seeking":{"winRate":0.3333333333333333,"meanRounds":11.666666666666666},"glass fox/sparrow/falcon | random":{"winRate":0,"meanRounds":16.875}};
+// ── paired comparisons: same team/difficulty/seed, only one dimension changes ────────────────
+// Pooled win rates hide the pairing (the same 12 seeds face the same three enemy squads), so the
+// item / loadout / mode arms are also compared per matched pair (discordant-pair counts).
+function binomTwoSided(b,c){
+ const n=b+c;if(!n)return 1;let sum=0,term=Math.pow(0.5,n);
+ for(let i=0;i<=Math.min(b,c);i++){sum+=term;term=term*(n-i)/(i+1);}
+ return Math.min(1,2*sum);
+}
+function pairedDiff(study,dimField,labelA,labelB,keyFn,filterFn){
+ const groups={};
+ for(const a of Object.values(report.arms)){
+  if(a.study!==study||(filterFn&&!filterFn(a.dims)))continue;
+  const v=a.dims[dimField];
+  if(v!==labelA&&v!==labelB)continue;
+  const key=keyFn(a.dims);groups[key]=groups[key]||{};
+  groups[key][v]=a.bySeed.reduce((m,r)=>(m[r.seed]=r.result==='win',m),{});
+ }
+ let n=0,onlyA=0,onlyB=0,both=0,neither=0;
+ for(const g of Object.values(groups)){
+  const A=g[labelA],B=g[labelB];if(!A||!B)continue;
+  for(const s of Object.keys(A)){
+   if(!(s in B))continue;
+   n++;
+   if(A[s]&&B[s])both++;else if(!A[s]&&!B[s])neither++;
+   else if(A[s])onlyA++;else onlyB++;
+  }
+ }
+ return {comparison:labelA+' → '+labelB,matchedPairs:n,groups:Object.keys(groups).length,
+  bothWin:both,bothLose:neither,onlyAwins:onlyA,onlyBwins:onlyB,
+  winRateA:n?+((both+onlyA)/n).toFixed(4):null,winRateB:n?+((both+onlyB)/n).toFixed(4):null,
+  delta:n?+((onlyA-onlyB)/n).toFixed(4):null,discordantP:binomTwoSided(onlyA,onlyB)};
+}
+report.paired={
+ note:'每对 = 同阵容、同难度、同种子的两场对局，只有被比较的那一维不同；onlyAwins/onlyBwins 是不一致对，discordantP 是精确二项双尾检验（H0：不一致对五五开）。',
+ items_playerOnly:[pairedDiff('S1','item','none','shellCharm',d=>d.team+'|'+d.difficulty),
+  pairedDiff('S1','item','none','energySeed',d=>d.team+'|'+d.difficulty),
+  pairedDiff('S1','item','shellCharm','energySeed',d=>d.team+'|'+d.difficulty)],
+ items_mirrored:[pairedDiff('S9','item','none','shellCharm',d=>d.team+'|'+d.difficulty),
+  pairedDiff('S9','item','none','energySeed',d=>d.team+'|'+d.difficulty)],
+ loadout:[pairedDiff('S3','loadout','default','alt',d=>d.team,d=>d.difficulty==='normal'),
+  pairedDiff('S3','loadout','default','alt',d=>d.team,d=>d.difficulty==='hard')],
+ mode:[pairedDiff('S6','mode','pve','pvp-local',d=>d.team,d=>d.difficulty==='normal'),
+  pairedDiff('S6','mode','pve','pvp-local',d=>d.team,d=>d.difficulty==='hard')]};
 report.matchCount=matchCount;report.armCount=armCount;report.durationMs=Date.now()-T0;
 report.caveats=[
  '玩家侧是固定脚本策略，不是真人；绝对胜率不是玩家胜率。',
@@ -874,6 +920,12 @@ console.log('\n-- 携带物 / 配招 / 模式 汇总 --');
 for(const [k,t] of Object.entries(report.tactics.byItem))console.log('  携带物 '+k+': n='+t.n+'  胜率='+p1(t.winRate*100)+'%  回合='+p1(t.meanRounds));
 for(const [k,t] of Object.entries(report.tactics.byLoadout))console.log('  配招 '+k+': n='+t.n+'  胜率='+p1(t.winRate*100)+'%  回合='+p1(t.meanRounds)+'  玩家熵='+p1(t.playerActionEntropyNorm));
 for(const [k,t] of Object.entries(report.tactics.byMode))console.log('  模式 '+k+': n='+t.n+'  胜率='+p1(t.winRate*100)+'%  回合='+p1(t.meanRounds)+'  敌方换宠率='+p1(t.enemySwitchRate*100)+'%');
+console.log('\n-- 配对比较（同阵容/同难度/同种子，只有一维不同）--');
+for(const [group,list] of Object.entries(report.paired)){
+ if(!Array.isArray(list))continue;
+ for(const d of list)console.log('  '+group+' | '+d.comparison+'  n='+d.matchedPairs+'（'+d.groups+' 组）  '
+  +'A 独赢 '+d.onlyAwins+' / B 独赢 '+d.onlyBwins+'  A='+p1(d.winRateA*100)+'% B='+p1(d.winRateB*100)+'% Δ='+p1(d.delta*100)+'pp  二项 p='+d.discordantP.toFixed(4));
+}
 console.log('\n-- G02 替代性判定（胜率差 + Wilson 95% CI）--');
 for(const d of report.dominance)
  console.log('  '+d.design+'\n     '+d.slot0+' '+p1(d.winRateA*100)+'% ['+p1(d.ciA[0]*100)+'-'+p1(d.ciA[1]*100)+'] (n='+d.nA+', 上场率 '+p1(d.slot0TurnShareA*100)+'%, 存活 '+p1(d.slot0SurvivalA*100)+'%)'
@@ -891,9 +943,28 @@ for(const diff of DIFFS){
  }
  console.log('  studyC '+diff+': '+line.join('  '));
 }
+// Exact comparison: recompute win rate and mean length from the stored per-match rows so the
+// stored rounding of `meanRounds` cannot hide or fake a difference.
+const exactRate=a=>a.bySeed.filter(r=>r.result==='win').length/a.bySeed.length;
+const exactMean=a=>a.bySeed.reduce((x,r)=>x+r.rounds,0)/a.bySeed.length;
 let exactC=0,totC=0;
 for(const diff of DIFFS)for(const pol of Object.keys(ARCH[diff])){
  const a=findArm('S10',x=>x.protocol==='archived studyC_difficulty'&&x.difficulty===diff&&x.policy===pol);totC++;
- if(a&&Math.abs(a.winRate-ARCH[diff][pol][0])<1e-9&&Math.abs(a.meanRounds-ARCH[diff][pol][1])<1e-9)exactC++;}
-console.log('  studyC 与归档逐字一致: '+exactC+'/'+totC);
+ if(a&&Math.abs(exactRate(a)-ARCH[diff][pol][0])<1e-12&&Math.abs(exactMean(a)-ARCH[diff][pol][1])<1e-9)exactC++;}
+console.log('  studyC 与归档逐位一致（24 种子，胜率与平均回合由逐场记录重算）: '+exactC+'/'+totC);
+for(const [k,v] of Object.entries(report.archivedStudyA)){
+ if(k.includes('ALL POLICIES'))continue;
+ const [comp,pol]=k.split(' | ');
+ const a=findArm('S10',x=>x.protocol==='archived studyA_composition'&&x.composition===comp&&x.policy===pol);
+ if(!a)continue;
+ const d1=exactRate(a)-v.winRate,d2=exactMean(a)-v.meanRounds;
+ if(Math.abs(d1)>1e-12||Math.abs(d2)>1e-9)console.log('    studyA 差异 '+comp+' | '+pol+' 胜率 '+d1.toFixed(6)+' 回合 '+d2.toFixed(6));
+}
+let exactA=0,totA=0;
+for(const [k,v] of Object.entries(report.archivedStudyA||{})){
+ if(k.includes('ALL POLICIES'))continue;
+ const [comp,pol]=k.split(' | ');
+ const a=findArm('S10',x=>x.protocol==='archived studyA_composition'&&x.composition===comp&&x.policy===pol);totA++;
+ if(a&&Math.abs(exactRate(a)-v.winRate)<1e-12&&Math.abs(exactMean(a)-v.meanRounds)<1e-9)exactA++;}
+console.log('  studyA 与归档逐位一致（6 阵容 x 5 策略 x 24 种子，normal）: '+exactA+'/'+totA);
 console.log('\n报告已写入 reports/balance-matrix.json');

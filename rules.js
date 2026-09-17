@@ -66,11 +66,14 @@ function probeGrowth(){
 let cache=null;
 export function ruleFacts(){
   if(cache)return cache;
-  const rewards={win:probeReward('win'),draw:probeReward('draw'),loss:probeReward('loss')};
-  const maxLevel=probeMaxLevel();
+  // 这个函数在页面启动时就会跑（renderRules）。任何一处探测失败都不应该让整个 app.js
+  // 抛错白屏：失败的那一项退化为 null，规则页里依赖它的那一行会被过滤掉，其余照常显示。
+  const safe=(fn,fallback=null)=>{try{const v=fn();return v===undefined?fallback:v;}catch{return fallback;}};
+  const rewards={win:safe(()=>probeReward('win')),draw:safe(()=>probeReward('draw')),loss:safe(()=>probeReward('loss'))};
+  const maxLevel=safe(()=>probeMaxLevel(),null)??5;
   const xpToLevel={};
-  for(let level=1;level<maxLevel;level++)xpToLevel[level]=probeXpThreshold(level);
-  cache={...RULES,rewards,maxLevel,xpToLevel,growth:probeGrowth(),swiftTurnLimit:probeSwiftLimit(),
+  for(let level=1;level<maxLevel;level++)xpToLevel[level]=safe(()=>probeXpThreshold(level));
+  cache={...RULES,rewards,maxLevel,xpToLevel,growth:safe(()=>probeGrowth(),null),swiftTurnLimit:safe(()=>probeSwiftLimit(),0),
     xpPerLevel:xpToLevel[1]??null,counts:{learnset:SPECIES[0].learnset.length,skills:SPECIES[0].skills.length}};
   return cache;
 }
@@ -103,6 +106,7 @@ export function rulesSections(){
   const items=Object.entries(ITEMS).map(([id,it])=>`${it.name}×${it.count}${it.heal?`（恢复 ${it.heal} HP）`:it.restore?`（恢复 ${it.restore} 能量）`:'（清除异常）'}`).join('、');
   const held=Object.entries(HELD_ITEMS).map(([id,it])=>`${it.name}：${it.desc}`).join('；');
   const envs=Object.entries(ENVIRONMENTS).map(([id,e])=>`${e.name}（持续 ${e.turns} 回合）：${e.desc}`).join('；');
+  const rw=f.rewards||{};
   const trained=Object.entries(TRAINING).map(([stat,t])=>`${t.name} ${t.gain}`).join(' / ');
   // 出手顺序完全从数据分组得出：换宠/道具的优先级在 RULES.priority，技能的在各自字段。
   const skillPriority=Object.entries(SKILLS).filter(([,s])=>s.priority).reduce((m,[,s])=>{(m[s.priority]??=[]).push(s.name);return m;},{});
@@ -158,10 +162,10 @@ export function rulesSections(){
       `难度只改对手的决策方式，不改数值、不改奖励；任何难度都不读取你本回合的选择。`,
     ]},
     {title:'胜负、奖励与培养',lines:[
-      `胜利 经验 +${f.rewards.win.xp}、训练点 +${f.rewards.win.tokens}；平局 经验 +${f.rewards.draw.xp}、训练点 +${f.rewards.draw.tokens}；失利 经验 +${f.rewards.loss.xp}、训练点 +${f.rewards.loss.tokens}。撤退没有奖励。`,
+      rw.win&&rw.draw&&rw.loss?`胜利 经验 +${rw.win.xp}、训练点 +${rw.win.tokens}；平局 经验 +${rw.draw.xp}、训练点 +${rw.draw.tokens}；失利 经验 +${rw.loss.xp}、训练点 +${rw.loss.tokens}。撤退没有奖励。`:null,
       f.swiftTurnLimit?`每关首次在 ${f.swiftTurnLimit} 回合内获胜额外 +1 训练点，重复挑战不再给；打得慢不扣基础奖励。`:null,
       f.xpPerLevel?`升级需要的总经验是当前等级 × ${f.xpPerLevel}，最高 Lv.${f.maxLevel}。`: `最高 Lv.${f.maxLevel}。`,
-      `每升一级基础生命 +${f.growth.level.hp}、攻防各 +${f.growth.level.atk}，并解锁一个培养格。`,
+      f.growth?`每升一级基础生命 +${f.growth.level.hp}、攻防各 +${f.growth.level.atk}，并解锁一个培养格。`:null,
       `培养格数 = 等级 + ${trainingCapacity(1)-1}：Lv.1 可培养 ${trainingCapacity(1)} 次，Lv.${f.maxLevel} 可培养 ${trainingCapacity(f.maxLevel)} 次；每项最多 ${MAX_STAT_TRAINING} 次，每次花 1 训练点：${trained}。免费重置会返还点数。`,
       `达到 ${RULES.turnLimit} 回合仍未分出胜负记平局。`,
     ]},

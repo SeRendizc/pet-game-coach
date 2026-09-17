@@ -4,7 +4,7 @@
 
 评审时间：2026-09-17。评审范围：玩家能看到的全部文案——`app.js` 的提示语与状态行、`index.html` 的界面文字、`coach/*.js` 的回复模板、`engine.js` 的技能/道具/环境说明、`rules.js` 生成的规则页。
 
-评审方法：把每个文件里的中文字符串字面量逐条抽出来人工过一遍（`app.js` 109 条、`index.html` 46 条、`coach/*.js` 249 条），按五条标准逐条判：
+评审方法：把每个文件里的中文字符串字面量逐条抽出来人工过一遍，按五条标准逐条判。评审规模（可用第六节的命令现场复算）：`app.js` 247 条中文字符串字面量、`coach/*.js` 合计 420 条、`engine.js` 160 条（技能/道具/携带物/环境的说明与日志），`index.html` 118 处中文文本片段 + 18 个含中文的属性值（占位符、aria-label、title），合计约 960 处。
 
 1. **具体**：说了宠物名、血量、能量、回合数或具体技能，而不是"注意血量"。
 2. **自然**：像人说话，不是文告或说明书腔。
@@ -146,6 +146,9 @@ ${memory.lessons.length?'我们已经练过速度判断了。':'想培养伙伴�
 # 现场复查"无水平羞辱 / 不空泛安慰"这两条结论
 grep -rn "你应该\|你必须\|你最好\|下次别\|别再\|不要再" app.js index.html coach/*.js   # 期望 0 命中
 grep -rn "没关系\|别灰心\|加油\|慢慢来\|很正常\|没事的" app.js index.html coach/*.js   # 期望只命中 companion.js 的黑名单检测器
+
+# 评审规模（复算用）
+node -e "const {readFileSync,readdirSync}=require('node:fs');const c=f=>{let n=0;for(const l of readFileSync(f,'utf8').split(String.fromCharCode(10)))for(const m of l.match(/(?:'|`)((?:[^'`\\]|\\.)*)(?:'|`)/g)||[])if(/[一-鿿]/.test(m.slice(1,-1)))n++;return n};console.log('app.js',c('app.js'),'engine.js',c('engine.js'));let t=0;for(const f of readdirSync('coach'))if(f.endsWith('.js'))t+=c('coach/'+f);console.log('coach/*.js',t)"
 
 # 本轮 5 处改动的位置
 grep -n "展开这回合的取舍" index.html

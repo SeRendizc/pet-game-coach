@@ -148,9 +148,11 @@ export const SKILLS = Object.fromEntries(Object.entries({
 | 时点 | 测试数 | 结果 |
 |---|---|---|
 | 改动前（`git stash` 回到 HEAD，连跑两次确认） | 151 | 151 通过 / 0 失败 |
-| 改动后（含新增 `rules.test.js` 16 项、`offline.test.js` 5 项、`evals/slow-model.test.js` 6 项，以及并行任务新增的 `companion.test.js` 12 项） | 189 | 189 通过 / 0 失败 |
+| 改动后（最新一次，含并行任务同期新增的用例） | 191 | 191 通过 / 0 失败 |
 
-`npm test` 命令与新增用例见 `package.json`（`test:rules` 可单独重跑 P05/G08）。
+改动后的逐文件分布（`node --test <file> \| grep '^ℹ tests'` 可复算）：`engine` 10、**`rules` 16（新增）**、**`offline` 5（新增）**、`mechanics` 6、`pvp` 8、`browser` 3、`features` 24、`coach` 25、`companion` 13（并行任务）、`server` 11、`knowledge` 10、`evals/agent` 37、`evals/regression` 17、**`evals/slow-model` 6（新增）**，合计 191。其中本轮新增 27 项（16+5+6）。
+
+`npm test` 命令与新增用例见 `package.json`（`npm run test:rules` 可单独重跑 P05/G08，`npm run test:slow-model` 重跑 S05）。
 
 > 注：本轮第一次跑基线时读到的是 150 项，随后在 HEAD 上重复两次都稳定为 151 项；以可复现的 151 为准。
 

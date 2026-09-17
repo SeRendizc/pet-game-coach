@@ -52,6 +52,6 @@
   "screenshots": [
     "reports/p05-rules-dialog.png"
   ],
-  "at": "2026-09-17T11:13:13.997Z"
+  "at": "2026-09-17T11:21:55.630Z"
 }
 [rules-check] Chrome 进程已结束 code=0

@@ -1,4 +1,4 @@
-import {observe,feedback,archiveRound,reverseRounds,markdown,concise,attentionState,trackAttention,shouldNudge,attentionText,decisiveOpportunity,assessDecision,watchCandidate,readArchive,taskStamp,taskIsCurrent} from './coach/experience.js';
+import {observe,feedback,archiveRound,reverseRounds,markdown,concise,attentionState,trackAttention,decisiveOpportunity,assessDecision,watchCandidate,readArchive,taskStamp,taskIsCurrent,strategistSession,strategistTrigger,incidentInfo} from './coach/experience.js';
 import {requestCoach,connectionStatus,invalidateCoachRequests} from './coach/client.js';
 import {teacher,reviewMatch} from './coach/teacher.js';
 import {rosterAdvice,strategist} from './coach/strategist.js';
@@ -16,7 +16,10 @@ let coachMemory=freshMemory(),coachRole='auto',asking=false,conversation=[],cont
 function advanceContext(){contextEpoch++;invalidateCoachRequests();}
 function saveCoachMemory(){if(preview)return;try{localStorage.setItem('xiaoya-memory-v1',JSON.stringify(coachMemory));}catch{}}
 let roundArchive=null,currentHint=null,lastFeedback=null,autoCalls=0,lastAutoReason=null,hintEpoch=0,visibleHintReason=null,visibleHintTurn=-10,coachMuted=false;try{roundArchive=readArchive(localStorage.getItem('xiaoya-last-round'));}catch{}
-let attention=attentionState(Date.now()),hoverAction=null,nudgeTimer=null,tacticalShown=new Set(),tacticalCount=0,lastTacticalTurn=-10;let growthDismissed=null;
+let attention=attentionState(Date.now()),nudgeTimer=null,tacticalShown=new Set(),tacticalCount=0,lastTacticalTurn=-10;let growthDismissed=null;
+// 局内主动提示由军师负责（陪练只管闲聊、情绪与记忆）：
+// 每局一张独立的记账（次数上限、理由去重、冷却），以及出招瞬间的收尾机会快照。
+let strategistHint=strategistSession(),turnIncident=null,strategistPanel=null;
 let rosterType='all',loadoutDraft=null,loadoutOpen=false;
 // 本地对战：真人对手走分屏同屏（双方各选一招，都锁定后一起结算）；
 // 电脑对手单人玩，由引擎 chooseEnemy 出招。pvpPicks 由分屏逻辑维护。
@@ -104,9 +107,9 @@ function renderSides(state){$('player').innerHTML=sideView(state,'player');$('en
 
 // 本地对战一律允许教练：教练是玩家的助手，分屏时对方也有自己的那条教练，
 // 所以不构成不公平。真正该守的底线是「不读取对方待执行动作」，那条一直没破。
-// 只有线上竞技（pvp-live）才闭麦，由 coach/policy.js 决定。
-function coachAllowedInMatch(){return true;}
-function matchContext(message){const c=buildContext(game,profile,focus,roundArchive,stageId,message);c.coachAllowed=coachAllowedInMatch();return c;}
+// 只有线上竞技（pvp-live）才闭麦，由 coach/policy.js 的 isLiveMatch 判断。
+// 这里原来有一个恒真的 coachAllowedInMatch()，它只是在重复上面这条结论，已删除。
+function matchContext(message){const c=buildContext(game,profile,focus,roundArchive,stageId,message);c.coachAllowed=true;return c;}
 
 // 双方的行动面板用同一个渲染器，保证 UI 完全一致；只是数据取各自那一侧。
 function actionPanelHtml(side,whichTab){
@@ -205,20 +208,63 @@ function updateSideCoaches(){
 }
 
 async function act(action,enemyAction){if(busy)return;
- cancelVoice();advanceContext();hintEpoch++;busy=true;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;const old=game;const shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');const decision={...assessDecision(old,action,rankEnemyActions({...old,player:old.enemy,enemy:old.player})),caseKey:active(old,'player').id+':'+active(old,'enemy').id};render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);const next=pvpMode()?resolveTurn(old,action,enemyAction!==undefined?enemyAction:chooseEnemy(old),{manualReplace:true}):step(old,action);let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
+ cancelVoice();advanceContext();hintEpoch++;busy=true;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;const old=game;const shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');const decision={...assessDecision(old,action,rankEnemyActions({...old,player:old.enemy,enemy:old.player})),caseKey:active(old,'player').id+':'+active(old,'enemy').id};
+ // 出招之前先记下当时还有没有收尾机会；结算之后才拿 after 快照判断这一手有没有造成后果。
+ const info=old.phase==='battle'?incidentInfo(old,decision):null;
+ turnIncident=info?{...info,action:structuredClone(action)}:null;
+ render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);const next=pvpMode()?resolveTurn(old,action,enemyAction!==undefined?enemyAction:chooseEnemy(old),{manualReplace:true}):step(old,action);let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
 for(const frame of next.frames||[]){if(!frame.text)continue;renderSides(frame.state);$('action-banner').textContent=frame.text;for(const side of ['player','enemy']){const card=$(side+'-card'),floating=$(side+'-float'),p=active(frame.state,side),prev=previous[side].pets.find(x=>x.id===p.id),delta=p.hp-prev.hp;card.classList.remove('hit','act','guarding');floating.className='float-number';void card.offsetWidth;if(delta<0)card.classList.add('hit');else if(frame.side===side)card.classList.add('act');if(frame.text.includes('防御：')&&frame.side===side)card.classList.add('guarding');if(delta){floating.textContent=(delta>0?'+':'')+delta;floating.className='float-number show'+(delta>0?' heal':'');}}previous=frame.state;if(ms)await pause(ms);}
 game=next;
- // 陪练的主动气泡只挂在两个真实事件上：本局第一次有伙伴倒下，以及整局结束。
- // 其余一切（连招、血量变化、普通回合）都不开口——门控与措辞在 coachEvent 里，
- // 这里只负责在正确的时刻把事件交出去。
+ // 陪练的主动气泡只挂在两个真实事件上：本局第一次有伙伴倒下，以及整局结束——
+ // 那是闲聊与情绪，不是战术提示。战术提示归军师，由 strategistEvaluate 判定。
  if(!preview)for(const ev of companionEvents(game,{faintShown,resultAnnounced})){
   if(ev==='first-faint')faintShown=true;else resultAnnounced=true;
   notify(ev);
  }
+ // 结算后用 after 快照判一次「明显策略错误」：分差与后果都来自真实枚举，
+ // 不做多步搜索、不冒充胜率。只在轮到补位或本局还没说过时才可能开口。
+ if(!preview&&turnIncident){
+  const trigger=strategistEvaluate({after:game});
+  if(trigger){strategistHint=strategistCue(trigger);updateCoach();}
+  if(game.phase!=='replace')turnIncident=null;
+ }
  if(decision&&!preview){coachMemory=rememberDecision(coachMemory,{matchId,turn:old.turn,...decision,prompted:shown,rulesVersion:old.version});saveCoachMemory();}lastFeedback=pvpMode()?null:feedback(game.history.filter(x=>x.type==='turn').at(-1),currentHint);if(!preview){roundArchive=archiveRound(game,roundArchive);try{localStorage.setItem('xiaoya-last-round',JSON.stringify(roundArchive));}catch{$('save-message').textContent='对局记录保存失败，先导出战报以免刷新丢失。';}}if(old.phase==='replace')tab='skill';if(game.result){const settled=settle(profile,game,matchId);profile=settled.profile;reward=settled.reward;if(!game.preview){save();coachMemory=rememberBattle(coachMemory,game);saveCoachMemory();}/* Completion review is rendered after settlement, without a second generic bubble. */}else if(!faintShown&&game.player.pets.some(p=>p.hp<=0)){faintShown=true;}
 $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':`${next.frames?.filter(f=>f.text).at(-1)?.text||'补位完成。'} 下一回合由你决定。`;
-}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());hoverAction=null;pvpPicks={player:null,enemy:null};if(splitMode())decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
+}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};if(splitMode())decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
 function notify(event){if(preview)return;const text=coachEvent(event,coachContext(game,profile),coachSession);if(text){$('bubble-text').textContent=text;$('coach-bubble').hidden=false;clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);}}
+
+// —— 军师的局内主动层 ——
+// 陪练开口看的是「刚发生了什么事件」，军师开口看的是「现在值不值得打断」，
+// 所以门控全部收在 coach/experience.js 的军师触发层里（每局上限、理由去重、冷却、安静档），
+// 这里只负责：把真实触发交进去、把说不说的理由写进记录、以及显示。
+function strategistHintsAllowed(){
+ return !busy&&!asking&&!preview&&!game?.result&&!document.hidden&&document.hasFocus()&&$('coach-panel').hidden;
+}
+// 军师唯一的一次判定入口：说就说，不说就返回 null。
+// after 只有「这一手刚结算完」时才有，所以策略错误只在结算后成立，不会每个回合重复弹。
+function strategistEvaluate({now=Date.now(),turn=game&&game.turn+':'+game.phase,after=null}={}){
+ if(!game||preview||!strategistHintsAllowed())return null;
+ const packet=game.phase==='replace'?observe(game):null;
+ const incident=turnIncident?{...turnIncident,after}:null;
+ const ranked=game.phase==='battle'?rankEnemyActions({...game,player:game.enemy,enemy:game.player}):null;
+ const trigger=strategistTrigger({game,attention,session:strategistHint,packet,incident,ranked,now,turn,mode:profile.coach.mode,inMatch:true});
+ if(!trigger)return null;
+ if(!adaptiveGate(coachMemory,{lesson:trigger.lesson,risk:trigger.reason==='fall',mode:profile.coach.mode}).allow)return null;
+ return trigger;
+}
+// 一条军师提示 = 左边气泡 + 右下角提示条共用一个理由，并且都会写进记录，
+// 所以任何一次开口都能回答「为什么现在说」。
+function strategistCue(trigger){
+ trigger.consume();
+ logCoachEvent('hint','strategist-'+trigger.reason);
+ strategistPanel={reason:trigger.reason,lesson:trigger.lesson};        // 面板据此显示同一条理由
+ const text=concise(trigger.text,150);
+ $('bubble-text').textContent=text;
+ $('coach-bubble').hidden=false;clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);
+ $('attention-text').textContent=text;$('attention-cue').hidden=false;speakCue(text);
+ clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,12000);
+ return strategistHint;
+}
 function openCoach(){connectionStatus().then(s=>{$('coach-status').textContent=s.configured?(s.verified?'DeepSeek 已连接':'DeepSeek 已配置，尚未验证'):'本地模式 · 未配置密钥';}).catch(()=>{$('coach-status').textContent='后端未启动，请运行 npm start';});$('coach-panel').hidden=false;$('coach-bubble').hidden=true;}
 function addChat(role,text){conversation.push({role:role==='你'?'user':'assistant',content:text});conversation=conversation.slice(-8);const e=document.createElement('div');e.className='chat-entry'+(role==='你'?' user':'');e.innerHTML=`<strong>${role}</strong>${markdown(text)}`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
 // 等待指示：请求发出后立刻出现，收到回答或失败时移除。
@@ -235,7 +281,7 @@ async function ask(text){
  }catch(e){hideThinking();if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{hideThinking();asking=false;$('chat-send').disabled=false;$('chat-input').disabled=false;}
 }
 function startMatch(){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
-game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};$('coach-bubble').hidden=true;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
+game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('coach-bubble').hidden=true;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
 $('start').onclick=()=>startMatch();
 function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
 function syncMode(){
@@ -282,7 +328,7 @@ function presentScene(){
 function startPreview(id){
  if(busy)return;advanceContext();
  hintEpoch++;$('live-coach').hidden=true;if(!preview)suspended={game,matchId,reward,tab,coachSession,faintShown,focus,coachMemory:structuredClone(coachMemory),conversation:structuredClone(conversation)};
- preview=id;game=createScenario(id);matchId='preview';reward=null;tab='skill';coachSession={count:0,lastTurn:null,dismissed:false};
+ preview=id;game=createScenario(id);matchId='preview';reward=null;tab='skill';coachSession={count:0,lastTurn:null,dismissed:false};strategistHint=strategistSession();turnIncident=null;strategistPanel=null;
  $('scenes-dialog').close();$('preview-bar').hidden=false;$('preview-title').textContent='预制体验 · '+SCENARIOS.find(x=>x.id===id).title+' · 不保存进度';
  $('camp-home').hidden=id!=='growth';$('deploy').hidden=id!=='growth';$('battle').hidden=id==='growth';
  if(id==='growth')camp();else render();
@@ -317,22 +363,23 @@ function showMatchReview(){
 }
 function updateCoach(force=false){
  if(game?.result&&!preview){showMatchReview();return;}
- // 真人同机对局进行中：教练不介入。两位玩家共用一块屏幕，任何一方拿到战术提示
- // 都是不公平的。对电脑时没有第三方，教练照常工作（coachAllowedInMatch）。
- if(pvpMode()&&game&&!game.result&&!coachAllowedInMatch()){for(const id of ['live-coach','attention-cue','coach-bubble','scene-inline','scene-result'])$(id).hidden=true;return;}
+ // 本地对战（含真人同机分屏）一律允许教练：教练是玩家的助手，对方那一侧也有自己的教练，
+ // 所以不构成不公平；唯一闭麦的是线上竞技，由 coach/policy.js 的 isLiveMatch 判断。
+ // 这里原来那个恒真的 coachAllowedInMatch() 只是把结论又抄了一遍，已删除。
  const box=$('live-coach');const token=++hintEpoch;
- box.hidden=!!preview||!game||(!force&&profile.coach.mode==='quiet')||!coachAllowedInMatch();if(box.hidden)return;
+ box.hidden=!!preview||!game||(!force&&profile.coach.mode==='quiet');if(box.hidden)return;
  if(showTacticalCue()){box.hidden=true;return;}
- currentHint=observe(game);const hint=currentHint;
- const significant=hint&&(hint.turn===1||profile.coach.mode==='mentor'&&hint.turn-visibleHintTurn>=3||hint.reason!=='回合结束，重新评估局面'&&hint.reason!==visibleHintReason&&hint.turn-visibleHintTurn>=2);
- const critical=currentHint&&['伙伴倒下，需要补位','当前处于属性劣势'].includes(currentHint.reason);
- const shouldShow=force||!coachMuted&&(profile.coach.mode==='critical'?critical:significant||game.result);
+ // 这块面板只在军师确实开口过（strategistPanel 由 strategistCue 置位）时才出现，
+ // 顺带把「为什么现在说」摊开给玩家看；说不说已经由 strategistTrigger 决定。
+ if(!strategistPanel){box.hidden=true;return;}
+ currentHint=observe(game,{incident:strategistPanel.reason==='mistake'?{lesson:strategistPanel.lesson}:null});const hint=currentHint;
+ const shouldShow=force||!coachMuted;
  box.hidden=!shouldShow;
  if(!shouldShow)return;
  if(!force&&!adaptiveGate(coachMemory,{lesson:hint?.lesson||'行动取舍',risk:critical,mode:profile.coach.mode}).allow){box.hidden=true;return;}
  logCoachEvent('hint','inline');
  if(hint){visibleHintReason=hint.reason;visibleHintTurn=hint.turn;}
- box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ 小芽</span><span id="live-copy">'+escape(hint?hint.title+'。'+(hint.reason==='开场对位分析'?'先按这个打，出招后我按新局面重算。':hint.reason+'。'):'本场已结束。下面有一个值得回看的关键回合。')+'</span><button id="live-expand" aria-expanded="false">看看原因</button><button id="live-dismiss" aria-label="收起这条提示">×</button></div><div id="live-detail" hidden>'+
+ box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ 军师</span><span id="live-copy">'+escape(hint?hint.title+'。'+(hint.reason==='开场对位分析'?'先按这个打，出招后我按新局面重算。':hint.reason+'。'):'本场已结束。下面有一个值得回看的关键回合。')+'</span><button id="live-expand" aria-expanded="false">看看原因</button><button id="live-dismiss" aria-label="收起这条提示">×</button></div><div id="live-detail" hidden>'+
  '<small id="live-provider">规则分析 · 即时</small>'+
  (hint?'<p>'+escape(hint.text)+'</p><details><summary>计算依据</summary>'+hint.evidence.map(x=>'<p>'+escape(x)+'</p>').join('')+'<p>只比较一回合，不读取电脑待执行行动。</p></details>':'')+
  (lastFeedback?'<details><summary>上一回合反馈</summary><p>'+escape(concise(lastFeedback.text,180))+'</p></details><div class="coach-detail-actions"><button id="live-review">深入复盘</button> <button id="live-quiz">练一个知识点</button></div>':'<p class="muted">由你决定行动，出招后的事实记录会保留。</p>')+'</div>';
@@ -348,31 +395,33 @@ function updateCoach(force=false){
 
 $('round-coach').onclick=()=>{if(!busy){openCoach();ask(game?.result?'回顾上一局':'回顾上一回合');}};
 
-// One short cue per decision, at most twice per match; no model request per mouse move.
+// 悬停只留证据，不直接开口：军师的犹豫判定读的就是这些记录，一次鼠标移动不发模型请求。
 $('actions').addEventListener('pointerover',event=>{
  const button=event.target.closest('[data-action]');if(!button||button.disabled||busy||!game)return;
- hoverAction=JSON.parse(button.dataset.action);
- trackAttention(attention,game.turn+':'+game.phase,button.dataset.action,Date.now());
+ trackAttention(attention,game.turn+':'+game.phase,JSON.parse(button.dataset.action),Date.now());
 });
 $('actions').addEventListener('focusin',event=>{
- const button=event.target.closest('[data-action]');if(button&&!button.disabled&&game){hoverAction=JSON.parse(button.dataset.action);trackAttention(attention,game.turn+':'+game.phase,button.dataset.action,Date.now());}
+ const button=event.target.closest('[data-action]');if(button&&!button.disabled&&game)trackAttention(attention,game.turn+':'+game.phase,JSON.parse(button.dataset.action),Date.now());
 });
-$('attention-close').onclick=()=>{cancelVoice();logCoachEvent('dismiss','attention');attention.dismissed=true;coachMuted=true;coachSession.dismissed=true;$('live-coach').hidden=true;hintEpoch++;$('attention-cue').hidden=true;};
+// 「×」= 本场不再主动提醒：陪练（coachSession）、旧提示条（attention）和军师（strategistHint）一起闭嘴。
+$('attention-close').onclick=()=>{cancelVoice();logCoachEvent('dismiss','strategist');attention.dismissed=true;coachMuted=true;coachSession.dismissed=true;strategistHint.dismissed=true;$('live-coach').hidden=true;hintEpoch++;$('attention-cue').hidden=true;};
 document.addEventListener('visibilitychange',()=>{if(document.hidden){advanceContext();hintEpoch++;cancelVoice();$('attention-cue').hidden=true;attention.since=Date.now();}else{attention.since=Date.now();attention.hovers=[];}});
 setInterval(()=>{
  if(!game)return;const now=Date.now(),turn=game.turn+':'+game.phase;
  trackAttention(attention,turn,null,now);
- const allowed=!busy&&!asking&&!preview&&!game.result&&coachAllowedInMatch()&&!document.hidden&&document.hasFocus()&&$('coach-panel').hidden;
+ const allowed=strategistHintsAllowed();
  if(allowed&&showWatchCue())return;
  if(allowed&&showTacticalCue())return;
- if(!$('attention-cue').hidden)return;
- const risk=active(game,'player').hp/active(game,'player').maxHp<.3||game.phase==='replace';
- if(!shouldNudge(attention,{now,turn,mode:profile.coach.mode,active:allowed,risk}))return;
- const text=attentionText(game,hoverAction);if(!text)return;
- if(!adaptiveGate(coachMemory,{lesson:hoverAction?.kind==='switch'?'换宠承伤':hoverAction?.id==='guard'?'防御节奏':'行动取舍',risk,mode:profile.coach.mode}).allow)return;
- logCoachEvent('hint','attention');attention.count++;attention.lastShown=now;attention.shownTurn=turn;
- $('attention-text').textContent=text;$('attention-cue').hidden=false;speakCue(text);
- clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,10000);
+ // 犹豫不决：唯一入口是军师的 strategistTrigger（内部复用 shouldNudge 与悬停记录）。
+ // 原来这里还有一条独立的 attentionText 提示条，它与军师各说各话；现在合并成一层，
+ // 「说不说」只由 coach/experience.js 军师触发层的每局上限、理由去重与冷却决定。
+ if(!allowed)return;
+ // 轮询阶段没有结算后快照，after 用默认值 null；
+ // 「明显策略错误」那条只在真的结算之后、带着 after 快照判一次（见 act()）。
+ const trigger=strategistEvaluate({now,turn});
+ if(!trigger)return;
+ strategistHint=strategistCue(trigger);
+ updateCoach();                       // 同一条理由补上「看看原因」面板
 },1000);
 
 function showTacticalCue(){
@@ -476,7 +525,7 @@ function playVoice(text,{test=false}={}){
  setTimeout(fire,wait);
  setTimeout(()=>{if(utterance&&!synth.speaking&&!synth.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},wait+1500);
 }
-function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||!game||!coachAllowedInMatch())return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
+function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||!game)return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
 function saveVoice(){try{localStorage.setItem('xiaoya-voice',JSON.stringify({enabled:voiceEnabled,volume:voiceVolume,voice:voiceName}));}catch{}}
 $('voice-test').onclick=()=>playVoice('我是小芽。有需要时，我会简短提醒。',{test:true});
 $('voice-enabled').onchange=()=>{voiceEnabled=$('voice-enabled').checked;cancelVoice();saveVoice();if(voiceEnabled)playVoice('语音已开启，我会按你的陪伴风格提醒。',{test:true});else voiceStatus('语音已关闭（已开口的一句会读完，不再有新的）');};
