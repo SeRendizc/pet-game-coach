@@ -16,6 +16,7 @@
     "eval:retrieval": "node scripts/eval-retrieval.js",
     "train:intervention": "node scripts/train-intervention.js",
     "test:smoke": "node scripts/browser-smoke.mjs",
+    "test:opponent-smoke": "node scripts/opponent-smoke.mjs",
     "test:browser": "node --test browser.test.js"
   }
 }
