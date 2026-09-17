@@ -13,7 +13,17 @@ export function observe(game,{incident=null}={}){
  // 危险血线且背包里还有药：这是**可行动**的风险，比多数触发更该开口——
  // 玩家不是不知道吃药，是这一回合没想起来包里还有。措辞给选项，不训人。
  const inDanger=p.hp>0&&p.hp<=p.maxHp*0.35&&(game.player.items?.potion||0)>0;
- const reason=incident?'这一手有明显更差的替代':game.phase==='replace'?'伙伴倒下，需要补位':inDanger?'血量偏低，背包里还有回复药':multiplier(q.type,p.type)>1?'当前处于属性劣势':p.energy<=1?'能量不足，留意恢复节奏':game.turn===1?'开场对位分析':'回合结束，重新评估局面';
+ // 属性关系：先说清一件事——改成两个三环之后，表是对称的，
+ //   「我打它 ×0.75」与「它打我 ×1.5」**完全等价**（互为反面）。
+ // 所以不需要两条理由，但**一条理由要把两面都说到**：
+ // 原先只说「当前处于属性劣势」，玩家读到的是"它打我疼"，
+ // 读不到"我打它也打不动"——而后者才是"换一只"这个动作的直接依据。
+ const theirAttack=p&&q?multiplier(q.type,p.type):1;
+ const reason=incident?'这一手有明显更差的替代'
+  :game.phase==='replace'?'伙伴倒下，需要补位'
+  :inDanger?'血量偏低，背包里还有回复药'
+  :theirAttack>1?'属性被克：它打你更疼，你打它也减伤，可以考虑换一只不被克的'
+  :(p.energy<=1?'能量不足，留意恢复节奏':game.turn===1?'开场对位分析':'回合结束，重新评估局面');
  return {...packet,reason,turn:game.turn,action:packet.actions?.[0],title:inDanger?`血量偏低，背包里还有 ${game.player.items.potion} 个回复药`
   :packet.actions?.[0]?`可考虑：${actionName(game,'player',packet.actions[0])}`:'先选择补位伙伴',lesson:incident?.lesson||(game.phase==='replace'||reason==='当前处于属性劣势'?'换宠承伤':p.energy<=1?'能量管理':'行动取舍')};
 }

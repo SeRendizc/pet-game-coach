@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,legalActions,SPECIES,rankEnemyActions,buildVersusOpponent} from './engine.js';
+import {createGame,legalActions,SPECIES,rankEnemyActions,buildVersusOpponent,TYPE_ADVANTAGES,active} from './engine.js';
 import {newProfile} from './progression.js';
 import {runCoach,buildContext,policyFor,requiredTool} from './coach/runtime.js';
 import {rosterAdvice} from './coach/strategist.js';
@@ -189,4 +189,20 @@ test('low HP with a potion in the bag is surfaced; without one it is not',()=>{
  // 没药了就不该再提：那时玩家没有这个选项，提了只是唠叨
  g.player.items.potion=0;
  assert.notEqual(observe(g).reason,'血量偏低，背包里还有回复药','没有药时不得提这条');
+});
+test('the countered hint states both directions, because the chart is symmetric',()=>{
+ const g=createGame(17,['fox','turtle','deer'],{mode:'pve',difficulty:'normal',...buildVersusOpponent(17,{level:2})});
+ const p=active(g,'player');
+ // 把对手换成克制我方的属性。两个三环的表是对称的：
+ // 我打它 ×0.75 与 它打我 ×1.5 完全等价，所以只有一条理由，但它必须把两面都说到。
+ const beatsMe=Object.keys(TYPE_ADVANTAGES).find(t=>TYPE_ADVANTAGES[t].includes(p.type));
+ g.enemy.pets[g.enemy.active].type=beatsMe;g.turn=2;
+ const reason=observe(g).reason;
+ assert.match(reason,/它打你更疼/,'要说清对方打我更疼');
+ assert.match(reason,/你打它也减伤/,'也要说清我打它同样减伤');
+ assert.match(reason,/换一只/,'要给出可行动的下一步');
+ // 中性对位不该提属性
+ const neutral=Object.keys(TYPE_ADVANTAGES).find(t=>t!==p.type&&!TYPE_ADVANTAGES[t].includes(p.type)&&!TYPE_ADVANTAGES[p.type].includes(t));
+ g.enemy.pets[g.enemy.active].type=neutral;g.turn=2;
+ assert.doesNotMatch(observe(g).reason,/属性被克/,'中性对位不得提属性');
 });
