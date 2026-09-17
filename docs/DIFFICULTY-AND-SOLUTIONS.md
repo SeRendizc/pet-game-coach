@@ -2,13 +2,13 @@
 
 > 交付对象：面试题「基于 LLM 的智能 AI Coach（陪练教练）」提交要求 1 —— 阐述设计和实现过程中遇到的难点及方案。
 >
-> 代码基线：UI v0.10（写作时）/ 当前 v0.11，游戏规则 v0.6，12 只宠物，可运行本机 Demo（`npm start`，http://127.0.0.1:8765/ ）。
-> 自动测试：写作时 **122 项全部通过**；当前为 **127 项**（`reports/test-output.txt`）。
+> 代码基线：UI v0.10（写作时）/ 当前 v0.11，游戏规则 v0.6，14 只宠物（写作时为 12；本轮新增磐耳羊/灵瞳猫两只普通系），可运行本机 Demo（`npm start`，http://127.0.0.1:8765/ ）。
+> 自动测试：写作时 **122 项全部通过**；此后 **127 → 251 → 257 项**。写这份修复报告时现场 `npm test` 为 **tests 257 / pass 257 / fail 0**（核对过程中曾因并发的"新增两只普通系"改动短暂出现过 255/2，最终已全绿）。**本文正文里出现的 122/127 一律是当时值，不要当现状读。**
 
 > **v0.11 变更提示（重要）**：本文写作于 commit `849e131`。此后 `121411d` 起，教练策略已反转——**只有线上竞技 `pvp-live` 闭麦，本地对战 `pvp-local` 一律允许教练**（`coach/policy.js` 的 `RANKED_MODES=['pvp-live']`）。本文中凡称「`pvp-local` 也被拒」「本地与正式 PVP 同一策略」「对局中陪练被压到 R0」的段落均已过时，请以 `docs/CHECKLIST.md` 的 X02/X03 为准。
 
 >
-> **文档基线：commit `849e131`（2026-09-17 14:25）。**本文所有行号与该提交一致。注意 `reports/test-output.txt` 是更早一次运行的产物（13:52，记录 114 项），**尚未随本次提交重新生成**——这个不一致本身就是难点 12 的一个实例，见下文。
+> **文档基线：commit `849e131`（2026-09-17 14:25）。**本文所有行号与该提交一致。⚠️ **`docs/CHECKLIST.md` 的行号引用请不要再按行号找**：该文件此后被大量追加，本文里所有 `docs/CHECKLIST.md:NNN` 现在都指向别的行，**请按条目编号（A05 / C05 / G07 / S04 …）检索**。同理，本文写的 `reports/test-output.txt` 是"更早一次运行的产物（13:52，记录 114 项），尚未随本次提交重新生成"——**该文件后来已被重写为 251/251/0（mtime 22:04，随 `50ec5fe` 入库）**，这条不一致已经消失，但"报告与代码会各自漂移"这个论点仍成立（见下文难点 12）。
 >
 > 本文的写作约定：
 >
@@ -97,7 +97,7 @@
 
 ### 边界
 
-- 「长局浏览器真实触发」仍未完成：`docs/CHECKLIST.md` 中 **C17 / W09 保持未勾**，`docs/DEMO-ACCEPTANCE.md:13` 明确写「长局残局真实浏览器路径仍单列待验，不用构造测试冒充自然长局覆盖」。
+- 「长局浏览器真实触发」**当时**仍未完成：本文写作时 `docs/CHECKLIST.md` 中 **C17 / W09 保持未勾**，`docs/DEMO-ACCEPTANCE.md:13` 明确写「长局残局真实浏览器路径仍单列待验，不用构造测试冒充自然长局覆盖」。**2026-09-17 晚复核：`C17` 已勾选**（C17 条目下注明了 8 局长局浏览器实测与 26 张截图）；**`W09` 仍未勾**（浏览器里叠加慢响应与语音取消仍缺）。
 - 上述浏览器验收是**单人、单次、开发定向**的，不是用户研究；不能推断提示对一般玩家的有用性。
 - 提示「不改变页面高度」目前只有桌面 1440×900 与窄屏 390×844 的静态验收（`docs/CHECKLIST.md:274`），更小窗口与放大字号**未能核实**。
 
@@ -143,9 +143,9 @@
 
 ### 边界
 
-- 枚举是**一回合**的。`compareTurnAlternatives` 只用回合前公开状态枚举一回合，`docs/CHECKLIST.md:55` 括注「不等于多步最优策略」；没有做多回合搜索，也没有求解纳什均衡。
+- 枚举是**一回合**的。`compareTurnAlternatives` 只用回合前公开状态枚举一回合，`docs/CHECKLIST.md` 的 T01 括注「不等于多步最优策略」；没有做多回合搜索，也没有求解纳什均衡。
 - 评分是**启发式**，未经校准，不能当胜率。`docs/EXPERIMENTS.md:60` 的 660 场单宠对照只用于发现极端项，「不代表 3v3 平衡」。
-- 「模型不会算」不等于「模型不会在解释里加入未经枚举的因果」。`docs/CHECKLIST.md:281` 明确：A05 仍未勾，因为「数字/引用校验仍漏名称或因果语义错误」。
+- 「模型不会算」不等于「模型不会在解释里加入未经枚举的因果」。`docs/CHECKLIST.md` 的 A05 曾注明「数字/引用校验仍漏名称或因果语义错误」（**2026-09-17 晚复核：A05 已勾选**，名称漂移与因果语义两块都补上了）。
 
 ---
 
@@ -191,7 +191,7 @@
 
 ### 边界
 
-- **慢模型的完整浏览器验收未完成。**`docs/CHECKLIST.md` 中 **S05「慢模型演示：快速出招后无旧文字、无旧语音、无重复补发」仍是未勾项**，W09「完整浏览器慢响应、语音取消与长局验收」同样未勾。上述验证全部是自动测试 + 定向调用，**不是**真实慢网下的完整演示。
+- **慢模型的完整浏览器验收未完成。**本文写作时 `docs/CHECKLIST.md` 中 **S05「慢模型演示：快速出招后无旧文字、无旧语音、无重复补发」仍是未勾项**，W09「完整浏览器慢响应、语音取消与长局验收」同样未勾。**2026-09-17 晚复核：`S05` 已勾选**（客户端侧 6 项慢网测试补齐）；**`W09` 仍未勾**。上述验证全部是自动测试 + 定向调用，**不是**真实慢网下的完整演示。
 - **成本没有被拦住。**过期请求的「中止」只在客户端断开时生效；上游已经开始生成的那部分 token 仍然计费。`docs/CHECKLIST.md:267` 写明「真实完整调用成本仍待聚合」。
 - **语音侧更强的主张未验证。**`docs/CHECKLIST.md:239` V08：用户设备扬声器实际可听性、长局语音打扰程度仍需真人验证，「不以 onstart 冒充听觉验收」。
 
@@ -332,7 +332,7 @@
 
 - **「关键回合」是重要性启发式，不是最优策略。**排序权重是 `(减员+击倒)*100 + 生命损失 + (换宠?15:0)`（`coach/teacher.js:34`），`docs/IMPLEMENTATION-STATUS.md:73` 明确「当前关键回合按减员/生命变化排序，不等于多步最优策略」。
 - **整局复盘只有 3 个回合被详看，第 4 个之后需要重新指定回合装配**，这依赖原档仍在浏览器 localStorage 中（当前对局 + 最近 3 场结束对局）。更早的对局**无法补造**。
-- **真实模型的整局复盘质量未做独立评测**（S04 未勾）。`docs/reviews/2026-09-17-live-acceptance.md:22` 原话：「此为开发定向回归，不能推断总体准确率；语义检查仍可能漏掉错误因果和不合理建议。」
+- **真实模型的整局复盘质量未做独立评测**（**该条已过时：`S04` 现已勾选**，三轮共 132 次真实调用）。`docs/reviews/2026-09-17-live-acceptance.md:22` 原话：「此为开发定向回归，不能推断总体准确率；语义检查仍可能漏掉错误因果和不合理建议。」
 
 ---
 
@@ -373,7 +373,7 @@
 
 ### 边界
 
-- **反事实只覆盖一回合。**「改这一手就一定能赢」这种结论**无法**由本系统支持，代码与文案都显式拒绝。多回合搜索（A04）在 `docs/CHECKLIST.md:281` 中仍未勾。
+- **反事实只覆盖一回合。**「改这一手就一定能赢」这种结论**无法**由本系统支持，代码与文案都显式拒绝。多回合搜索（A04）在 `docs/CHECKLIST.md` 中曾未勾（**2026-09-17 晚复核：A04 已勾选**，`rankEnemyActions(g,{goal})` 的目标偏好重加权已落地）。
 - **启发式评分不是胜率**，且未经校准。`docs/COACH-PLAN.md:69`：「不把启发式分数当校准后的胜率。」
 - **不等于多步最优，也不等于纳什均衡。**挑战电脑连续换宠的 6/12/18 分惯性成本是**待校准的行为策略**，不是游戏规则，也不是均衡求解（`docs/RAG-LOCALIZATION.md:65`）。
 - **「玩家没采纳建议」不被当作差评**，这一点是设计立场而不是已验证事实：采纳率本身没有作为学习指标（`docs/INTERVIEW-GUIDE.md:33`）。
@@ -394,7 +394,7 @@
 
 - **「加了向量就应该更聪明」是行业默认叙事，而本项目的数据不支持它。**`docs/INTERVIEW-GUIDE.md:49` 原话：「语义 RAG 已经运行，但纯语义 9/14 低于词项 11/14；混合仍 11/14，只改善 MRR。不能说『用了向量就更聪明』。」
 - **样本极小而且已经用过。**20 条查询里 4 条 dev、16 条 test，其中 14 条正例、2 条负例（`evals/retrieval.json` 实测计数）；`reports/semantic-retrieval.json` 的 `scope` 字段自己写着「Previously used small developer benchmark; not independent human or LLM answer evaluation」。用同一批已经看过的题比较两种方法，任何差异都可能只是噪声。
-- **「没有测出增益」和「RAG 无效」是两个命题。**`docs/reviews/2026-09-17-diagnosis-response.md:26` 明确拒绝了这个推论：「关键词与概念扩展在 14 条正例中相差 1 条，只说明本测试没观察到提升，不能推成 RAG 无效或永远无法完成。它也不是 BM25 与神经向量检索的直接比较。」
+- **「没有测出增益」和「RAG 无效」是两个命题。**`docs/reviews/2026-09-17-diagnosis-response.md:25`（**原引用写作 `:26`，行号笔误**；该文件自入库以来未被改过）明确拒绝了这个推论：「关键词与概念扩展在 14 条正例中相差 1 条，只说明本测试没观察到提升，不能推成 RAG 无效或永远无法完成。它也不是 BM25 与神经向量检索的直接比较。」
 - **还有一个隐藏的工程陷阱：报告里的策略名和代码里的实现不是一回事。**
 
 ### 方案
@@ -442,7 +442,7 @@
 
 - **这批 20 条查询不是独立盲测。**`docs/EXPERIMENTS.md:17` 原话：「20 条开发用查询：4 条 dev，16 条 test 含 2 负例；此前已经使用过，不是独立盲测。混合只改善本样本排序，没有提升命中数，更不能据此宣称模型回答质量提高。」
 - **这批数字只说明检索排序，不说明回答质量。**`docs/EXPERIMENTS.md` 同处：「真实模型 weather-tools 实际选择 search_rules 后 read_state；这证明接入调用，不证明 RAG 因果增益。」
-- **知识卡数量不是增益证据。**`docs/RAG-LOCALIZATION.md:69`：「单纯增加知识数量无法证明增益，需要盲测问题、分支正确性和无检索对照。」其中 A03（RAG 与关键词基线比较）在 `docs/CHECKLIST.md:210` 中**仍保持未勾**，理由正是「RAG 本轮没有通过『比基线更好』的验收」。
+- **知识卡数量不是增益证据。**`docs/RAG-LOCALIZATION.md:69`：「单纯增加知识数量无法证明增益，需要盲测问题、分支正确性和无检索对照。」其中 A03（RAG 与关键词基线比较）在 `docs/CHECKLIST.md` 中曾**保持未勾**，当时的理由正是「RAG 本轮没有通过『比基线更好』的验收」（**2026-09-17 晚复核：A03 已勾选**；但"没测出优于基线"这个结论没有变，见上一段与 `reports/retrieval-extended-summary.md` 的反例臂不显著）。
 - **检索命中不代表适用。**`applicability()` 返回的 `candidate` 只是「条件字段都满足」，其 `warning` 字段自己写着「匹配条件不等于建议最优」。卡片的 `requiredEvidence` 目前仍是**文字声明**，尚未全部转为可执行字段检查（`docs/RAG-LOCALIZATION.md:39`）。
 - 外部资料（宝可梦官方战斗指南）**只用作「该问哪些问题」的思路来源**，其倍率、双属性、特性、逃跑规则都**不能**沿用到本地引擎（`docs/RAG-LOCALIZATION.md:7`）。
 
@@ -510,7 +510,7 @@
 
 ### 边界 —— 这一条要写得最狠
 
-- **实验一不是 LLM 权重训练。**`docs/COACH-PLAN.md:78`：「明确不是训练敌方电脑，也不是 DeepSeek 权重更新。」它是离线 Q 表，**不在真人游玩中随机探索**，不部署到真实玩家（`docs/CHECKLIST.md:210`）。
+- **实验一不是 LLM 权重训练。**`docs/CHECKLIST.md` 的 R01 条目：「明确不是训练敌方电脑，也不是 DeepSeek 权重更新。」（**原引用写作 `docs/COACH-PLAN.md:78`，属错误引用**：该句不在 `COACH-PLAN.md` 里，全文 grep「敌方电脑」无命中，实际出自 `docs/CHECKLIST.md` 的 R01 行。）它是离线 Q 表，**不在真人游玩中随机探索**，不部署到真实玩家（`docs/CHECKLIST.md:210`）。
 - **实验一的「回报」是人工设定的权衡分**，不是玩家满意度也不是胜率。`docs/EXPERIMENTS.md:32`：「RL 提示少、增量帮助也少；较高奖励来自人工设定的帮助/打扰权衡，不能写成所有指标都提升。」注意 5.89 → 1.70 的提示下降**同时**伴随增量帮助 1.38 → 0.86 的下降，**没有**「所有指标都变好」。
 - **实验一的模拟玩家是简化模型。**`reports/intervention.json` 的 `simulation` 字段自己写着「simplified player model, NOT human outcomes or LLM training」。
 - **实验二不是 DeepSeek 微调，不是完整多步 Agent Lightning 训练。**`docs/EXPERIMENTS.md:44`：「这是极小的二选一工具任务，题目分布简单，无独立第三方标注，不能外推中文对话、完整 Agent 或真人学习收益。线上仍用 DeepSeek 规划，不偷偷替换成这个实验模型。」
@@ -572,9 +572,9 @@
 
 ### 难点
 
-32K 窗口听起来很宽，但这个项目里要装的东西不少：系统约束、序列化的工具合同、当前公开局面、检索到的规则卡（带反例与适用条件）、历史对话、以及整局复盘的回合证据。而且**装不下时必须裁掉某些东西，裁错就会出事实错误**。
+**工作预算 200K（`WORKING_CONTEXT`）听起来很宽，但它的前身是 32K**，而这个项目里要装的东西不少：系统约束、序列化的工具合同、当前公开局面、检索到的规则卡（带反例与适用条件）、历史对话、以及整局复盘的回合证据。而且**装不下时必须裁掉某些东西，裁错就会出事实错误**。
 
-项目自己把这条前后两版都写清楚了（`docs/CHECKLIST.md:205` E05）：
+项目自己把这条前后两版都写清楚了（`docs/CHECKLIST.md` 的 E05）：
 
 > 「上下文 32K 保守预算测试，百万字符历史可裁剪且数值不变。**是 UTF-8 字节预算，不替代 C01 的精确 tokenizer 要求。**」
 
@@ -590,14 +590,14 @@
 **两级预算，先粗后细，且都不做「半个 JSON」这种破坏性裁剪：**
 
 **第一级 —— 浏览器端 UTF-8 字节保守预算**（`coach/runtime.js:97` 的 `assembleContext`）
-- 参数：`window=32768, output=512, system=4096, tools=2048` → 可用预算 26112 字节。
+- 参数：`window=200000（WORKING_CONTEXT）, output=4096（OUTPUT_RESERVE）, system=4096, tools=2048` → 可用预算约 189824 字节。**本文原写作 `window=32768, output=512`，那是"项目此前按 32768 做预算"的旧值**；`coach/runtime.js` 现已改为 `WORKING_CONTEXT=200000` / `OUTPUT_RESERVE=4096`（同文件 `:179-186`，注释写明"此前项目按 32768 做预算，比真实窗口小约 30 倍"）。
 - 装配策略：按任务类型过滤记忆（复盘任务只带同一 `matchId` 的条目，其他任务只带 `dismiss`），各类截最近 6 条；`evidenceIndex` 与 `conversation` 从头部（最旧的）开始丢弃；仍超预算时清空 `journal/reflections/events`；`lastMatch.keyTurns` **整个对象**弹出，绝不切一半 JSON。
 - 硬失败：仍超预算就抛错「当前证据超过上下文预算，请缩小到一个回合；原始记录仍保留在本机」——**宁可拒绝，不编造**。
 - 审计字段：`{task, window, outputReserve, systemReserve, toolReserve, estimatedInput, estimate:'UTF-8 byte upper budget; not exact model token count', retainedEvidenceIds}`——把「这是估计、不是精确计数」写进返回值。
 
 **第二级 —— 服务端官方 tokenizer 精确计数**（`coach/token-budget-server.js` + `scripts/count-tokens.py`）
 - 服务端在 `semantic: true` 下启动（`server.js` 末尾 `createCoachServer({semantic:true})`，即 `npm start` 的默认路径）时，用官方 DeepSeek V4 tokenizer 与 chat template 在本地实际计数，**计入序列化后的工具合同与回执**。
-- 参数：`window=32768, output=320, reserve=1024`；计数超限时按「保留系统约束与最后一条证据消息、从第 2 条开始删」的顺序裁剪，仍未通过就抛 `token-budget-exceeded`，路由层返回 413。tokenizer 不可用时（文件缺失/超时/失败）退回 `fallback:'conservative-byte-budget'`，不中断服务。
+- 参数：`window=200000（WORKING_CONTEXT）, output=320, reserve=1024`（**原写作 `window=32768`，是旧值**；见 `coach/token-budget-server.js:13`）；计数超限时按「保留系统约束与最后一条证据消息、从第 2 条开始删」的顺序裁剪，仍未通过就抛 `token-budget-exceeded`，路由层返回 413。tokenizer 不可用时（文件缺失/超时/失败）退回 `fallback:'conservative-byte-budget'`，不中断服务。
 
 **实测差异**（`reports/live-model-v10.json`，五条真实调用）：
 
@@ -615,16 +615,16 @@
 
 ### 验证
 
-- `evals/agent.test.js:24`「32K assembly handles huge history, preserves exact current facts and does not mutate archive」：用 1000 条 ×1000 字的历史构造超长输入，断言 `estimatedInput <= 32768-512-4096-2048`、`preference` 仍为 `'brief'`、`context.battle.player` 与原始对象深度相等、**原始 memory 对象不被修改**（`dialogue.length === 1000`），并且 40000 字符的单条消息会抛「超过上下文预算」。
+- `evals/agent.test.js:24`「context assembly trims to an explicit budget, preserves current facts and does not mutate the archive」（**该测试原名**「32K assembly handles huge history, preserves exact current facts and does not mutate archive」，已改名）：用 1000 条 ×1000 字的历史构造超长输入，断言 `estimatedInput <= 32768-512-4096-2048`、`preference` 仍为 `'brief'`、`context.battle.player` 与原始对象深度相等、**原始 memory 对象不被修改**（`dialogue.length === 1000`），并且 40000 字符的单条消息会抛「超过上下文预算」。
 - `evals/agent.test.js:200`「tool contracts reject unknown parameters and return bounded evidence pages」：`read_match` 的 `limit` 被限制在 1..3，返回分页字段 `nextOffset`；`read_evidence` 取不到的回合返回 `missing:true`。
 - `coach/runtime.js:88-89` 的工具回执预算：单次工具结果序列化后超过 **10000 字符**即停止循环（`stopped:'receipt-budget'`），而不是截断 JSON。
 - 复现：`node scripts/count-tokens.py`；产物 `reports/token-budget.json`。
 
 ### 边界
 
-- **两级预算的预留口径不同。**浏览器侧预留 `output 512 + system 4096 + tools 2048 = 6656`；服务端官方 tokenizer 侧预留 `output 320 + reserve 1024 = 1344`。所以严格说是「浏览器先按字节粗裁 → 服务端再按真实 token 精裁」的两道闸，不是一套统一预算。
+- **两级预算的预留口径不同。**浏览器侧预留 `output 4096 + system 4096 + tools 2048 = 10240`（**本文原写 `output 512`，是 32768 那一版的旧值**）；服务端官方 tokenizer 侧预留 `output 320 + reserve 1024 = 1344`。所以严格说是「浏览器先按字节粗裁 → 服务端再按真实 token 精裁」的两道闸，不是一套统一预算。
 - **`usage` 不反映全链成本。**`docs/EXPERIMENTS.md:52`：「usage 当前只记录最终生成，规划调用未合计，不能用它当整条链成本。」这是当前计费口径的真实缺口。
-- **「裁剪后仍能取回早期回合证据」没有显式测试。**`docs/CHECKLIST.md:70-71` 对 C05 的说明写得很清楚：部分达成（W04 覆盖了 32K 限制与压缩前后一致性），但「缺一条『裁剪之后仍能取回早期回合证据』的显式测试」，因此 **C05 保持未勾**。
+- **「裁剪后仍能取回早期回合证据」当时没有显式测试。**`docs/CHECKLIST.md` 的 C05 说明写得很清楚：部分达成（W04 覆盖了 32K 限制与压缩前后一致性），但「缺一条『裁剪之后仍能取回早期回合证据』的显式测试」，因此 **C05 当时保持未勾**。**2026-09-17 晚复核：该测试已补（`evidence trimmed out of the prompt is still retrievable from the archive`），C05 已勾选。**
 - **没有做长上下文位置效应的独立测试。**`docs/RESEARCH-NOTES.md:43` 记录了 Lost-in-the-Middle 的相关研究，但同处明确「不能直接套用为某个当前 DeepSeek 型号的性能结论，但提示我们必须做独立的长历史检索测试」——**这个测试没有做，未能核实。**
 - **本地 tokenizer 与线上服务的一致性只有 5 个样本支撑**，且计的是 **prompt** 部分；生成部分的 token 由 `max_tokens` 约束，未做逐次核对。
 
@@ -678,8 +678,8 @@
 
 | 对象 | 声称 | 实测 | 结论 |
 |---|---|---|---|
-| `package.json` 的 `test` 脚本 | 已包含 `pvp.test.js` | 实跑 `npm test` → `tests 122 / pass 122 / fail 0` | ✅ 与提交信息一致（122/122） |
-| `reports/test-output.txt` | 114 项通过 | 文件 mtime 13:52，早于 14:25 的提交 | ❌ **报告已陈旧**，仍写着 114 |
+| `package.json` 的 `test` 脚本 | 已包含 `pvp.test.js` | 实跑 `npm test` → **当时** `tests 122 / pass 122 / fail 0`（**现在现场为 257 项，见文首**） | ✅ 与提交信息一致（122/122） |
+| `reports/test-output.txt` | 114 项通过 | 文件 mtime 13:52，早于 14:25 的提交 | ❌ **报告已陈旧，仍写着 114**（**2026-09-17 晚复核：该文件已重写为 251/251/0，mtime 22:04**） |
 | `coach/runtime.js` 等 5 个文件的行号 | — | 相对本文初稿普遍位移 1–8 行 | ❌ 已按新提交逐一校正 |
 
 这就是这条难点在真实工作流里的样子：**代码、测试脚本、报告三者会各自漂移，而漂移的默认方向是「报告落后于代码」**。本条难点的方案（bootstrap 报版本 + 验收同时记两个版本）只覆盖了「运行态」这一半，**覆盖不了报告与文档**——这一半目前仍靠人工核对。
@@ -687,7 +687,7 @@
 ### 边界
 
 - **这是一个流程修复，不是技术修复。**没有任何机制能阻止「改了代码不重启」；只能让它在三秒内被发现。**未能核实**是否还有其它未记录在案的陈旧状态实例。
-- **报告与文档的漂移没有被任何自动化覆盖。**`reports/test-output.txt` 需要手动重跑才会更新（`docs/CHECKLIST.md:275` W12「完整 114 项回归通过，reports/test-output.txt 更新」——注意这条清单项自身也还停在 114）；没有 CI、没有 git hook、没有「报告必须晚于最后一次代码提交」的校验。上面那张表就是这个缺口的直接证据。
+- **报告与文档的漂移没有被任何自动化覆盖。**`reports/test-output.txt` 需要手动重跑才会更新（`docs/CHECKLIST.md` 的 W12「完整 114 项回归通过，reports/test-output.txt 更新」——**该清单项自身也停在 114**；2026-09-17 晚复核：文件已重写为 251，清单项的注释里也已写明这段历史）；没有 CI、没有 git hook、没有「报告必须晚于最后一次代码提交」的校验。上面那张表就是这个缺口的直接证据。
 - **历史文档里仍存在时点不一致的段落。**`docs/IMPLEMENTATION-STATUS.md` 与 `docs/CHECKLIST.md` 都靠「以本页顶部为准」这种人工约定来维持一致性，没有自动校验。
 - **`runtimeVersion` 是硬编码字符串**（`server.js:27`），不是从 `package.json` 或构建产物读取。也就是说它**不会自动跟随**代码变化，只能靠人改。这是一个已知的脆弱点，本文不宣称它已被解决。
 - 生产环境下这套做法**不适用**：真实部署需要的是版本化部署与健康检查，而不是「问 bootstrap 要一个字符串」。此处只是把本机 Demo 的验收风险降到可管理。
@@ -733,9 +733,9 @@ v0.10 的五条真实 DeepSeek 调用中，有一条把游戏里的道具名说�
 
 同一段约束里还有另外几条由真实失败案例换来的规则：「双方同时决定，不能先看对手本回合出招再决定自己的行动」（对应 `simultaneous-action-order`）、「复盘中 hpBefore 是回合开始、hpAfter 是结束」（对应 `after-hp-mismatch`）、「行动取消不能说成打出了伤害」（对应 `cancelled-action-claimed-as-hit`）。
 
-**第二层（已实现，但窄）：结构化校验 + 失败降级**——`checkGroundedAnswer()`（`coach/runtime.js:118`）目前能拦 7 类：同时决定被违反（`simultaneous-action-order`）、绝对承诺（`unsupported-certainty`，匹配「必胜/稳赢/保证获胜/一定能赢/百分之百/100%」）、能量满值误称（`energy-not-full`）、回合后生命与 after 快照不符（`after-hp-mismatch`）、取消的行动被说成命中（`cancelled-action-claimed-as-hit`）、**不在证据集合里的数字**（`unsupported-number`）、**不在召回卡集合里的引用 ID**（`unsupported-citation`）。任何一条命中就整体降级为本地答案，并把 `validation.reasons` 一起返回（`coach/client.js:24`）。
+**第二层（已实现，但窄）——本文写作时能拦 7 类，现在能拦 9 类**：`checkGroundedAnswer()`（`coach/runtime.js:207`）目前能拦 9 类：同时决定被违反（`simultaneous-action-order`）、绝对承诺（`unsupported-certainty`，匹配「必胜/稳赢/保证获胜/一定能赢/百分之百/100%」）、**道具名称漂移（`item-name-drift`，见下方"2026-09-17 更新"）**、**因果语义（`causal-cancelled-action`：事件记录某方行动已取消时，正文不得声称该方造成伤害）**、能量满值误称（`energy-not-full`）、回合后生命与 after 快照不符（`after-hp-mismatch`）、取消的行动被说成命中（`cancelled-action-claimed-as-hit`）、**不在证据集合里的数字**（`unsupported-number`）、**不在召回卡集合里的引用 ID**（`unsupported-citation`）。任何一条命中就整体降级为本地答案，并把 `validation.reasons` 一起返回（`coach/client.js:24`）。
 
-**第三层（未实现，是最该补的一层）**：从规则数据源导出**全部合法实体名**（技能、宠物、属性、状态、道具、关卡、环境），然后扫描模型输出里所有**疑似实体词**是否属于合法集合。这一层之所以还没做，是因为「疑似实体词」的识别本身需要一个分词或 NER 步骤，而当前没有可靠的中文领域分词器；**本文不宣称这一层存在。**
+**第三层（仍未实现）**：从规则数据源导出**全部合法实体名**（技能、宠物、属性、状态、道具、关卡、环境），然后扫描模型输出里所有**疑似实体词**是否属于合法集合。**2026-09-17 更新**：上面第二层新增的 `item-name-drift` 是这一层的**窄版**——它用一张写死的错名黑名单（`解药|解毒药|以太|回血药|血瓶|蓝瓶|复活药|清醒药`）加正则匹配，不是"从引擎导出全部合法实体名再扫疑似实体词"。所以"名称漂移完全没人管"这个说法现在不成立，而**通用的实体集合校验这一层确实还没有**（瓶颈仍是中文领域分词/NER）。**本文不宣称这一层存在。**
 
 ### 验证
 
@@ -749,12 +749,12 @@ v0.10 的五条真实 DeepSeek 调用中，有一条把游戏里的道具名说�
 
 ### 边界 —— 这一条必须最严格
 
-- **名称约束补上之后尚未复验。**`docs/EXPERIMENTS.md:54` 原文：「已补名称约束，仍需复验。」**所以「名称漂移已经修好」这个说法在当前证据下不成立。**
-- **`docs/CHECKLIST.md:281` 明确**：A05（输出校验）**仍未勾**，原因是「数字/引用校验仍漏名称或因果语义错误」。名称问题正是这条未勾的实例之一。
+- **名称约束补上之后**当时**尚未复验。`docs/EXPERIMENTS.md:54` 原文：「已补名称约束，仍需复验。」**所以「名称漂移已经修好」这个说法在当时证据下不成立。** **2026-09-17 晚复核：已复验**——`evals/agent.test.js`「item-name drift is rejected even when every number is grounded」断言这条拦截生效；第三轮 44 条真实调用（`reports/live-model-eval.json`）的 `badAnswers` 里**没有任何 `item-name-drift`**。同类的因果语义也补了「an action recorded as cancelled cannot be described as having hit」。
+- **`docs/CHECKLIST.md` 的 A05（输出校验）当时仍未勾**，原因是「数字/引用校验仍漏名称或因果语义错误」。名称问题正是这条未勾的实例之一。**2026-09-17 晚复核：A05 已勾选**——注释写明「本轮补上最后两块——道具名称漂移（`item-name-drift`）与因果语义（`causal-cancelled-action`）」。
 - **校验的自我描述写得很清楚**：`scope: 'Narrow numeric/citation/certainty guard; not a proof of all natural language correctness'`。`DEEPSEEK.md:35` 也写「语言模型输出并未逐句自动验证，事实依据可以展开核对，不能宣称所有生成建议已被程序证明」。
 - **因果语义错误完全没有校验。**上面这条回答里「还剩 3 瓶回复药」是对的，但它同时暗示了「药没用完是问题」——这个因果判断（该不该吃药、那几回合吃药是否更好）**没有任何自动检查覆盖**。`docs/reviews/2026-09-17-live-acceptance.md:22`：「语义检查仍可能漏掉错误因果和不合理建议。」
 - **同一批调用的另一条也有解释质量问题**：`weather-tools` 一条在 `docs/EXPERIMENTS.md:54` 中被记为「天气回答没有充分解释速度顺序，属于解释质量不足」。**解释质量目前只能人工逐条阅读**，没有自动指标。
-- **样本量：5 条。**`docs/CHECKLIST.md:254`（W08）与 285 行都写明「独立质量评测 S04 仍未完成」；本文任何关于「模型回答准确率」的陈述都**不成立**。
+- **样本量：5 条。**`docs/CHECKLIST.md` 的 W08 与 S04 两行都曾写明「独立质量评测 S04 仍未完成」（**2026-09-17 晚复核：S04 已勾选**，三轮共 132 次真实调用）；但**本节这一条依据的具体样本仍然只有 5 条**，本文关于「模型回答准确率」的陈述都**不成立**。
 
 ---
 
@@ -765,14 +765,14 @@ v0.10 的五条真实 DeepSeek 调用中，有一条把游戏里的道具名说�
 | 事项 | 状态 | 依据 |
 |---|---|---|
 | 真人学习增益 / 无提示迁移 | 未完成 | `docs/CHECKLIST.md:86`（R09 未勾）、`:283`（M03/T04/R09 括注） |
-| 独立大样本模型质量评测 | 未完成 | `docs/CHECKLIST.md:285`（S04） |
-| 慢模型完整浏览器演示（无旧文字/旧语音） | 未完成 | `docs/CHECKLIST.md:94`（S05）、`:255`（W09） |
-| 长局残局提示的真实浏览器触发 | 未完成 | `docs/CHECKLIST.md:176`（C17） |
-| 语音在用户设备上的实际可听性 | 未完成 | `docs/CHECKLIST.md:239`（V08）、`:208`（E08） |
-| 名称约束补上后的复验 | 未复验 | `docs/EXPERIMENTS.md:54` |
-| 裁剪后仍能取回早期回合证据 | 缺显式测试 | `docs/CHECKLIST.md:70-71`（C05） |
+| 独立大样本模型质量评测 | ~~未完成~~ **已完成（2026-09-17 晚复核）** | `docs/CHECKLIST.md` 的 S04 条目（三轮共 132 次真实调用）+ `reports/live-model-eval-before-after.md` |
+| 慢模型完整浏览器演示（无旧文字/旧语音） | **部分完成**：客户端侧已完成，浏览器侧仍未完成 | S05 条目（`evals/slow-model.test.js` 6 项，已勾）；W09 条目（仍未勾） |
+| 长局残局提示的真实浏览器触发 | ~~未完成~~ **已完成（2026-09-17 晚复核）** | `docs/CHECKLIST.md` 的 C17 条目（8 局长局、残局提示 8/8）+ `reports/c17-endgame-browser.md` |
+| 名称约束补上后的复验 | ~~未复验~~ **已复验（2026-09-17 晚复核）** | `evals/agent.test.js`「item-name drift is rejected even when every number is grounded」；第三轮 44 条真实调用的 `badAnswers` 里没有任何 `item-name-drift`（`reports/live-model-eval.json`） |
+| 裁剪后仍能取回早期回合证据 | ~~缺显式测试~~ **已补（2026-09-17 晚复核）** | C05 条目：`evidence trimmed out of the prompt is still retrievable from the archive` |
+| 语音在用户设备上的实际可听性 | 未完成（语音已整体停用） | V08 条目（仍未勾）、E08 条目（仍未勾） |
 | 长上下文位置效应的独立测试 | 未做 | `docs/RESEARCH-NOTES.md:43` |
-| 完整 3v3 配装与队伍组合平衡 | 未完成 | `docs/CHECKLIST.md:276`（G07）、`docs/EXPERIMENTS.md:60` |
+| 完整 3v3 配装与队伍组合平衡 | ~~未完成~~ **已完成（2026-09-17 晚复核）** | `docs/CHECKLIST.md` 的 G07 条目（5,796 场 / 398 臂矩阵）+ `reports/balance-matrix.json` |
 | 生产权威对局状态与权限认证 | 未做 | `docs/EVIDENCE-SCHEMA.md:33`、`docs/COACH-PLAN.md:121` |
 | 全链 API 成本（含规划调用） | 未聚合 | `docs/EXPERIMENTS.md:52`、`docs/CHECKLIST.md:267` |
 | 真实 DeepSeek 工具选择质量与多回合规划 | 未验收 | `docs/IMPLEMENTATION-STATUS.md:110` |
@@ -787,7 +787,7 @@ v0.10 的五条真实 DeepSeek 调用中，有一条把游戏里的道具名说�
 
 | 难点 | 一句话方案 | 一句话边界 |
 |---|---|---|
-| 1 入口 | 事件触发的小提示 + 按需展开，不要求打开聊天 | 长局与慢模型浏览器验收未完成 |
+| 1 入口 | 事件触发的小提示 + 按需展开，不要求打开聊天 | 长局浏览器验收已做（C17 已勾）；慢模型浏览器侧仍未做（W09 未勾） |
 | 2 准确 | 引擎枚举事实，模型只组织解释 | 一回合枚举，不是多步最优 |
 | 3 过期 | epoch + 任务戳 + 展示前校验 + 断连取消 | 慢模型完整演示未做；成本未拦住 |
 | 4 小测 | 出题/判题/取消由程序锁定，模型不介入 | 只有一个知识点族；真人迁移未验 |
@@ -797,6 +797,6 @@ v0.10 的五条真实 DeepSeek 调用中，有一条把游戏里的道具名说�
 | 8 RAG | 保留词项基线，公开失败，另建盲测 | 20 条非盲测；命中≠回答质量 |
 | 9 训练 | 表格 Q-learning + 1152 参数输出行，严格命名 | 都没更新 DeepSeek；小样本 |
 | 10 抢功 | 成对仿真只计增量 + 四路奖励审计 | 全是模拟器产物 |
-| 11 预算 | 字节粗裁 + 官方 tokenizer 精裁，宁可拒绝 | C05 未勾；全链成本未聚合 |
+| 11 预算 | 字节粗裁 + 官方 tokenizer 精裁，宁可拒绝 | 全链成本未聚合（C05 的缺测试已补） |
 | 12 陈旧运行态 | bootstrap 报版本，验收同时记两个版本 | 流程修复，非技术修复 |
-| 13 名称漂移 | 约束前置 + 窄校验 + 失败降级 | **约束尚未复验**；因果错误不校验 |
+| 13 名称漂移 | 约束前置 + 窄校验（错名黑名单 + 因果检查）+ 失败降级 | 通用实体集合校验仍未做；因果错误只在"行动已取消"这一类上有检查 |

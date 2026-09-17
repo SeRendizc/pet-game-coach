@@ -14,7 +14,11 @@ test('unknown rules, unrelated queries and insufficient budget return no evidenc
 test('foreign mechanics are retrieved as unsupported, not imported as live rules',()=>{
   const result=searchKnowledge('宝可梦本系加成和雨天天气');
   assert.equal(result.cards[0].id,'tactic:rules-boundary');
-  assert.match(result.cards[0].principle,/没有本系加成、双属性、天气/);
+  // 2406bc6 把这张卡改对了：天气（细雨/山风）不是「没有」，而是 engine.js 里真实存在的环境机制，
+  // 所以卡片现在写的是「没有本系加成、双属性」+「环境机制以 ENVIRONMENTS 为准」。断言跟着改成
+  // 它真正要保证的两件事：外来倍率不生效，以及环境机制必须指向真实数据源。
+  assert.match(result.cards[0].principle,/没有本系加成、双属性/);
+  assert.match(result.cards[0].principle,/ENVIRONMENTS/);
 });
 test('lower damage is not automatically a mistake when both moves can KO',()=>{
   const g=createGame(17,undefined,{enemyTeam:['deer','turtle','fox']});

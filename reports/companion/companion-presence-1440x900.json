@@ -1,0 +1,1100 @@
+{
+ "viewport": "1440x900",
+ "port": 9349,
+ "url": "http://127.0.0.1:8765/",
+ "chrome": "Chrome/152.0.7977.83",
+ "steps": [
+  {
+   "step": "match-started",
+   "state": {
+    "at": 1789656167666,
+    "bubble": null,
+    "text": "",
+    "name": "小芽 · 陪练",
+    "avatar": "🦌",
+    "liveText": null,
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "targets": {
+     "skillArea": {
+      "x": 135,
+      "y": 555,
+      "w": 643,
+      "h": 199,
+      "right": 778,
+      "bottom": 754
+     },
+     "enemyPanel": null,
+     "sideCoach": null,
+     "bottomGrid": {
+      "x": 122,
+      "y": 464,
+      "w": 1196,
+      "h": 303,
+      "right": 1318,
+      "bottom": 767
+     },
+     "liveCoach": null,
+     "attentionCue": null
+    },
+    "collisions": {
+     "skillArea": false,
+     "enemyPanel": false,
+     "sideCoach": false,
+     "bottomGrid": false,
+     "liveCoach": false,
+     "attentionCue": false
+    },
+    "hit": null,
+    "hitIsBubble": null,
+    "turn": "第 1 回合",
+    "phase": "对手正在思考…"
+   }
+  },
+  {
+   "step": "match-end",
+   "state": {
+    "at": 1789656194760,
+    "bubble": null,
+    "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+    "name": "小芽 · 陪练",
+    "avatar": "🦌",
+    "liveText": "✦ 小芽 · 本局回顾结束时还剩3瓶回复药。下次在伙伴进入危险血线时，先比较吃药、换宠和继续攻击，别等倒下再救；有药不代表那回合吃药一定更好。整局分析关键回合与依据整局统计：{\"rounds\":14,\"counts\":{\"switches\"",
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "targets": {
+     "skillArea": {
+      "x": 135,
+      "y": 692,
+      "w": 643,
+      "h": 96,
+      "right": 778,
+      "bottom": 788
+     },
+     "enemyPanel": null,
+     "sideCoach": null,
+     "bottomGrid": {
+      "x": 122,
+      "y": 601,
+      "w": 1196,
+      "h": 1403,
+      "right": 1318,
+      "bottom": 2004
+     },
+     "liveCoach": {
+      "x": 122,
+      "y": 511,
+      "w": 1196,
+      "h": 83,
+      "right": 1318,
+      "bottom": 594
+     },
+     "attentionCue": null
+    },
+    "collisions": {
+     "skillArea": false,
+     "enemyPanel": false,
+     "sideCoach": false,
+     "bottomGrid": false,
+     "liveCoach": false,
+     "attentionCue": false
+    },
+    "hit": null,
+    "hitIsBubble": null,
+    "turn": "第 14 回合",
+    "phase": "本场结束"
+   }
+  }
+ ],
+ "shots": [
+  "reports/companion/bubble-1.png",
+  "reports/companion/bubble-2.png",
+  "reports/companion/bubble-3.png",
+  "reports/companion/final.png"
+ ],
+ "consoleErrors": [
+  "LOG Failed to load resource: the server responded with a status of 404 (Not Found) @http://127.0.0.1:8765/favicon.ico"
+ ],
+ "geometry": [
+  {
+   "turn": "第 2 回合",
+   "phase": "对手正在思考…",
+   "bubble": null,
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 3 回合",
+   "phase": "等待行动",
+   "bubble": null,
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 4 回合",
+   "phase": "等待行动",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "免费补位",
+   "phase": "请选择补位伙伴",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 5 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 6 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 7 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 8 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 9 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "免费补位",
+   "phase": "请选择补位伙伴",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 10 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 11 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 12 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 13 回合",
+   "phase": "对手正在思考…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 14 回合",
+   "phase": "对手正在思考…",
+   "bubble": null,
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 14 回合",
+   "phase": "正在出招…",
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": null
+  },
+  {
+   "turn": "第 14 回合",
+   "phase": "本场结束",
+   "bubble": null,
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "liveText": "✦ 小芽 · 本局回顾结束时还剩3瓶回复药。下次在伙伴进入危险血线时，先比较吃药、换宠和继续攻击，别等倒下再救；有药不代表那回合吃药一定更好。整局分析关键回合与依据整局统计：{\"rounds\":14,\"counts\":{\"switches\""
+  }
+ ],
+ "bubbleEvents": [
+  {
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "at": "第 4 回合 等待行动",
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "overlapsOperation": false,
+   "withLiveBar": false,
+   "hitIsBubble": true,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "avatar": "🦌",
+   "name": "小芽 · 陪练"
+  },
+  {
+   "text": "潮甲龟连着2个回合被草系按着打，我看得有点急。",
+   "at": "第 7 回合 对手正在思考…",
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "overlapsOperation": false,
+   "withLiveBar": false,
+   "hitIsBubble": true,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "avatar": "🦌",
+   "name": "小芽 · 陪练"
+  },
+  {
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "at": "第 9 回合 对手正在思考…",
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "overlapsOperation": false,
+   "withLiveBar": false,
+   "hitIsBubble": true,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "avatar": "🦌",
+   "name": "小芽 · 陪练"
+  }
+ ],
+ "timings": [
+  {
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "len": 25,
+   "stillVisibleAfterHover3s": true,
+   "visibleText": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。"
+  },
+  {
+   "text": "潮甲龟连着2个回合被草系按着打，我看得有点急。",
+   "len": 23,
+   "stillVisibleAfterHover3s": true,
+   "visibleText": "潮甲龟连着2个回合被草系按着打，我看得有点急。"
+  },
+  {
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "len": 24,
+   "stillVisibleAfterHover3s": true,
+   "visibleText": "打到第8回合，血线反过来了：前面一直是你占上风。"
+  }
+ ],
+ "observedDurations": [
+  {
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "ms": 7800,
+   "replaced": true
+  },
+  {
+   "text": "潮甲龟连着2个回合被草系按着打，我看得有点急。",
+   "ms": 5281,
+   "replaced": true
+  },
+  {
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "ms": 9599,
+   "replaced": false
+  },
+  {
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "ms": 481,
+   "replaced": false
+  }
+ ],
+ "domEvents": [
+  {
+   "at": 1789656166762,
+   "bubble": null,
+   "text": "",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 303,
+     "right": 1318,
+     "bottom": 767
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": null,
+   "hitIsBubble": null,
+   "turn": "第 1 回合",
+   "phase": "对手正在思考…",
+   "hidden": true
+  },
+  {
+   "at": 1789656169747,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 338,
+     "right": 1318,
+     "bottom": 802
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": "bubble-text",
+   "hitIsBubble": true,
+   "turn": "第 4 回合",
+   "phase": "对手正在思考…",
+   "hidden": false
+  },
+  {
+   "at": 1789656169747,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 338,
+     "right": 1318,
+     "bottom": 802
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": "bubble-text",
+   "hitIsBubble": true,
+   "turn": "第 4 回合",
+   "phase": "对手正在思考…",
+   "hidden": false
+  },
+  {
+   "at": 1789656177443,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "text": "潮甲龟连着2个回合被草系按着打，我看得有点急。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 641,
+     "right": 1318,
+     "bottom": 1105
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": "bubble-text",
+   "hitIsBubble": true,
+   "turn": "第 7 回合",
+   "phase": "对手正在思考…",
+   "hidden": false
+  },
+  {
+   "at": 1789656182727,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 844,
+     "right": 1318,
+     "bottom": 1308
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": "bubble-text",
+   "hitIsBubble": true,
+   "turn": "第 9 回合",
+   "phase": "对手正在思考…",
+   "hidden": false
+  },
+  {
+   "at": 1789656192426,
+   "bubble": null,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 1278,
+     "right": 1318,
+     "bottom": 1742
+    },
+    "liveCoach": null,
+    "attentionCue": {
+     "x": 400,
+     "y": 818,
+     "w": 640,
+     "h": 64,
+     "right": 1040,
+     "bottom": 882
+    }
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": null,
+   "hitIsBubble": null,
+   "turn": "第 14 回合",
+   "phase": "对手正在思考…",
+   "hidden": true
+  },
+  {
+   "at": 1789656193509,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 1278,
+     "right": 1318,
+     "bottom": 1742
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": "bubble-text",
+   "hitIsBubble": true,
+   "turn": "第 14 回合",
+   "phase": "正在出招…",
+   "hidden": false
+  },
+  {
+   "at": 1789656193509,
+   "bubble": {
+    "x": 14,
+    "y": 769,
+    "w": 360,
+    "h": 117,
+    "right": 374,
+    "bottom": 886
+   },
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": null,
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 555,
+     "w": 643,
+     "h": 199,
+     "right": 778,
+     "bottom": 754
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 464,
+     "w": 1196,
+     "h": 1278,
+     "right": 1318,
+     "bottom": 1742
+    },
+    "liveCoach": null,
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": true,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": "bubble-text",
+   "hitIsBubble": true,
+   "turn": "第 14 回合",
+   "phase": "正在出招…",
+   "hidden": false
+  },
+  {
+   "at": 1789656193949,
+   "bubble": null,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "name": "小芽 · 陪练",
+   "avatar": "🦌",
+   "liveText": "✦ 小芽 · 本局回顾结束时还剩3瓶回复药。下次在伙伴进入危险血线时，先比较吃药、换宠和继续攻击，别等倒下再救；有药不代表那回合吃药一定更好。整局分析关键回合与依据整局统计：{\"rounds\":14,\"counts\":{\"switches\"",
+   "viewport": {
+    "w": 1440,
+    "h": 900
+   },
+   "targets": {
+    "skillArea": {
+     "x": 135,
+     "y": 692,
+     "w": 643,
+     "h": 96,
+     "right": 778,
+     "bottom": 788
+    },
+    "enemyPanel": null,
+    "sideCoach": null,
+    "bottomGrid": {
+     "x": 122,
+     "y": 601,
+     "w": 1196,
+     "h": 1403,
+     "right": 1318,
+     "bottom": 2004
+    },
+    "liveCoach": {
+     "x": 122,
+     "y": 511,
+     "w": 1196,
+     "h": 83,
+     "right": 1318,
+     "bottom": 594
+    },
+    "attentionCue": null
+   },
+   "collisions": {
+    "skillArea": false,
+    "enemyPanel": false,
+    "sideCoach": false,
+    "bottomGrid": false,
+    "liveCoach": false,
+    "attentionCue": false
+   },
+   "hit": null,
+   "hitIsBubble": null,
+   "turn": "第 14 回合",
+   "phase": "本场结束",
+   "hidden": true
+  }
+ ],
+ "showHide": [
+  {
+   "hidden": true,
+   "text": "",
+   "bar": null
+  },
+  {
+   "hidden": false,
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "bar": null
+  },
+  {
+   "hidden": false,
+   "text": "又是疾爪，连着3个回合了——我在旁边都跟着念出来。",
+   "bar": null
+  },
+  {
+   "hidden": false,
+   "text": "潮甲龟连着2个回合被草系按着打，我看得有点急。",
+   "bar": null
+  },
+  {
+   "hidden": false,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "bar": null
+  },
+  {
+   "hidden": true,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "bar": null
+  },
+  {
+   "hidden": false,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "bar": null
+  },
+  {
+   "hidden": false,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "bar": null
+  },
+  {
+   "hidden": true,
+   "text": "打到第8回合，血线反过来了：前面一直是你占上风。",
+   "bar": "✦ 小芽 · 本局回顾结束时还剩3瓶回复"
+  }
+ ]
+}

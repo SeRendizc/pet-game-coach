@@ -2,7 +2,9 @@
 
 > 配套文档：`docs/COMPANION-DESIGN.md`（设计与实现状态逐条标注）、`docs/CHECKLIST.md` 的 T05（**仍未勾**）。
 >
-> 日期：2026-09-17。基线：改动前 `npm test` → `tests 150 / pass 149 / fail 1`（当时 `server.test.js` 有一条断言因另一处并行改动而红）；改动后 → `tests 177 / pass 177 / fail 0`（177 里含本轮新增的 `companion.test.js` 12 条，其余增量来自同批其他改动）。
+> 日期：2026-09-17（第三轮：在场方式与人格，见 §11）。第一轮基线：改动前 `npm test` → `tests 150 / pass 149 / fail 1`（当时 `server.test.js` 有一条断言因另一处并行改动而红）；第一轮改动后 → `tests 177 / pass 177 / fail 0`。
+>
+> 第三轮改动后 → `companion.test.js` 13 → **17** 条、`browser.test.js` 4 → **5** 条；全量 `npm test` 见 §9。
 >
 > **本文只写已经跑起来、且有测试的东西。** 没做的部分单独列在「§6 仍然是设计的部分」与「§8 已知边界」，不用「部分实现」「理论上支持」这类说法。
 
@@ -17,7 +19,9 @@
         → 证据包（含档位与约束）交给模型改写 → 生成后克制扫描 → 越界则回退模板
 ```
 
-**主动通道**（对局中不请自来地说话）只做了一半：`coachEvent` 的门控与档位、引用局内真实事实都已实现且可测，但 `app.js` 里唯一的调用点 `notify()` 没有任何调用处，所以气泡在真实 UI 中不会弹出（§8.1）。
+**主动通道**（对局中不请自来地说话）已经接线：`app.js` 的 `act()` 在每回合结算后调用 `companionEvents()`，命中事件就交给 `notify()` → `queueCompanionCue()`，左下角那个人的气泡会真的弹出来（`notify()` 的调用点在第一轮之后就已经接上，第三轮把它接到了新的出现方式上）。
+
+**第三轮把「陪练是一个在场的人」这件事补齐**：一局里可能的触发从 2 个增加到 7 个（§11.1），出现方式从「右下角一句无主浮层」改成「左下角带头像与名字的一个人」（§11.2），说话额度与军师彻底分开（§11.3），克制扫描按声线分开、放开第一人称情绪与轻度吐槽（§11.4）。
 
 改动落在 5 个文件，**没有新增任何模块**（浏览器只允许加载 `server.js` 的 `publicAssets` 白名单里的文件，新增文件会 404，所以 `coach/companion.js` 一个文件承担了状态、档位、模板与扫描）：
 
@@ -167,7 +171,11 @@
 
 ## 8. 仍然是设计的部分（没做的，逐条列清）
 
-**§8.1 主动气泡在 UI 里不会弹出。** `app.js:212` 定义了 `notify(event)`，它调用 `coachEvent`；但全仓库检索 `notify` 只有这一处定义，**没有任何调用处**。因此主动侧目前只有函数级与测试级的存在，没有真实触发。修它要给 `notify` 接线（对局中首次倒下与结算处各调一次），而 `app.js` 不在本轮允许修改的文件里。这也意味着「胜负后是否说话的判断」在**真实游玩中**还没有被观察到过。
+**§8.1（已修复，保留标题以示来路）曾经是：主动气泡在 UI 里不会弹出。** 当时 `notify(event)` 只有定义、没有调用处。现在它有两个调用点：`act()` 里每回合结算后的事件循环，以及第三轮的 `queueCompanionCue()`。真实游玩中的出现已被 headless Chrome 实测到（§11.6，截图在 `reports/companion/`）。
+
+**§8.1b 仍然只是设计的两条（第三轮新增的边界）：**
+- **模型改写的主动侧文案没有走克制扫描。** `checkCompanionRestraint` 只接在被动通道（`coach/client.js` 的 `companionRestraint`）上；左下角气泡里显示的始终是本机模板（`proactiveText`），不经模型。也就是说：主动侧的措辞目前是**写死的模板**，不是模型生成的。
+- **语音没有陪练这一路。** `speakCue()` 只服务顶部条/中间提示；陪练气泡是纯文字的（`VOICE_FEATURE=false`，语音整体停用）。
 
 **§8.2 记忆层一行没动。** 设计 §4.2 的 journal 扩展（`importance` / `poignancy` / `refs` / `lastAccess` / `supersededBy`，以及 `utterance` / `preference` / `milestone` 三类条目）、§4.3 的三因子检索打分（`0.5·recency + 0.3·importance + 0.2·relevance`，权重未标定）、§4.4 的 Reflection 合成（可否定 claim + `supersededBy`）**全部未实现**。本轮只把 `memory.events` 的字段加厚——它是对局摘要，不是玩家的经历条目，不改变这一差距。
 
@@ -188,11 +196,12 @@
 ## 9. 怎么验证
 
 ```bash
-npm test              # 全量：177 项
-npm run test:companion # 只跑陪练：12 项
+npm test               # 全量（第三轮改动后：257 项全绿）
+npm run test:companion # 只跑陪练：17 项
+node scripts/cdp-companion-presence.js --viewport=1440x900 --port=9340   # 浏览器实测，见 §11.6
 ```
 
-`companion.test.js` 的 12 条测试与它们覆盖的要求：
+`companion.test.js` 的 17 条测试与它们覆盖的要求（★ = 第三轮新增）：
 
 | 测试 | 覆盖 |
 |---|---|
@@ -208,6 +217,13 @@ npm run test:companion # 只跑陪练：12 项
 | `a model reply that breaks the register falls back to the recorded template` | 模型越界 → 回退本机模板（端到端，mock fetch） |
 | `proactive companion cites the live match and stays silent by design` | 主动侧真实事实引用 + 全部门控 + 克制扫描 |
 | `companion facts degrade to null instead of default values` | 旧存档降级：缺字段就少说，不补默认值 |
+| ★ `each companion event fires once per match, and stops when the facts stop` | 7 个事件各自的「本局只报一次」、里程碑优先于普通结算、一次调用最多一个事件 |
+| ★ `the companion speaks on real in-match events, and every line cites the fact behind it` | 四类局内事件各有真实对局夹具，文本必须出现那条事实本身；缺 `signals` 一律 `null`；已结束的对局不再产生局内事件 |
+| ★ `the companion budget is its own: the strategist going quiet never silences it, and the other way round` | 两份记账互不影响；安静档 / 点掉 / pvp-live 压过一切；近 7 天关闭 2 次 → 1 次、4 次 → 0 次 |
+| ★ `one companion line at a time, and never at the same moment as the strategist bar` | `companionCueSlot` 的 show / hold / drop、排队超时、最小显示窗口 |
+| ★ `the bubble stays as long as the words need, and wears an existing pet portrait` | 时长公式（40 字 → 27 秒、10 字 → 18 秒）、位置常量、头像取自 `SPECIES` |
+
+`browser.test.js` 另加 1 条★：静态检查 `app.js` 是否真的接上了在场层（`companionSession` / `queueCompanionCue` / `flushCompanionCue` / `yieldCompanionCue` / `placeCompanionBubble` / `bubbleDurationMs` / `companionCueSlot`），以及 `strategistCue` 不再往陪练气泡里写正文、军师开口时陪练必须让位、悬停必须暂停计时、安静档必须立刻收起气泡。
 
 **测试数据不是手写的**：每一局都由引擎真实跑出来（随机出招必输、按枚举推荐出招会赢），测试里的期望值直接从 `game` 对象推导（`loss.player.pets.filter(p=>p.hp<=0).map(p=>p.name)`），因此「引用真实事件」这件事是被比对验证的，不是断言一句写死的文案。
 
@@ -215,4 +231,115 @@ npm run test:companion # 只跑陪练：12 项
 
 ## 10. 为什么 T05 仍然不勾
 
-T05 的验收口径包含**真人语言评审**（U07：具体、自然、无水平羞辱；不空泛安慰、不强行提问；使用者觉得烦时降低打扰），本轮只有自动测试；而且主动通道在真实 UI 里没有调用点（§8.1）。两项都写在 `docs/CHECKLIST.md` 的 T05 注释里，**勾选状态没有改动**。
+T05 的验收口径包含**真人语言评审**（U07：具体、自然、无水平羞辱；不空泛安慰、不强行提问；使用者觉得烦时降低打扰），本轮只有自动测试；而主动通道的调用点后来补上了（见 §8.1 的就地更正），但本轮仍无真人语言评审。两项都写在 `docs/CHECKLIST.md` 的 T05 注释里，**勾选状态没有改动**。
+
+---
+
+## 11. 第三轮：在场方式与人格（2026-09-17）
+
+### 11.1 触发事件：从 2 个到 7 个，每一个都读真实回合记录
+
+上一版的问题不是门控太紧，而是**没有事件可报**：`coachEvent` 只认 `first-faint` 与 `result`，一局最多说两次——那是赛后评论员，不是陪练。第三轮补的五类事件全部从 `game.history` 的真实回合记录里读出来（`companionSignals()`，纯函数）：
+
+| 事件 | 成立条件（可核对） | 读的是哪个字段 |
+|---|---|---|
+| `countered` | 末尾连续 ≥2 回合，对手当时在场那只是一直克制我方当时在场那只是一方 | `history[].before` 双方 active 宠物的 `type` + `engine.js` 的 `multiplier()` |
+| `repeat-skill` | 末尾连续 ≥3 回合玩家用的是同一个技能 | `history[].action.id` |
+| `swing` | 我方血量占比从 ≥60% 掉到 ≤40%（或反向），且至少 4 个回合 | `history[].after` 双方全部宠物的 `hp/maxHp` |
+| `stalemate` | ≥8 回合，双方一只都没倒下 | 同上 |
+| `streak-win` / `streak-loss` | 结算时连胜 ≥2 / 连败 ≥3（跨局计数） | `memory.events` 的末尾连续结果（`coach.js` 的 `coachContext(game,profile,memory)`） |
+
+判定顺序就是优先级，且**一次调用最多返回一个事件**（`swing` > `countered` > `repeat-skill` > `stalemate`；`first-faint` 优先于全部局内事件；结算事件优先于一切）。同一事件本局只报一次。
+
+措辞模板只引用让它成立的那条事实，例如（真实对局实测输出）：
+- `countered` → `潮甲龟连着2个回合被草系按着打，我看得有点急。`
+- `repeat-skill` → `又是疾爪，连着3个回合了——我在旁边都跟着念出来。`
+- `swing` → `打到第8回合，血线反过来了：前面一直是你占上风。`
+- `stalemate` → `9个回合过去，两边都还没人倒下，我都有点坐不住了。`
+
+**读不到事实就不说**：`proactiveText` 对这四个事件都要求 `context.signals` 里那一项存在，缺了就返回 `null`（测试 `the companion speaks on real in-match events…` 逐个断言文本里出现那条事实本身，并断言空 `signals` 时全部返回 `null`）。
+
+### 11.2 出现方式：左下角一个人，与军师条分开
+
+| | 军师 / 老师 | 陪练 |
+|---|---|---|
+| 位置 | 顶部条 `#live-coach` 一句短话 + 「看看原因」 | 左下角 `#coach-bubble`，离底/离左 14px |
+| 形态 | 一条提示 | **一个人**：头像（`SPECIES` 的 `icon`，芽角鹿 🦌）+ 名字「小芽 · 陪练」+ 2–3 行正文 + 「跟它聊两句」 |
+| 时长 | 短；同一条内容停留超过 `LIVE_COACH_MS`(17s) 自动收起 | **按时长算**：`bubbleDurationMs = 15000 + ⌊字数/10⌋×3000`（40 字 ≈ 27 秒，10 字 ≈ 18 秒） |
+| 关闭 | 「×」按角色记账 | 「×」= 本局不再让陪练插话（角色自己的静音；全局静音仍在中间提示的「×」与安静档） |
+
+- **悬停暂停**：指针停在气泡上就清掉计时器，移开后用剩余时间重新计时（正在读就不该消失）。
+- **下一条替换上一条**：队列里只保留最新的一条，不会在角上摞一叠。
+- **位置是量出来的**，不是写死的：`placeCompanionBubble()` 先试左下角，若与受保护区域（`#actions` 技能区、`#tabs`、`#panel-enemy` 对方面板、`#player-coach`/`#enemy-coach` 底部教练条、`#live-coach`、`#attention-cue`）相交就退到右下角；气泡可见时每秒复量一次，结算面板改变版面也能自己挪开。
+
+### 11.3 不同时出现：一条判定，三处执行
+
+判定只有一处——`coach/companion.js` 的 `companionCueSlot({barVisible,queuedAt,now,holdUntil})`，返回 `show` / `hold` / `drop`：
+
+1. **排队超时**：排队超过 `maxWaitMs`(20s) 直接丢掉（补一句过期的话不如不说）。
+2. **让位**：军师/老师正在说话（顶部条 **或** 中间那条 `#attention-cue`）→ 陪练排队，条收起来再补上。
+3. **不被切碎**：刚显示过的 `minVisibleMs`(5s) 内不重开；`strategistHintsAllowed()` 在这段时间里也不放行军师——触发的判定照常，只是**晚一点说**。
+4. 军师/老师要开口时（`strategistCue`、`showTacticalCue`、`showWatchCue`、`showMatchReview`）会调用 `yieldCompanionCue()`：正在显示的那一句回队列（排队时间从它**第一次**排上算起），等条收起来再说。
+
+`updateCoach` 里那句 `LIVE_COACH_MS` 超时不是装饰：顶部条原先一旦出现就会一直挂在页面上，而「两者不同时出现」于是变成「陪练永远别说话」。同一条理由停够 17 秒就自己收起来，新的理由会换 key、照常出现——**这条超时是陪练能在场的前提**。
+
+### 11.4 人格：按声线放开，硬线一条不放
+
+`checkCompanionRestraint(text,{register,facts,previousAssistant,voice})` 新增 `voice`：
+
+| 声线 | 第一人称情绪 | 其余检查 |
+|---|---|---|
+| `companion`（默认，陪练自己的声音） | **允许** | 全部照旧 |
+| `sober`（旧口径，留给「只想被克制地陪」） | 拦 | 全部照旧 |
+
+无条件拦下的四条硬线（测试 `restraint scan keeps the hard lines and lets the companion have feelings`）：
+
+| 代码 | 拦什么 | 与「吐槽」的分界 |
+|---|---|---|
+| `empty-encouragement` | 加油 / 别灰心 / 你已经很棒 / 没关系的 / 放轻松… | 安慰必须挂在真实事件上 |
+| `preach`（本轮新增） | 你应该 / 你必须 / 你最好 / 下次别 / 要记住 / 不该… | 说的是「以后你要怎样」就拦 |
+| `tactical-overreach`（本轮新增） | 建议你换 / 不如 / 最好… / 换上 / 改用 / 别用 / 先出… | 战术指令是军师的活，陪练只评论 |
+| `skill-insult` | 菜 / 太弱 / 你不行 / 水平不够 / 手残 / 瞎打…（本轮加词） | **吐槽局面与选择**可以，**评价玩家水平**不行 |
+
+允许的输出示例（同一测试逐条断言 `reasons` 为空）：`我有点难过，烬尾狐又被克着打了。`、`这手疾爪打得我愣了一下，我还以为能收掉。`、`又是火花，连着三个回合了——我在旁边都跟着念出来。`
+
+`replyConstraints()` 跟着改成同一件事：`forbid` 换成「空泛安慰 / 评价玩家水平 / 说教 / 战术指挥」，另加 `allow:['第一人称情绪','对局面和选择的轻度吐槽']`——送模型的约束与事后扫描必须说同一句话，否则模型会一直被回退。
+
+### 11.5 频率预算：两份独立的记账
+
+| | 军师 / 老师 | 陪练 |
+|---|---|---|
+| 记账对象 | `strategistSession()` + `attention`（`shouldNudge`） | `companionSession(memory)` |
+| 每局上限 | 3 次（含老师的长停留讲解） | 4 次；近 7 天被主动关掉 2 次 → 1 次、4 次 → 0 次 |
+| 冷却 | 60 秒 + 同回合一次 + 同理由不重复 | 两次开口至少隔 2 个回合（结算与里程碑不受限） |
+| 会话内去重 | `said` 里按 reason / lesson / turn | `said` 里按事件名，同一事件本局只报一次 |
+
+**两边不共用任何一个字段**：测试 `the companion budget is its own…` 把军师推到「3 次用完 + 本局被点掉 + 整局静音」之后断言陪练照常开口，再把陪练推到上限后断言军师的 `fall` 触发仍然成立。
+
+**优先级不被任何推断覆盖**：`coachEvent` 的判定顺序是 `isLiveMatch` → 安静档 → `session.dismissed`（点掉即静音）→ 次数上限 → 事件去重 → 回合冷却。近 7 天的关闭记录只用来**降低**上限，永远排在安静档与点掉之后（测试对四种事件逐个断言 quiet / dismissed / pvp-live 一律返回 `null`）。
+
+### 11.6 浏览器实测（headless Chrome + CDP）
+
+`scripts/cdp-companion-presence.js`：真实打开 `http://127.0.0.1:8765/`、真实点击打完一局（`Page.bringToFront`；端口 9340+，不碰用户的 9333），逐回合记录气泡几何、与控制台报错。
+
+| 检查项 | 1440×900（PVE，默认种子，26 次行动） | 1280×800（22 次行动） |
+|---|---|---|
+| 气泡真的出现 | ✅ 3 条，来自 3 个不同事件：`repeat-skill` / `countered` / `swing` | ✅ 2 条：`repeat-skill` / `swing` |
+| 头像与名字 | ✅ `🦌` + 「小芽 · 陪练」 | ✅ 同 |
+| 位置 | ✅ 左下角 `x=14, y=769, 360×117` | ⚠️ 退到右下角 `x=906, y=669`——800px 高的窗口里左下角被操作区占住，按 §11.2 的规则让位 |
+| 不遮挡技能区 / 对方面板 / 底部教练条 | ✅ 全部采样的 `skillArea` / `enemyPanel` / `sideCoach` 均为 `false`，命中测试落在气泡自身 | ✅ 同上（两个视口合计 0 次相交） |
+| 与军师条不同时出现 | ✅ `simultaneous = 0` | ✅ `simultaneous = 0` |
+| 每句实际停留 | ✅ 7.8s / 5.3s / 9.6s | ✅ 8.9s / 8.4s |
+| 悬停暂停 | ✅ 指针停在气泡上 3 秒后仍在，文本未变 | ✅ 同 |
+| 控制台 | ✅ 唯一一条是既有的 `favicon.ico` 404，与本次改动无关 | ✅ 同 |
+
+截图：`reports/companion/bubble-1.png`、`bubble-2.png`、`bubble-3.png`、`final.png`；逐回合数据 `reports/companion/companion-presence-1440x900.json` 与 `…-1280x800.json`。
+
+**测出来的两件事比预期重要**：① 顶部条原先一旦出现就会一直挂着（`strategistPanel` 会被每个回合重绘），所以「不同时出现」如果不配一条顶部条超时，实际效果是「陪练永远别说话」——`LIVE_COACH_MS` 是这一轮的必需品，不是优化；② 没有 `minVisibleMs` 的保留窗口时，陪练的气泡会被军师的下一句话切到 **0.1 秒**（实测到过 `ms:119`），那比不说更烦。
+
+### 11.7 这一轮仍然没做的
+
+- **主动侧的文案没有模型参与**（见 §8.1b）：气泡里是本机模板，不走 `/api/coach`，也没有生成后的克制扫描。
+- **「连续被克」「连着用同一招」的窗口是固定长度**（2 回合 / 3 回合），没有按难度或玩家习惯自适应。
+- **没有真人试玩**：时长公式（15 秒 + 每 10 字 3 秒）是从阅读速度推的，没有真人测过「27 秒是不是仍然偏长」。
+- **`docs/CHECKLIST.md` 的勾选状态没有改动**，T05 与 U07 仍然未勾：这一轮补的是机制与自动测试，不是真人语言评审。

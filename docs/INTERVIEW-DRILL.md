@@ -31,13 +31,13 @@
 
 项目内可引用的证据：
 - `coach/runtime.js` 的 `localProvider`（本地保底）与 `provider.generate(packet)` 的分工：`packet` 里已经是算好的证据包，模型只拿到它。
-- `coach/client.js` 的 `checkGroundedAnswer`：模型输出里的数字必须能在证据里找到，否则降级为本地结论。
+- `coach/runtime.js`（**`coach/client.js:4` 只是 import、`:29` 调用**；`checkGroundedAnswer` 的定义在 `coach/runtime.js:207`；本文原写"`coach/client.js` 的 `checkGroundedAnswer`"，归属错了文件）：模型输出里的数字必须能在证据里找到，否则降级为本地结论。
 - `evals/agent.test.js` 里的 `unsupported-number` / `unsupported-citation` / `item-name drift` / `causal-cancelled-action` 用例（模型说"解药"、说被取消的行动造成了伤害都会被拦）。
 - `coach/strategist.js` 的 `instruction`：`缺少分支计算不得声称唯一最优或玩家失误`。
 
 常见追问：
 - "那模型是不是可有可无？" → 不是：本地保底是短结论句，接不住"我只能回血吗""为什么不能连防"这类自由表述；有模型的版本能顺着问下去。可以现场对比同一个问题的本地回答与模型回答。
-- "你怎么证明模型那句比本地那句好？" → **这里必须承认**：本项目没有做独立的措辞质量盲评（`S04` 只做了工具选择等结构化指标：44 条真实调用、首选工具正确率 90.63%、严格正确率 31.25%→50.00%）。所以说"更好"要有保留。
+- "你怎么证明模型那句比本地那句好？" → **这里必须承认**：本项目没有做独立的措辞质量盲评（`S04` 只做了工具选择等结构化指标：44 条真实调用、**改前**首选工具正确率 90.63% / **改后** 78.13%、严格正确率 31.25%→50.00%——**首选工具正确率是变差的**，因为 7 条漏调被记为失败，见 `reports/live-model-eval-before-after.md:41`）。所以说"更好"要有保留。
 
 **不要说什么**：不要说"模型能算伤害""模型能做决策""有了 LLM 建议质量就好了"。这个项目里模型一次都不算伤害。
 
@@ -48,13 +48,13 @@
 **要考的是**：区分"固定流程调三个工具"与"根据上一步结果决定下一步"。
 
 要点（按"真的 Agent"到"不是 Agent"排序）：
-- 真的是 Agent 的部分：`coach/runtime.js` 的 `gatherAgentEvidence` —— 模型先输出一个规划（要调哪个工具、参数是什么），代码执行、把回执给它，它再决定下一步；循环上限 3 次工具调用 / 4 轮，并且有**停止、预算耗尽、非法工具、重复调用、参数非法、规划失败**六条退出路径（`evals/agent.test.js` 覆盖）。关键是下一步依赖上一步回执：测试里断言了 `search_rules → compare_actions → read_state` 这种按回执换手的序列。
+- 真的是 Agent 的部分：`coach/runtime.js` 的 `gatherAgentEvidence` —— 模型先输出一个规划（要调哪个工具、参数是什么），代码执行、把回执给它，它再决定下一步；循环上限 3 次工具调用 / 4 轮（`limit=3`，`for(let i=trace.length;i<Math.min(4,limit);i++)`），并且有**停止、预算耗尽、非法工具、重复调用、参数非法、规划失败**六条退出路径（**"六条"这个数字已过时**：`gatherAgentEvidence` 现在有 **12 种 `stopped` 值**；退出路径的测试在 **`coach.test.js:61`**——本文原写 `evals/agent.test.js`，那里 `grep -c "search_rules\|compare_actions"` 是 **0**）。关键是下一步依赖上一步回执：`coach.test.js` 里断言了 `search_rules → compare_actions → read_state` 这种按回执换手的序列。
 - 半 Agent：`policy.need` 把"该不该调工具"从模型手里拿走，改成代码判断（见 `reports/planner-tuning-log.md`：改之前多余工具调用率 75%，改成"默认停止"后 33.33%，自停率 3.23%→96.77%）。**这是一个可以主动交代的权衡**：该调不调从 0/19 升到 7/19。
 - 不是 Agent：`strategist` / `teacher` / `companion` 这些角色是**规则模板 + 可选模型措辞**，没有工具循环，别把它们说成 Agent。
 - 也不是 Agent 的：RL 训练出来的 Q 表是干预策略（何时开口），它不调用工具、不做多步推理。
 
 常见追问：
-- "模型选工具选得准吗？" → 首选工具正确率 90.63%，但**多余调用率 33.33%（改前 75%）**，两层数据都在 `reports/live-model-eval.json` 与 `reports/live-model-eval-before-after.md`。
+- "模型选工具选得准吗？" → **分两个口径答**：首选工具**在允许集合内**是 90.63%（改前）→ **78.13%（改后）**；而在"预期应调且确实调了"的 12 条上是 **12/12**。"模型选哪个工具"很准，"该不该调"只有一半正确（`reports/planner-tuning-log.md` 第 4 轮的说法）。多余调用率 **75% → 33.33%**（剔除 c44 后 72.73%→27.27%）。两层数据都在 `reports/live-model-eval-before-after.md`，逐条在 `reports/live-model-eval.json`。（**注意：把 90.63% 当"当前值"是错的**——它是改前值。）
 - "怎么证明它是真在决策，不是你写死的？" → 引用 `evals/agent.test.js` 里"按回执逐步换手"的用例，以及 planner 的两套提示词对比。
 
 **不要说什么**：不要说"我们做了 ReAct 框架"就结束；必须给出**一条真实的工具轨迹**（工具名 + 参数 + 为什么换下一个）。
@@ -71,7 +71,7 @@
 - 版本过滤是硬约束：`rulesVersion` 不匹配就不返回卡片。
 
 项目内可引用的证据（**这一题的诚实答案是"效果有限"**）：
-- 四臂对照（128 条作者自写查询，112 正 / 16 负）：Hit@3 无检索 0.00% / 关键词 88.39% / 混合（词项+语义 RRF）90.18% / 反例臂 91.07%；**最好的反例臂相对关键词基线不显著**（+2.68pp，McNemar 精确 p=0.4531，bootstrap 95% CI [−1.79, +7.14]pp）。数据在 `reports/retrieval-extended.json`、`reports/retrieval-extended-summary.md`。
+- 四臂对照（128 条作者自写查询，112 正 / 16 负）：Hit@3 无检索 0.00% / 关键词 88.39% / **混合（已上线的 `searchKnowledge`：IDF 词项 + 领域概念扩展，`coach/strategist.js:73` 自报 `method: 'IDF lexical + domain concept expansion'`）90.18%** / 反例臂 91.07%；**最好的反例臂相对关键词基线不显著**（+2.68pp，McNemar 精确 p=0.4531，bootstrap 95% CI [−1.79, +7.14]pp）。数据在 `reports/retrieval-extended.json`、`reports/retrieval-extended-summary.md`。（**本文原写"混合（词项+语义 RRF）90.18%"，把两个都叫"混合"的东西搞混了**：RRF 只出现在语义那一轮的 `fusion` 臂（`scripts/eval-semantic.js`、`reports/semantic-retrieval.json`），不是这一臂。）
 - **负例拒答三臂都只有 56.25%**：7 条越界提问仍然召回了卡片。这是本轮暴露的未解决问题。
 - 语义向量那一轮更弱：纯语义 9/14 低于词项 11/14，混合仍是 11/14，只改善 MRR（`reports/semantic-retrieval.json`）。因此**默认检索没有被替换**。
 

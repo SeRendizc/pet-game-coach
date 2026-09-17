@@ -1,6 +1,6 @@
 # 小芽交付与执行入口
 
-当前UI v0.11，游戏规则v0.6。12宠、90条知识（49张战术卡与41条引擎参考）、有界工具Agent、整局复盘、事件记忆、条件提醒、参数化练习，以及实际小型干预RL实验。
+当前UI v0.11，游戏规则v0.6。14宠（本轮新增磐耳羊/灵瞳猫两只普通系；此前为12宠）、知识卡 = 49 张战术卡 + 由引擎生成的参考卡（原 41 条，随 `SPECIES` 生成、本轮扩容后为 44 条）、有界工具Agent、整局复盘、事件记忆、条件提醒、参数化练习，以及实际小型干预RL实验。（知识卡条数请现场复算：`node -e "const t=require('./knowledge/tactics.json'),r=require('./knowledge/reference.generated.json');console.log(t.length,r.length)"`。）
 
 优先阅读：
 

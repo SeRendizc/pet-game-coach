@@ -6,12 +6,26 @@ import {buildContext,MATCH_REVIEW_REQUEST} from './coach/runtime.js';
 import {freshMemory,readMemory,rememberBattle,recordCoachEvent,rememberDecision,adaptiveGate,memorySummary,deleteMemoryEvidence,markTaught,observeStruggle} from './coach/memory.js';
 import {STAGES,SCENARIOS,stageOptions,createScenario} from './content.js';
 import {DIFFICULTIES,SPECIES,SKILLS,ITEMS,TYPES,HELD_ITEMS,createGame,resolveTurn,chooseEnemy,buildVersusOpponent,legalActions,active,effectiveSpeed,rankEnemyActions} from './engine.js';
-import {companionEvents} from './coach/companion.js';
+import {companionEvents,companionSession,companionCueSlot,bubbleDurationMs,companionAvatar,COMPANION_DEFER} from './coach/companion.js';
 import {newProfile,loadProfile,TRAINING,trainingCapacity,MAX_STAT_TRAINING,train,resetTraining,settle,configurePet} from './progression.js';
 import {coachEvent,coachContext} from './coach.js';
 import {rulesSections,ruleFacts} from './rules.js';
 const $=id=>document.getElementById(id),storageKey='pet-coach-growth-v1';
 let profile=newProfile();try{profile=loadProfile(localStorage.getItem(storageKey));}catch{$('save-message').textContent='浏览器存储不可用，本次成长只能保留到页面关闭。';}
+let companionShownCue=null,companionShownAt=0,companionHoldUntil=0,liveCoachKey='',liveCoachShownAt=0,liveCoachTimer=null;
+// 顶部条是给「刚发生的这一手」用的：同一条内容停留太久就自己收起来（和 #attention-cue 的 12 秒同一思路）。
+// 不收的话它会一直挂在顶部，而「陪练与军师条不同时出现」就变成了「陪练永远别说话」——
+// 陪练要等到顶部条空出来的那一刻才开口，所以这条超时是它在场的前提，不是可选项。
+const LIVE_COACH_MS=17000;
+// 同一条内容只挂 LIVE_COACH_MS：到点就收起来，并让出位置给排队中的陪练。
+function armLiveCoach(key){
+ if(key===liveCoachKey)return false;
+ liveCoachKey=key;liveCoachShownAt=Date.now();
+ clearTimeout(liveCoachTimer);
+ liveCoachTimer=setTimeout(()=>{$('live-coach').hidden=true;flushCompanionCue();},LIVE_COACH_MS);
+ return true;
+}
+function liveCoachStale(key){return key===liveCoachKey&&Date.now()-liveCoachShownAt>LIVE_COACH_MS;}
 let coachMemory=freshMemory(),coachRole='auto',asking=false,conversation=[],contextEpoch=0;try{coachMemory=readMemory(localStorage.getItem('xiaoya-memory-v1'));}catch{}
 function advanceContext(){contextEpoch++;invalidateCoachRequests();}
 function saveCoachMemory(){if(preview)return;try{localStorage.setItem('xiaoya-memory-v1',JSON.stringify(coachMemory));}catch{}}
@@ -25,7 +39,8 @@ let rosterType='all',loadoutDraft=null,loadoutOpen=false;
 // 电脑对手单人玩，由对手 agent（服务端 /api/opponent + 它自己的教练）出招，
 // 拿不到答案时退回 engine.js 的 chooseEnemy。pvpPicks 由分屏逻辑维护。
 // null = 还没出征，营地不替玩家宣称他选了哪种模式。
-let matchMode=null,pvpOpponent='ai',enemyTab='skill';
+// enemySelected：PVP 真人同机时对手选的三只（分屏右栏）。
+let matchMode=null,pvpOpponent='ai',enemyTab='skill',enemySelected=[];
 // 对局的对手有两种：AI 扮演真人（单人演示，自动配队、先手独立决定），
 // 或真人同机（分屏，两侧面板都可操作）。界面两者一致。
 // pvpEnemyLocked 现在两种模式共用：它装的就是对手这一回合的行动，
@@ -34,8 +49,8 @@ let pvpEnemyLocked=null,pvpEnemyRevealed=false;
 // 对手 agent 的进行中决策。enemyPlan.match 是它当时看到的那个 game 对象——
 // 任何一个新回合、重开、退出营地都会换掉 game，旧答案据此自动作废。
 let enemyPlan=null,enemyPlanToken=0;
-let bubbleTimer,stageId='meadow',preview=null,suspended=null;
-let selected=['fox','turtle','deer'],focus='fox',game=null,tab='skill',busy=false,matchId='',reward=null,coachSession={count:0,lastTurn:null,dismissed:false},faintShown=false,resultAnnounced=false;
+let bubbleTimer,companionFlush=null,stageId='meadow',preview=null,suspended=null;
+let selected=['fox','turtle','deer'],focus='fox',game=null,tab='skill',busy=false,matchId='',reward=null,coachSession=companionSession(),companionSaid=new Set(),companionPending=null,companionHover=false,bubbleDeadline=0;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const badge=p=>`<span class="type ${p.type}">${TYPES[p.type]}</span>`;
 function save(){try{localStorage.setItem(storageKey,JSON.stringify(profile));}catch{$('save-message').textContent='保存失败：当前成长仍可使用，刷新后可能丢失。';}wallet();}
@@ -51,11 +66,13 @@ function camp(){
  document.querySelectorAll('#camp-roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;selected=selected.filter(x=>x!==id);camp();});
  cultivation();
 }
-function filteredSpecies(){return SPECIES.filter(p=>rosterType==='all'||p.type===rosterType);}
-function renderTypeFilter(navId,rerender){
+let enemyRosterType='all';
+function filteredSpecies(which='rosterType'){const t=which==='enemyRosterType'?enemyRosterType:rosterType;return SPECIES.filter(p=>t==='all'||p.type===t);}
+function renderTypeFilter(navId,rerender,which='rosterType'){
+ const cur=which==='enemyRosterType'?enemyRosterType:rosterType;
  const filters=['all','fire','water','leaf','rock','electric','wind'];
- $(navId).innerHTML=filters.map(t=>{const n=t==='all'?SPECIES.length:SPECIES.filter(p=>p.type===t).length;return `<button data-roster-type="${t}" class="${rosterType===t?'selected':''}">${t==='all'?'全部':TYPES[t]} · ${n}</button>`;}).join('');
- document.querySelectorAll(`#${navId} [data-roster-type]`).forEach(b=>b.onclick=()=>{rosterType=b.dataset.rosterType;rerender();});
+ $(navId).innerHTML=filters.map(t=>{const n=t==='all'?SPECIES.length:SPECIES.filter(p=>p.type===t).length;return `<button data-roster-type="${t}" class="${cur===t?'selected':''}">${t==='all'?'全部':TYPES[t]}·${n}</button>`;}).join('');
+ document.querySelectorAll(`#${navId} [data-roster-type]`).forEach(b=>b.onclick=()=>{if(which==='enemyRosterType')enemyRosterType=b.dataset.rosterType;else rosterType=b.dataset.rosterType;rerender();});
 }
 // 出征页 = 选关卡、选三只、选难度，然后开始。
 function deployView(){
@@ -68,7 +85,8 @@ function deployView(){
  if(advice){const head=advice.lines[0]+' '+advice.lines[2];
   $('roster-advice').innerHTML=`<strong>✦ 阵容</strong><span>${escape(head)}</span><details><summary>全部结论</summary>${advice.lines.map(l=>'<p>'+escape(l)+'</p>').join('')}</details>`;}
  else $('roster-advice').innerHTML='<span class="muted">选好三只后给出阵容建议：共同弱点、克制面与速度线</span>';
- $('start').disabled=!!preview||selected.length!==3;
+ renderPickSplit();
+ $('start').disabled=!!preview||selected.length!==3||(matchMode==='pvp'&&pvpOpponent==='human'&&enemySelected.length!==3);
  document.querySelectorAll('#roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;selected=selected.includes(id)?selected.filter(x=>x!==id):[...selected,id];deployView();});
  document.querySelectorAll('#roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();camp();});
  const pvp=matchMode==='pvp',stage=STAGES.find(x=>x.id===stageId),avg=selected.length?Math.round(selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/selected.length):1;
@@ -76,8 +94,44 @@ function deployView(){
   +`<div class="side-row"><span>${pvp?'对手':'关卡'}</span><b>${pvp?(pvpOpponent==='human'?'真人同机 · 分屏':'AI 模拟真人 · Lv.'+avg):(stage?stage.name:'—')}</b></div>`
   +`<div class="side-row"><span>难度</span><b>${DIFFICULTIES[$('difficulty').value].name}</b></div>`
   +`<div class="side-row"><span>队伍</span><b>${selected.length} / 3</b></div>`
-  +`<p class="muted" style="margin-top:12px">${pvp?'对局不选关卡：对手从全部 12 只里自动配队，等级按你的队伍适配。':'训练按关卡挑战固定对手，胜利记录通关。'}</p>`;
+  +`<p class="muted" style="margin-top:12px">${pvp?`对局不选关卡：对手从全部 ${SPECIES.length} 只里自动配队，等级按你的队伍适配。`:'训练按关卡挑战固定对手，胜利记录通关。'}</p>`;
  $('deploy-side').querySelectorAll; 
+}
+// PVP 选宠分屏：与战斗页一致——左边我方，右边对方。
+//   · 对手是 AI：右栏显示它自动配好的三只（只读），让你知道要面对什么。
+//   · 对手是真人：右栏是同一个网格，双方各自选满三只（同屏，看得见彼此）。
+// PVP 没有「① 选择关卡」，所以步骤序号 ② 在 PVP 下隐藏，免得读起来像缺了一步。
+function renderPickSplit(){
+ const split=matchMode==='pvp';
+ $('pick-side-enemy').hidden=!split;
+ $('roster-step-no').hidden=split;
+ const box=document.querySelector('.pick-split');if(box)box.classList.toggle('split',split);
+ if(!split)return;
+ const ai=pvpOpponent!=='human';
+ $('pick-side-enemy-title').textContent=ai?'对方 · 已配好':'对方 · 同屏选';
+ const seed=Number($('seed').value);
+ const avg=selected.length?Math.round(selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/selected.length):1;
+ // 对方那只队伍：AI 由引擎自动配好，真人则是他自己在右栏选的。
+ const enemyTeam=ai?buildVersusOpponent(Number.isInteger(seed)?seed:17,{level:avg}).enemyTeam:enemySelected;
+ // 筛选：两侧各一个，互不影响
+ renderTypeFilter('enemy-pages',()=>deployView(),'enemyRosterType');
+ if(ai){
+  $('roster-enemy').innerHTML=enemyTeam.map(id=>{const b=SPECIES.find(x=>x.id===id);
+   return `<article class="pet-option chosen"><div class="pet-top"><span class="pet-icon">${b.icon}</span><div><h3>${b.name}</h3><span class="muted">Lv.${avg}</span></div></div></article>`;}).join('');
+ }else{
+  $('roster-enemy').innerHTML=filteredSpecies('enemyRosterType').map(base=>{const at=enemySelected.indexOf(base.id);
+   return `<article class="pet-option${at>=0?' chosen':''}">${at>=0?`<span class="order">${at+1}号位</span>`:''}<div class="pet-top"><span class="pet-icon">${base.icon}</span><div><h3>${base.name}</h3><span class="muted">Lv.${profile.pets[base.id]?.level||1}</span></div></div><div class="buttons"><button data-enemy-pet="${base.id}" ${at<0&&enemySelected.length>=3?'disabled':''}>${at>=0?'移出':'加入'}</button></div></article>`;}).join('');
+  document.querySelectorAll('#roster-enemy [data-enemy-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.enemyPet;
+   enemySelected=enemySelected.includes(id)?enemySelected.filter(x=>x!==id):[...enemySelected,id];deployView();});
+ }
+ // 双方阵容各评估一次。对方那条在 AI 对局里糊掉：看得见有评估，读不出内容。
+ const theirs=enemyTeam.map(id=>{const b=SPECIES.find(x=>x.id===id);
+  return {...b,...(profile.pets[id]||{}),level:ai?avg:(profile.pets[id]?.level||1)};});
+ const ea=enemyTeam.length===3?rosterAdvice(theirs):null;
+ const box2=$('enemy-advice');
+ box2.classList.toggle('blurred',ai&&!!ea);
+ box2.innerHTML=ea?`<strong>✦ 阵容</strong><span>${escape(ea.lines[0]+' '+ea.lines[2])}</span>`
+  :`<span class="muted">${ai?'等待对手配队':'对方选好三只后给出阵容评估'}</span>`;
 }
 function showCamp(){$('deploy').hidden=true;$('camp-home').hidden=false;$('camp-tab').classList.add('selected');}
 function showDeploy(mode){matchMode=mode||matchMode;$('camp-home').hidden=true;$('deploy').hidden=false;$('camp-tab').classList.remove('selected');syncMode();deployView();}
@@ -286,7 +340,7 @@ function commitPvpPick(){
  if(busy||!game||game.result)return;
  const theirs=humanOpponent()?pvpPicks.enemy:pvpEnemyLocked;
  if(!pvpPicks.player||!theirs){renderSplitPanels();return;}
- const mine=pvpPicks.player;tab='skill';enemyTab='skill';faintShown=false;resultAnnounced=false;
+ const mine=pvpPicks.player;tab='skill';enemyTab='skill';companionSaid=new Set();companionPending=null;hideCompanionCue();
  pvpOpponent=$('pvp-opponent').value;
  pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;
  act(mine,theirs);
@@ -339,9 +393,13 @@ for(const frame of next.frames||[]){if(!frame.text)continue;renderSides(frame.st
 game=next;
  // 陪练的主动气泡只挂在两个真实事件上：本局第一次有伙伴倒下，以及整局结束——
  // 那是闲聊与情绪，不是战术提示。战术提示归军师，由 strategistEvaluate 判定。
- if(!preview)for(const ev of companionEvents(game,{faintShown,resultAnnounced})){
-  if(ev==='first-faint')faintShown=true;else resultAnnounced=true;
-  notify(ev);
+ if(!preview){
+  // 陪练的触发只看真实发生的事：局内的四类信号 + 跨局的连胜/连败里程碑（都由 coach.js 派生）。
+  const live=coachContext(game,profile,coachMemory);
+  for(const ev of companionEvents(game,{said:companionSaid,winStreak:live.winStreak,lossStreak:live.lossStreak})){
+   companionSaid.add(ev);
+   notify(ev);
+  }
  }
  // 结算后用 after 快照判一次「明显策略错误」：分差与后果都来自真实枚举，
  // 不做多步搜索、不冒充胜率。只在轮到补位或本局还没说过时才可能开口。
@@ -354,17 +412,108 @@ game=next;
   // 军师在局内反复看到同一课上的失误（判据是 transferAssessment：只数没被提示的独立行动）→
   // 把这一课标回未掌握，老师才有机会再讲一次。为什么又教，答案就是这里的 reason。
   if(decision.lesson){const struggle=observeStruggle(coachMemory,{lesson:decision.lesson});if(struggle.relearned){coachMemory=struggle.memory;logCoachEvent('relearn',decision.lesson);}}
-  saveCoachMemory();}lastFeedback=pvpMode()?null:feedback(game.history.filter(x=>x.type==='turn').at(-1),currentHint);if(!preview){roundArchive=archiveRound(game,roundArchive);try{localStorage.setItem('xiaoya-last-round',JSON.stringify(roundArchive));}catch{$('save-message').textContent='对局记录保存失败，先导出战报以免刷新丢失。';}}if(old.phase==='replace')tab='skill';if(game.result){const settled=settle(profile,game,matchId);profile=settled.profile;reward=settled.reward;if(!game.preview){save();coachMemory=rememberBattle(coachMemory,game);saveCoachMemory();}/* Completion review is rendered after settlement, without a second generic bubble. */}else if(!faintShown&&game.player.pets.some(p=>p.hp<=0)){faintShown=true;}
+  saveCoachMemory();}lastFeedback=pvpMode()?null:feedback(game.history.filter(x=>x.type==='turn').at(-1),currentHint);if(!preview){roundArchive=archiveRound(game,roundArchive);try{localStorage.setItem('xiaoya-last-round',JSON.stringify(roundArchive));}catch{$('save-message').textContent='对局记录保存失败，先导出战报以免刷新丢失。';}}if(old.phase==='replace')tab='skill';if(game.result){const settled=settle(profile,game,matchId);profile=settled.profile;reward=settled.reward;if(!game.preview){save();coachMemory=rememberBattle(coachMemory,game);saveCoachMemory();}/* Completion review is rendered after settlement, without a second generic bubble. */}else if(!companionSaid.has('first-faint')&&game.player.pets.some(p=>p.hp<=0)){companionSaid.add('first-faint');}
 $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':`${next.frames?.filter(f=>f.text).at(-1)?.text||'补位完成。'} 下一回合由你决定。`;
 }catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
-function notify(event){if(preview)return;const text=coachEvent(event,coachContext(game,profile),coachSession);if(text){$('bubble-text').textContent=text;$('coach-bubble').hidden=false;clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);}}
+function notify(event){if(preview)return;const text=coachEvent(event,coachContext(game,profile,coachMemory),coachSession);if(text)queueCompanionCue(text);}
+
+// —— 陪练的在场方式（#coach-bubble）─────────────────────────────────────────────
+// 三个角色的出现方式必须一眼分得开：
+//   军师 / 老师 = 顶部条（#live-coach）里一句短话 + 「看看原因」；
+//   陪练      = 左下角一个人：头像 + 名字 + 2–3 行，自己会走。
+// 「不同时出现」的仲裁在 coach/companion.js 的 companionCueSlot：军师条在场时陪练排队，
+// 条收起来再补上；排队超过 20 秒就丢掉——补一句过期的话不如不说。
+function hideCompanionCue(){clearTimeout(bubbleTimer);bubbleTimer=null;$('coach-bubble').hidden=true;companionHover=false;bubbleDeadline=0;companionShownCue=null;}
+// 让位：军师/老师要开口，陪练先收起来。**已经显示出来的那一句不丢**——它回到队列里，
+// 等军师条收起来再说完（队列里只留最新的一条，所以不会在角上摞一叠）。
+function yieldCompanionCue(){
+ const shown=companionShownCue;
+ clearTimeout(bubbleTimer);bubbleTimer=null;$('coach-bubble').hidden=true;companionHover=false;bubbleDeadline=0;
+ companionShownCue=null;
+ // 已经显示出来的那一句回队列（排队时间从它**第一次**排上算起），军师条收起后再说。
+ if(shown&&!companionPending)companionPending=shown;
+}
+// 时长按时长算：15 秒 + 每 10 个字 3 秒（40 字 ≈ 27 秒，10 字 ≈ 18 秒）。
+// 军师条那套固定短时长不适用：它在顶部、挡决策视线；陪练在左下角，留久一点不挡事。
+function armCompanionTimer(remaining){
+ const total=Number.isFinite(remaining)?remaining:bubbleDurationMs($('bubble-text').textContent);
+ clearTimeout(bubbleTimer);bubbleDeadline=Date.now()+total;
+ bubbleTimer=setTimeout(()=>{if(companionHover)return;hideCompanionCue();},total);
+}
+// 位置：默认左下角。左下角被操作区占住（窗口矮）时退到右下角——
+// 「不遮挡技能区、对方面板、底部教练条」是硬要求，右下角只压在战斗记录上。
+const COMPANION_PROTECTED=['#actions','#tabs','#panel-enemy','#player-coach','#enemy-coach','#live-coach','#attention-cue'];
+function companionObstacles(){
+ const out=[];
+ for(const sel of COMPANION_PROTECTED)for(const node of document.querySelectorAll(sel)){
+  if(node.hidden||node.closest('[hidden]'))continue;
+  const r=node.getBoundingClientRect();if(r.width>0&&r.height>0)out.push(r);
+ }
+ return out;
+}
+function rectsOverlap(a,b){return a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;}
+function placeCompanionBubble(){
+ const box=$('coach-bubble');
+ if(box.hidden)return 'hidden';
+ box.style.left='';box.style.right='';
+ const obstacles=companionObstacles(),leftHits=obstacles.filter(r=>rectsOverlap(box.getBoundingClientRect(),r)).length;
+ if(!leftHits)return 'bottom-left';
+ box.style.left='auto';box.style.right='14px';
+ const rightHits=obstacles.filter(r=>rectsOverlap(box.getBoundingClientRect(),r)).length;
+ if(rightHits<=leftHits)return 'bottom-right';
+ box.style.left='';box.style.right='';
+ return 'bottom-left';
+}
+function showCompanionCue(text,tag='',at){
+ if(!text)return false;
+ const avatar=companionAvatar(),box=$('coach-bubble');
+ $('bubble-avatar').textContent=avatar.icon;
+ $('bubble-name').textContent=avatar.name;
+ $('bubble-tag').textContent=tag;$('bubble-tag').hidden=!tag;
+ $('bubble-text').textContent=text;box.hidden=false;
+ companionShownCue={text,tag,at:Number.isFinite(at)?at:Date.now()};
+ companionShownAt=Date.now();
+ // 开口之后的 minVisibleMs 是陪练的保留时间：这几秒里军师不抢顶部条。
+ // 一句话被切成 0.1 秒比不说更烦，而且那半秒谁也读不完。
+ companionHoldUntil=companionShownAt+COMPANION_DEFER.minVisibleMs;
+ placeCompanionBubble();
+ companionHover=false;armCompanionTimer();
+ return true;
+}
+// 下一条直接替换上一条：不排队堆积，角上不会摞一叠话。
+function queueCompanionCue(text,tag=''){
+ if(!text)return;
+ companionPending={text,tag,at:Date.now()};
+ // 不在这一瞬间就判：act() 的末尾还会调用 updateCoach()，军师条可能马上就出现。
+ // 让出一拍再判，才不会出现「陪练闪一下又让位」——那种闪烁比不说更烦。
+ clearTimeout(companionFlush);
+ companionFlush=setTimeout(()=>flushCompanionCue(),0);
+}
+function flushCompanionCue(){
+ clearTimeout(companionFlush);companionFlush=null;
+ if(!companionPending)return null;
+ // 军师/老师正在说话的两种形态：顶部条（#live-coach）与中间那条提示（#attention-cue）。
+ // 任何一个在场，陪练都先等着——「两处噪音」指的就是这两种声音叠在一起。
+ function strategistCueVisible(){return !$('live-coach').hidden||!$('attention-cue').hidden;}
+ // 让位判定只有一处（coach/companion.js 的 companionCueSlot）。
+ const slot=companionCueSlot({barVisible:strategistCueVisible(),queuedAt:companionPending.at,now:Date.now(),holdUntil:companionShownAt+COMPANION_DEFER.minVisibleMs});
+ if(slot.action==='hold')return 'hold';
+ const pending=companionPending;companionPending=null;
+ if(slot.action==='drop')return 'drop';
+ return showCompanionCue(pending.text,pending.tag,pending.at)?'show':'idle';
+}
+$('coach-bubble').addEventListener('pointerenter',()=>{if($('coach-bubble').hidden||!bubbleDeadline)return;companionHover=true;clearTimeout(bubbleTimer);bubbleTimer=null;});
+$('coach-bubble').addEventListener('pointerleave',()=>{if($('coach-bubble').hidden||!companionHover)return;companionHover=false;armCompanionTimer(Math.max(1500,bubbleDeadline-Date.now()));});
 
 // —— 军师的局内主动层 ——
 // 陪练开口看的是「刚发生了什么事件」，军师开口看的是「现在值不值得打断」，
 // 所以门控全部收在 coach/experience.js 的军师触发层里（每局上限、理由去重、冷却、安静档），
 // 这里只负责：把真实触发交进去、把说不说的理由写进记录、以及显示。
+// 陪练刚开口的 minVisibleMs 内，军师不抢麦。注意这只是「晚一点说」，不是「不说」：
+// 触发层每秒巡检一次，条件还在的话窗口一过照常开口。
+function companionSpeaking(){return !$('coach-bubble').hidden&&Date.now()<companionHoldUntil;}
 function strategistHintsAllowed(){
- return !busy&&!asking&&!preview&&!game?.result&&!document.hidden&&document.hasFocus()&&$('coach-panel').hidden;
+ return !busy&&!asking&&!preview&&!game?.result&&!document.hidden&&document.hasFocus()&&$('coach-panel').hidden&&!companionSpeaking();
 }
 // 军师唯一的一次判定入口：说就说，不说就返回 null。
 // after 只有「这一手刚结算完」时才有，所以策略错误只在结算后成立，不会每个回合重复弹。
@@ -391,8 +540,8 @@ function strategistCue(trigger){
  // 除非军师之后的独立行动记录显示没学会（见 act() 里的 observeStruggle）。
  if(role==='teacher'&&trigger.teach&&!preview){coachMemory=markTaught(coachMemory,{lesson:trigger.teach});logCoachEvent('teach',trigger.teach);saveCoachMemory();}
  const text=concise(trigger.text,150);
- $('bubble-text').textContent=text;
- $('coach-bubble').hidden=false;clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);
+ // 一条消息只出现在一个地方：军师/老师这条走顶部条与中央提示，陪练的气泡先收起来（它会排队等）。
+ yieldCompanionCue();
  $('attention-text').textContent=text;$('attention-cue').hidden=false;speakCue(text);
  clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,12000);
  return strategistHint;
@@ -413,9 +562,9 @@ async function ask(text){
  }catch(e){hideThinking();if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{hideThinking();asking=false;$('chat-send').disabled=false;$('chat-input').disabled=false;}
 }
 function startMatch(){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
-game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('coach-bubble').hidden=true;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
+game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv,team:pvpOpponent==='human'&&enemySelected.length===3?enemySelected:null})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';attention=attentionState(Date.now());coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
 $('start').onclick=()=>startMatch();
-function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':matchMode==='pve'?'训练 · PVE · v0.11':'营地 · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
+function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':matchMode==='pve'?'训练 · PVE · v0.11':'营地 · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;companionPending=null;hideCompanionCue();$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
 function syncMode(){
  const pvp=matchMode==='pvp';
  $('stage-step').hidden=pvp;$('stage-picker').hidden=pvp;$('stage-detail').hidden=pvp;
@@ -424,16 +573,16 @@ function syncMode(){
  $('start').textContent=pvp?'开始对战':'开始训练';
  $('mode-badge').textContent=matchMode===null?'营地 · v0.11':pvp?'对局 · PVP · v0.11':'训练 · PVE · v0.11';
  if($('deploy-mode'))$('deploy-mode').textContent=pvp?'对局 · PVP':'训练 · PVE';
- $('mode-note').textContent=pvp?(pvpOpponent==='human'?'对局 · 真人同机：分屏同屏，两侧面板都可操作，各自选招后一起结算；双方各有一条教练。':'对局 · AI 模拟真人：对手从全部 12 只里自动配队并适配你的等级，先独立出招再看不到你的选择；界面与真人对战一致。')
+ $('mode-note').textContent=pvp?(pvpOpponent==='human'?'对局 · 真人同机：分屏同屏，两侧面板都可操作，各自选招后一起结算；双方各有一条教练。':`对局 · AI 模拟真人：对手从全部 ${SPECIES.length} 只里自动配队并适配你的等级，先独立出招再看不到你的选择；界面与真人对战一致。`)
   :'训练 · PVE：按关卡挑战固定对手，教练会主动提示，也可随时提问。';
 }
-$('pvp-opponent').onchange=()=>{pvpOpponent=$('pvp-opponent').value;syncMode();if(!$('deploy').hidden)deployView();};
+$('pvp-opponent').onchange=()=>{pvpOpponent=$('pvp-opponent').value;enemySelected=[];syncMode();if(!$('deploy').hidden)deployView();};
 $('difficulty').onchange=()=>{if(!$('deploy').hidden)deployView();};
 syncMode();
 $('restart').onclick=toCamp;$('camp-tab').onclick=()=>{if(game&&!game.result){toCamp();return;}showCamp();};$('go-pve').onclick=()=>showDeploy('pve');$('go-pvp').onclick=()=>showDeploy('pvp');$('rules-toggle').onclick=()=>$('rules').showModal();
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{if((b.dataset.side||'player')==='enemy')enemyTab=b.dataset.tab;else tab=b.dataset.tab;render();});
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify(game,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`pet-battle-${game.initialSeed}-turn-${game.turn}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-$('coach-open').onclick=openCoach;$('coach-close').onclick=()=>$('coach-panel').hidden=true;$('bubble-chat').onclick=()=>{openCoach();addChat('小芽',$('bubble-text').textContent);};$('bubble-close').onclick=()=>{coachSession.dismissed=true;attention.dismissed=true;coachMuted=true;hintEpoch++;$('live-coach').hidden=true;$('attention-cue').hidden=true;$('coach-bubble').hidden=true;};$('coach-mode').onchange=()=>{cancelVoice();profile.coach.mode=$('coach-mode').value;advanceContext();hintEpoch++;$('attention-cue').hidden=true;attention.since=Date.now();if(profile.coach.mode==='quiet')$('coach-bubble').hidden=true;save();if(game)updateCoach();else cultivation();};
+$('coach-open').onclick=openCoach;$('coach-close').onclick=()=>$('coach-panel').hidden=true;$('bubble-chat').onclick=()=>{openCoach();addChat('小芽',$('bubble-text').textContent);};$('bubble-close').onclick=()=>{logCoachEvent('dismiss','companion');coachSession.dismissed=true;companionPending=null;hideCompanionCue();};$('coach-mode').onchange=()=>{cancelVoice();profile.coach.mode=$('coach-mode').value;advanceContext();hintEpoch++;$('attention-cue').hidden=true;attention.since=Date.now();if(profile.coach.mode==='quiet'){companionPending=null;hideCompanionCue();}save();if(game)updateCoach();else cultivation();};
 $('chat-form').onsubmit=e=>{e.preventDefault();ask($('chat-input').value);$('chat-input').value='';};document.querySelectorAll('[data-question]').forEach(b=>b.onclick=()=>ask(b.dataset.question));
 
 // P05：难度名称与说明、规则弹窗正文都从规则数据源生成，界面不再手写数值。
@@ -449,18 +598,18 @@ function renderStages(){
  $('stage-detail').innerHTML=`<p class="stage-desc">${escape(stage.description)}</p><p class="stage-enemy"><span class="muted">对手阵容</span>${stage.team.map(id=>{const pet=SPECIES.find(p=>p.id===id),build=stage.pets[id];return `<span class="enemy-chip">${pet.icon} ${pet.name} <em>Lv.${build.level}</em><small>耐${build.points.hp}/力${build.points.atk}/敏${build.points.speed}</small></span>`;}).join('')}</p><p class="stage-reward muted">首次 ${ruleFacts().swiftTurnLimit} 回合内获胜额外 1 训练点 · 慢打基础奖励不减</p>`;
  document.querySelectorAll('[data-stage]').forEach(b=>b.onclick=()=>{advanceContext();stageId=b.dataset.stage;renderStages();cultivation();});
 }
-function clearScene(){clearTimeout(bubbleTimer);$('coach-bubble').hidden=true;$('scene-inline').hidden=true;$('scene-result').hidden=true;$('coach-panel').hidden=true;if($('growth-scene'))$('growth-scene').hidden=true;}
+function clearScene(){companionPending=null;hideCompanionCue();$('scene-inline').hidden=true;$('scene-result').hidden=true;$('coach-panel').hidden=true;if($('growth-scene'))$('growth-scene').hidden=true;}
 function presentScene(){
  clearScene();const scene=SCENARIOS.find(x=>x.id===preview);if(!scene)return;
  if(scene.placement==='inline'){$('scene-inline').hidden=false;$('inline-copy').hidden=true;$('inline-copy').textContent=scene.text;$('inline-expand').hidden=false;}
- if(scene.placement==='bubble'){$('bubble-text').textContent=scene.text;$('coach-bubble').hidden=false;bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);}
+ if(scene.placement==='bubble')showCompanionCue(scene.text,'预制场景');
  if(scene.placement==='result'){$('scene-result').hidden=false;$('scene-result-text').textContent=scene.text;}
  if(scene.placement==='growth')$('growth-scene').hidden=false;
 }
 function startPreview(id){
  if(busy)return;advanceContext();
- hintEpoch++;$('live-coach').hidden=true;if(!preview)suspended={game,matchId,reward,tab,coachSession,faintShown,focus,coachMemory:structuredClone(coachMemory),conversation:structuredClone(conversation)};
- preview=id;game=createScenario(id);matchId='preview';reward=null;tab='skill';coachSession={count:0,lastTurn:null,dismissed:false};strategistHint=strategistSession();turnIncident=null;strategistPanel=null;
+ hintEpoch++;$('live-coach').hidden=true;if(!preview)suspended={game,matchId,reward,tab,coachSession,companionSaid,focus,coachMemory:structuredClone(coachMemory),conversation:structuredClone(conversation)};
+ preview=id;game=createScenario(id);matchId='preview';reward=null;tab='skill';coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;
  $('scenes-dialog').close();$('preview-bar').hidden=false;$('preview-title').textContent='预制体验 · '+SCENARIOS.find(x=>x.id===id).title+' · 不保存进度';
  $('camp-home').hidden=id!=='growth';$('deploy').hidden=id!=='growth';$('battle').hidden=id==='growth';
  if(id==='growth')camp();else render();
@@ -468,7 +617,7 @@ function startPreview(id){
 }
 function exitPreview(){
  if(busy||!preview)return;advanceContext();clearScene();preview=null;
- ({game,matchId,reward,tab,coachSession,faintShown,focus,coachMemory,conversation}=suspended);suspended=null;$('preview-bar').hidden=true;
+ ({game,matchId,reward,tab,coachSession,companionSaid,focus,coachMemory,conversation}=suspended);suspended=null;$('preview-bar').hidden=true;
  $('camp-home').hidden=!!game;$('deploy').hidden=!!game;$('battle').hidden=!game;
  if(game){render();updateCoach();$('action-banner').textContent='已恢复体验前的对战。';}else camp();
 }
@@ -485,6 +634,11 @@ $('clear-memory').onclick=()=>{advanceContext();conversation=[];$('chat-log').re
 let reviewedMatch=null,reviewAnswer=null;
 function showMatchReview(){
  const box=$('live-coach'),context=matchContext('复盘本局'),packet=reviewMatch(context),quiet=profile.coach.mode==='quiet';
+ // 本局回顾占的是同一条顶部条：它出现时陪练让位，它停够时间也收起来（否则陪练的收尾那句永远轮不上）。
+ yieldCompanionCue();
+ const reviewKey='review|'+game.id;
+ armLiveCoach(reviewKey);
+ if(liveCoachStale(reviewKey)){box.hidden=true;return;}
  box.hidden=false;box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ 小芽 · 本局回顾</span><span id="result-copy">'+escape(quiet?'本局分析已备好，需要时展开。':concise(packet.brief||packet.text,110))+'</span><button id="result-review">整局分析</button></div><details><summary>关键回合与依据</summary>'+packet.evidence.map(x=>'<p>'+escape(x)+'</p>').join('')+'</details><small id="result-provider">本局记录分析</small>';
  $('result-review').onclick=()=>{openCoach();ask('总结整局：这局发生了什么，有什么值得记住的选择？');};
  if(reviewAnswer?.id===game.id&&!quiet){$('result-copy').textContent=concise(reviewAnswer.text,100);$('result-provider').textContent=reviewAnswer.source;}
@@ -509,12 +663,17 @@ function updateCoach(force=false){
  const shouldShow=force||!coachMuted;
  box.hidden=!shouldShow;
  if(!shouldShow)return;
+ // 同一条理由停够 LIVE_COACH_MS 就收起来：玩家已经读过了。新的理由会换 key，照常出现。
+ const panelKey=`${strategistPanel.role||''}|${strategistPanel.reason}|${strategistPanel.lesson||''}`;
+ armLiveCoach(panelKey);
+ if(!force&&liveCoachStale(panelKey)){box.hidden=true;return;}
+ // 陪练正在说的那几秒，顶部条先不画；窗口一过，下一次 act()/巡检就会把它补上。
+ if(!force&&companionSpeaking()){box.hidden=true;return;}
  // 一条消息只能出现在一个地方。
  // 起因：使用者截图里同一段老师讲解同时出现在顶部条、左下浮层和右下气泡三处，
  // 文字一模一样。军师与老师的这条既然走了顶部条，就把另外两个属于陪练/场景的
  // 浮层收掉，避免同一句话重复三遍。
- clearTimeout(bubbleTimer);
- $('coach-bubble').hidden=true;
+ yieldCompanionCue();
  $('scene-inline').hidden=true;
  // 风险档原先读一个已经不存在的 critical 变量（军师改造时删掉了定义、留下了引用，
  // 表现为每秒一次的 ReferenceError）。这里从军师这次的触发理由重新推出：
@@ -567,6 +726,10 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){advanceCon
 setInterval(()=>{
  if(!game)return;const now=Date.now(),turn=game.turn+':'+game.phase;
  trackAttention(attention,turn,null,now);
+ // 陪练排队的句子在这里补：军师条一旦收起来，它才出现（两者不同时在场）。
+ flushCompanionCue();
+ // 气泡的位置是量出来的：结算面板出现或窗口变化会推动版面，量一次就能自己挪开。
+ if(!$('coach-bubble').hidden)placeCompanionBubble();
  const allowed=strategistHintsAllowed();
  if(allowed&&showWatchCue())return;
  if(allowed&&showTacticalCue())return;
@@ -597,6 +760,7 @@ function showTacticalCue(){
  const cue=decisiveOpportunity(game);if(!cue||tacticalShown.has(cue.id))return false;
  logCoachEvent('hint','endgame');tacticalShown.add(cue.id);tacticalCount++;lastTacticalTurn=game.turn;cueRole='strategist';
  attention.lastShown=Date.now();attention.shownTurn=game.turn+':'+game.phase;
+ yieldCompanionCue();
  $('attention-text').textContent=cue.text;$('attention-cue').hidden=false;speakCue(cue.text);
  clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,12000);return true;
 }
@@ -703,7 +867,7 @@ if(!VOICE_FEATURE)voiceStatus('语音已暂停使用 · 文字提示与其余功
 else if('speechSynthesis' in window)voiceStatus(voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');
 $('reset-habits').onclick=()=>{coachMemory.journal=[];coachMemory.reflections={};saveCoachMemory();addChat('小芽','已清除行动观察和提醒习惯。你设置的提醒档位、游戏成长和战报都保留。');};
 
-function showWatchCue(){if(profile.coach.mode==='quiet'||coachMuted||attention.dismissed)return false;const cue=watchCandidate(game,coachMemory.watches);if(!cue)return false;coachMemory.watches=coachMemory.watches.filter(w=>w.id!==cue.id);logCoachEvent('hint','watch');cueRole='strategist';saveCoachMemory();$('attention-text').textContent=cue.text;$('attention-cue').hidden=false;attention.shownTurn=game.turn+':'+game.phase;attention.lastShown=Date.now();speakCue(cue.text);clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,10000);return true;}
+function showWatchCue(){if(profile.coach.mode==='quiet'||coachMuted||attention.dismissed)return false;const cue=watchCandidate(game,coachMemory.watches);if(!cue)return false;coachMemory.watches=coachMemory.watches.filter(w=>w.id!==cue.id);logCoachEvent('hint','watch');cueRole='strategist';saveCoachMemory();$('attention-text').textContent=cue.text;$('attention-cue').hidden=false;attention.shownTurn=game.turn+':'+game.phase;attention.lastShown=Date.now();yieldCompanionCue();speakCue(cue.text);clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,10000);return true;}
 
 // First-use choice is a preference, not a forced tutorial or skill assessment.
 document.querySelectorAll('[data-style]').forEach(button=>button.onclick=()=>{

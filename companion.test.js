@@ -2,11 +2,12 @@
 // 对局数据全部由引擎真实跑出来（不是手写的事件对象），这样「引用真实事件」才是真的被验证。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,step,legalActions,rankEnemyActions,SPECIES} from './engine.js';
+import {createGame,step,legalActions,rankEnemyActions,SPECIES,SKILLS} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {companion,companionState,companionFacts,checkCompanionRestraint,decideRegister,proactiveRegister,proactiveText,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents} from './coach/companion.js';
+import {companion,companionState,companionFacts,checkCompanionRestraint,decideRegister,proactiveRegister,proactiveText,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
+import {strategistTrigger,strategistSession,attentionState} from './coach/experience.js';
 import {coachEvent,coachContext} from './coach.js';
 
 const STAGE='05 · 冠军高地';
@@ -140,10 +141,19 @@ test('every number the companion says is backed by its own evidence',()=>{
  }
 });
 
-test('restraint scan rejects the five forbidden shapes and accepts our own templates',()=>{
+test('restraint scan keeps the hard lines and lets the companion have feelings',()=>{
  const facts={allowPast:true,lessons:['灼烧追击']};
- const cases=[['别灰心，你已经很棒了！','empty-encouragement'],['没关系的，下次一定赢。','empty-encouragement'],['我很开心能陪你打这一局。','first-person-emotion'],['这局要不要再来？还是先看看？','too-many-questions'],['你速度意识差，太弱了。','skill-insult'],['我们已经练过速度判断了。','lesson-not-recorded']];
+ const cases=[['别灰心，你已经很棒了！','empty-encouragement'],['没关系的，下次一定赢。','empty-encouragement'],['这局要不要再来？还是先看看？','too-many-questions'],['你速度意识差，太弱了。','skill-insult'],['我们已经练过速度判断了。','lesson-not-recorded'],
+  // 这一轮新增的两条硬线：说教与战术越界。陪练可以吐槽局面，但不能训人，也不能替军师下指令。
+  ['你应该多用防御，下次别再这样了。','preach'],['建议你换上潮甲龟，先出火花。','tactical-overreach'],['你手残才打不中。','skill-insult']];
  for(const [text,reason] of cases)assert(checkCompanionRestraint(text,{register:'R2',facts}).reasons.some(r=>r.startsWith(reason)),`${text} → ${reason}`);
+ // 第一人称情绪：陪练声线（默认）放开，克制声线仍然拦——放开的是「谁在说话」，不是「能不能训人」。
+ assert(checkCompanionRestraint('我有点难过，烬尾狐又被克着打了。',{register:'R4',facts}).valid,'陪练声线允许第一人称情绪');
+ assert(checkCompanionRestraint('我有点难过，烬尾狐又被克着打了。',{register:'R4',facts,voice:'sober'}).reasons.includes('first-person-emotion'),'克制声线仍然拦第一人称情绪');
+ // 轻度吐槽（说的是局面与选择）必须放行，且不得因为放开情绪就连羞辱也一起放进来
+ for(const allowed of ['这手疾爪打得我愣了一下，我还以为能收掉。','又是火花，连着三个回合了——我在旁边都跟着念出来。','我看得有点急。'])
+  assert.deepEqual(checkCompanionRestraint(allowed,{register:'R4',facts}).reasons,[],allowed);
+ assert(checkCompanionRestraint('你这手打得太菜了。',{register:'R4',facts}).reasons.includes('skill-insult'));
  assert(checkCompanionRestraint('上次那局你也是这么输的。',{register:'R2',facts:{allowPast:false,lessons:[]}}).reasons.includes('unsupported-past-claim'));
  assert.equal(checkCompanionRestraint('上次那局你也是这么输的。',{register:'R2',facts:{allowPast:true,lessons:[]}}).valid,true,'有记录时同样的句子是允许的');
  assert.equal(checkCompanionRestraint('要看第3回合吗？',{register:'R2',facts}).valid,true,'R2 允许一个问句');
@@ -312,16 +322,169 @@ test('companion facts degrade to null instead of default values',()=>{
  assert.match(text,/青芽草地9回合/);
  assert(!/倒下|回合倒下|回复药/.test(text));
 });
-test('the proactive bubble fires on exactly two events, once each per match',()=>{
+test('each companion event fires once per match, and stops when the facts stop',()=>{
  const mk=(hp,result=null)=>({result,player:{pets:[{hp},{hp:10},{hp:10}]}});
- // 没有减员、也没结束：一次都不该开口
- assert.deepEqual(companionEvents(mk(50),{faintShown:false,resultAnnounced:false}),[]);
+ // 没有减员、也没有结束：一次都不该开口
+ assert.deepEqual(companionEvents(mk(50),{}),[]);
  // 第一次减员：开口一次
- assert.deepEqual(companionEvents(mk(0),{faintShown:false,resultAnnounced:false}),['first-faint']);
+ assert.deepEqual(companionEvents(mk(0),{}),['first-faint']);
  // 已经报过就不再重复
- assert.deepEqual(companionEvents(mk(0),{faintShown:true,resultAnnounced:false}),[]);
+ assert.deepEqual(companionEvents(mk(0),{said:['first-faint']}),[]);
  // 整局结束：开口一次
- assert.deepEqual(companionEvents(mk(0,'win'),{faintShown:true,resultAnnounced:false}),['result']);
+ assert.deepEqual(companionEvents(mk(0,'win'),{said:['first-faint']}),['result']);
  // 结束后不再重复
- assert.deepEqual(companionEvents(mk(0,'win'),{faintShown:true,resultAnnounced:true}),[]);
+ assert.deepEqual(companionEvents(mk(0,'win'),{said:['first-faint','result']}),[]);
+ // 跨局里程碑：连胜 ≥2 / 连败 ≥3 各占一次结算，里程碑优先于普通「打完了」
+ assert.deepEqual(companionEvents(mk(0,'win'),{winStreak:2}),['streak-win']);
+ assert.deepEqual(companionEvents(mk(0,'loss'),{lossStreak:3}),['streak-loss']);
+ assert.deepEqual(companionEvents(mk(0,'loss'),{lossStreak:2}),['result']);
+ // 一次调用最多一个事件：同一回合不会连说几句
+ const many=companionEvents({history:[],player:{pets:[{hp:0}]}},{});
+ assert(many.length<=1);
+ assert.equal(eventRegister('countered'),'R4');
+ assert.equal(eventRegister('repeat-skill'),'R4');
+ assert.equal(eventRegister('stalemate'),'R4');
+ assert.equal(eventRegister('swing'),'R4');
+ assert.equal(eventRegister('streak-loss'),'R3');
+ assert.equal(eventRegister('first-faint'),'R1');
+ assert.equal(eventRegister('result',{lossStreak:2}),'R3');
+});
+
+// —— 在场层：真实事件、真实事实 ——
+// 下面每一局都由引擎真实跑出来（策略固定：每三回合防御一次、其余用最省能量的技能，把局拖长），
+// 期望值直接从 game 对象与 companionSignals 推导，不是手写文案。
+function playUntil(stage,seed,want,strategy='defensive'){
+ let g=createGame(seed,undefined,{difficulty:'easy',stageId:stage,stageName:'测试场'});
+ const signals=()=>companionSignals(g);
+ for(let n=0;n<200&&!g.result;n++){
+  if(signals()[want])return {game:g,signals:signals()};
+  const legal=legalActions(g);
+  let action;
+  if(strategy==='defensive'){
+   const guard=legal.find(a=>a.id==='guard');
+   const cheap=legal.filter(a=>a.kind==='skill').sort((a,b)=>(SKILLS[a.id]?.cost||0)-(SKILLS[b.id]?.cost||0))[0];
+   action=(n%3===0&&guard)?guard:(cheap||legal[0]);
+  }else{
+   // 一直用同一招：这是「连着用同一招」这类事件的真实成因，不是为了测试造的假局面。
+   action=legal.find(a=>a.kind==='skill'&&a.id==='strike')||legal.find(a=>a.kind==='skill'&&a.id!=='guard')||legal[0];
+  }
+  g=step(g,action);
+  if(signals()[want])return {game:g,signals:signals()};
+ }
+ return {game:g,signals:signals()};
+}
+// 真打到「有伙伴倒下、进入免费补位」那一回合（军师侧要用真实局面，不能靠改字段造出来）。
+function playToReplace(stage,seed){
+ let g=createGame(seed,undefined,{difficulty:'easy',stageId:stage,stageName:'测试场'});
+ for(let n=0;n<200&&!g.result&&g.phase!=='replace';n++){
+  const legal=legalActions(g);
+  const cheap=legal.filter(a=>a.kind==='skill').sort((a,b)=>(SKILLS[a.id]?.cost||0)-(SKILLS[b.id]?.cost||0))[0];
+  g=step(g,cheap||legal[0]);
+ }
+ return g;
+}
+// 事件名 → 信号字段。测试里两个词表要一一对上，否则「补了触发」只是名字好听。
+const SIGNAL_OF={'countered':'countered','repeat-skill':'repeat','swing':'swing','stalemate':'stalemate'};
+
+test('the companion speaks on real in-match events, and every line cites the fact behind it',()=>{
+ const profile=newProfile();
+ // 四类局内事件各自的真实对局（种子与关卡都是跑出来的，不是编的）
+ const fixtures=[['countered','meadow',2,'same-skill'],['repeat-skill','meadow',1,'same-skill'],['swing','meadow',1,'same-skill'],['stalemate','meadow',9,'defensive']];
+ for(const [event,stage,seed,strategy] of fixtures){
+  const {game,signals}=playUntil(stage,seed,SIGNAL_OF[event],strategy);
+  const fact=signals[SIGNAL_OF[event]];
+  assert(fact,`${event} 的测试对局没跑出信号（${stage} seed ${seed}）`);
+  // 同一回合只报一个事件：本局第一次减员优先，报过之后才轮到局势逆转这类话。
+  const fallen=(game.player.pets||[]).some(p=>p&&p.hp<=0);
+  if(fallen)assert.deepEqual(companionEvents(game,{}),['first-faint'],'一次只报一个事件，减员优先');
+  const events=companionEvents(game,{said:fallen?['first-faint']:[]});
+  assert(events.includes(event),`${event} 应当在真实局面里成立，实际：${events.join(',')}`);
+  const register=eventRegister(event);
+  const text=proactiveText(event,{...coachContext(game,profile),signals},register);
+  assert(text,`${event} 应当有话说`);
+  assert(text.length<=REGISTERS[register].limit,`${event} 超长：${text}`);
+  assert(!/[？?]/.test(text),`${event} 是陈述，不该反问：${text}`);
+  assert.deepEqual(checkCompanionRestraint(text,{register,facts:{allowPast:true,lessons:[]}}).reasons,[],text);
+  // 「引用了真实发生的事」是可核对的：文本里必须出现那条事实本身
+  if(event==='countered'){assert(text.includes(fact.pet),text);assert(text.includes(fact.type),text);assert(text.includes(String(fact.times)),text);}
+  if(event==='repeat-skill'){assert(text.includes(fact.skill),text);assert(text.includes(String(fact.times)),text);}
+  if(event==='swing'){assert(text.includes(String(fact.turn)),text);}
+  if(event==='stalemate'){assert(text.includes(String(fact.turns)),text);}
+ }
+ // 没有真实事实时一个字都不编：signals 缺失 → 所有在场事件都返回 null
+ for(const event of ['countered','repeat-skill','swing','stalemate'])assert.equal(proactiveText(event,{turn:5},eventRegister(event)),null,event);
+ const bare=companionSignals(null);
+ assert.deepEqual([bare.countered,bare.repeat,bare.swing,bare.stalemate],[null,null,null,null]);
+ // 已结束的对局不再产生局内事件（结算归 result）
+ const {game}=playUntil('meadow',1,'repeat','same-skill');
+ const ended={...game,result:'win'};
+ assert.deepEqual(companionSignals(ended),{countered:null,repeat:null,swing:null,stalemate:null,turns:0});
+});
+
+test('the companion budget is its own: the strategist going quiet never silences it, and the other way round',()=>{
+ const profile=newProfile(),memory=history([winGame()]);
+ const {game}=playUntil('meadow',1,'repeat','same-skill');
+ const ctx=coachContext(game,profile,memory);
+ // 军师把额度用光、并且本局被点掉、整局静音
+ const strategist=strategistSession();strategist.hints=3;strategist.dismissed=true;
+ const attention=attentionState(0);attention.dismissed=true;attention.count=2;
+ assert.equal(strategistTrigger({game,attention,session:strategist,now:1,turn:'t',mode:'gentle',inMatch:true}),null,'军师这时确实已经闭嘴');
+ // 陪练照常开口：两边是两份独立的记账
+ const session=companionSession(memory);
+ const text=coachEvent('first-faint',{...ctx,fallen:['烬尾狐'],alive:2},session);
+ assert(text,'军师闭嘴不该让陪练也闭嘴');
+ assert.equal(session.count,1);
+ // 反过来：陪练说到上限，军师仍然能开口
+ const spent=companionSession(memory);spent.count=COMPANION_LIMITS.maxPerMatch;
+ assert.equal(coachEvent('countered',ctx,spent),null,'陪练到上限后自己不再说');
+ const replace=playToReplace('meadow',2);
+ assert.equal(replace.phase,'replace','补位阶段由真实对局产生');
+ const cue=strategistTrigger({game:replace,attention:attentionState(0),session:strategistSession(),now:1,turn:'t',mode:'gentle',inMatch:true});
+ assert(cue&&cue.reason==='fall','陪练说满不该动军师的额度');
+ // 安静档与「本局点掉」压过一切推断：即使记忆里一条关闭记录都没有
+ for(const event of ['first-faint','countered','result','stalemate']){
+  assert.equal(coachEvent(event,{...ctx,preference:'quiet'},companionSession(memory)),null);
+  assert.equal(coachEvent(event,ctx,{...companionSession(memory),dismissed:true}),null);
+  assert.equal(coachEvent(event,{...ctx,mode:'pvp-live'},companionSession(memory)),null);
+ }
+ // 频率推断：近 7 天被主动关掉 2 次 → 每局 1 次；4 次 → 本局 0 次；都在安静档之后
+ let gated=memory;for(const t of [1,2])gated=recordCoachEvent(gated,{id:`g${t}:dismiss:${t}`,kind:'dismiss',channel:'companion',matchId:`g${t}`,turn:t});
+ assert.equal(companionSession(gated).limit,1);
+ gated=memory;for(const t of [1,2,3,4])gated=recordCoachEvent(gated,{id:`h${t}:dismiss:${t}`,kind:'dismiss',channel:'companion',matchId:`h${t}`,turn:t});
+ assert.equal(companionSession(gated).limit,0);
+ assert.equal(coachEvent('first-faint',ctx,companionSession(gated)),null,'关掉 4 次之后本局不主动开口');
+ const stale=recordCoachEvent(memory,{id:'old:dismiss:1',kind:'dismiss',channel:'companion',matchId:'old',turn:1,time:new Date(Date.now()-8*86400000).toISOString()});
+ assert.equal(companionSession(stale).limit,COMPANION_LIMITS.maxPerMatch,'7 天以前的关闭不再降频');
+ assert.equal(COMPANION_LIMITS.maxPerMatch>1,true,'陪练的每局上限不止 1 次：它要在场，不是只在开头结尾冒一次');
+});
+
+test('one companion line at a time, and never at the same moment as the strategist bar',()=>{
+ // 军师条在场 → 陪练排队；条收起来 → 补上；排队太久 → 丢掉（过期的话不如不说）
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:Date.now(),now:Date.now()}).action,'hold');
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:2}).action,'show');
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:0,now:2}).action,'idle');
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:0,now:0}).action,'hold','还没排队时军师在场：等，而不是抢');
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:1,now:COMPANION_DEFER.maxWaitMs+2}).action,'drop');
+ assert.match(companionCueSlot({barVisible:true,queuedAt:1,now:2}).reason,/让位/);
+ // 刚显示过就不重开：军师条一秒来一次也不能把陪练切成一闪一闪（闪半秒谁也读不完）
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:2,holdUntil:9000}).action,'hold');
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:9001,holdUntil:9000}).action,'show');
+ assert(COMPANION_DEFER.minVisibleMs>=3000,'最小显示窗口不能短到读不完一句话');
+ assert(COMPANION_DEFER.maxWaitMs>=10000,'排队窗口不能短到一句话永远轮不上');
+});
+
+test('the bubble stays as long as the words need, and wears an existing pet portrait',()=>{
+ // 15 秒 + 每 10 个字加 3 秒：2 行（40 字）≈ 27 秒，短句（10 字）≈ 18 秒
+ assert.equal(bubbleDurationMs('长'.repeat(40)),27000);
+ assert.equal(bubbleDurationMs('长'.repeat(10)),18000);
+ assert.equal(bubbleDurationMs('长'.repeat(9)),15000);
+ assert.equal(bubbleDurationMs(''),COMPANION_BUBBLE.baseMs);
+ assert(bubbleDurationMs('长'.repeat(24))>15000,'十来个字也要比 15 秒长');
+ assert(COMPANION_BUBBLE.baseMs>=15000,'8 秒读不完 2–3 行中文，基线不能回到 8 秒');
+ assert.equal(COMPANION_BUBBLE.position,'bottom-left','陪练在左下角，军师条在顶部——两者位置分开');
+ // 头像用已有的宠物形象，不新增美术资源
+ const avatar=companionAvatar();
+ assert.equal(avatar.icon,SPECIES.find(p=>p.id==='deer').icon);
+ assert.match(avatar.name,/陪练/);
+ assert(COMPANION_EVENTS.includes('countered')&&COMPANION_EVENTS.includes('repeat-skill')&&COMPANION_EVENTS.includes('swing')&&COMPANION_EVENTS.includes('stalemate'),'补上的触发事件必须在事件表里');
 });

@@ -68,3 +68,21 @@ test('app.js wires the in-match strategist layer and dropped the always-true gat
   const code=src.split('\n').filter(line=>!line.trim().startsWith('//')).join('\n');
   assert(!code.includes('coachAllowedInMatch'),'no remaining call sites of the removed helper');
 });
+
+// 陪练的「在场方式」是 app.js 与 coach/companion.js 之间的接线：断掉时页面照样能解析、
+// 单测也全绿，只是左下角再也没有那个人。所以这里对真实源码做一次存在性检查，
+// 并确认军师/老师不再占用陪练的气泡（「一条消息只出现在一个地方」）。
+test('app.js wires the companion presence layer and leaves the bubble to the companion',()=>{
+ const src=readFileSync(join(root,'app.js'),'utf8');
+ for(const needed of ['companionSession','companionEvents','queueCompanionCue','flushCompanionCue','yieldCompanionCue','placeCompanionBubble','bubbleDurationMs','companionCueSlot','companionAvatar','companionSaid','companionPending'])
+  assert(src.includes(needed),`app.js is missing the companion presence wiring: ${needed}`);
+ // 军师/老师那条走顶部条：strategistCue 不得再往 #coach-bubble 里写正文
+ const cue=src.slice(src.indexOf('function strategistCue('),src.indexOf('function openCoach('));
+ assert(!cue.includes("$('bubble-text')"),'strategistCue 不应该再写陪练气泡的正文');
+ assert(cue.includes('yieldCompanionCue()'),'军师要开口时陪练必须让位');
+ // 时长必须按字数算，且鼠标悬停要暂停计时
+ assert(/bubbleDurationMs\(\$\('bubble-text'\)/.test(src),'气泡时长必须由正文长度算出来');
+ assert(src.includes("addEventListener('pointerenter'")&&src.includes("addEventListener('pointerleave'"),'悬停要暂停计时');
+ // 安静档仍然最优先
+ assert(src.includes("if(profile.coach.mode==='quiet'){companionPending=null;hideCompanionCue();}"),'安静档必须立刻收起陪练气泡');
+});

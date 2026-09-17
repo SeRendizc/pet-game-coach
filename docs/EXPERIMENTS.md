@@ -4,7 +4,7 @@
 
 ## 1. 本地混合检索
 
-90条知识：49张原创本地化战术卡 + 41条从引擎生成的宠物、技能和属性参考。卡片带规则版本、来源、反例和适用条件，引用按ID回查。外部宝可梦资料用于战术设计参考，不把外部伤害公式冒充本地规则。
+知识卡 = **49 张原创本地化战术卡** + **由引擎生成的宠物/技能/属性参考卡**（`knowledge/reference.generated.json`；条目数随 `SPECIES`/`SKILLS`/`TYPE_ADVANTAGES` 生成，原来 41 条，本轮新增两只普通系宠物后为 44 条，合计 93）。**具体条数请现场复算**：`node -e "const t=require('./knowledge/tactics.json'),r=require('./knowledge/reference.generated.json');console.log(t.length+' + '+r.length)"`。卡片带规则版本、来源、反例和适用条件，引用按ID回查。外部宝可梦资料用于战术设计参考，不把外部伤害公式冒充本地规则。
 
 真实运行 sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2，CPU生成384维向量，与词项检索用RRF融合。模型预热或请求失败时退回词项，并标注状态。
 
@@ -47,17 +47,17 @@
 
 ## 4. 上下文与真实模型
 
-官方DeepSeek V4 tokenizer和chat template本地计数，窗口32768，输出预留320，安全余量1024；计入序列化工具合同与回执。超长历史测试按完整消息删除，保留系统约束、末尾28HP/6能量和回合证据ID。原始战报保留在浏览器归档，可指定回合重新装配；当前请求未带某回合时明确missing，不用摘要编造。
+官方DeepSeek V4 tokenizer和chat template本地计数，**工作预算窗口 200000（`WORKING_CONTEXT`）**，输出预留320，安全余量1024（`coach/token-budget-server.js:11-16`；**本文原写作"窗口32768"，那是项目此前的保守值，已由官方 1M 容量下的 200K 工作预算取代**）。计入序列化工具合同与回执。超长历史测试按完整消息删除，保留系统约束、末尾28HP/6能量和回合证据ID。原始战报保留在浏览器归档，可指定回合重新装配；当前请求未带某回合时明确missing，不用摘要编造。
 
 v0.10真实调用：补位、败局分析、追问、自动总结、天气规则五条均由DeepSeek生成，3134–3722ms；PVP绕过3ms本地拒绝。tokenizer计数与API prompt_tokens相差2–3，保留余量并以API usage计费为准。usage当前只记录最终生成，规划调用未合计，不能用它当整条链成本。
 
-人工逐条阅读发现：败局分析把“净化药、能量果”叫作“解药、以太”，数字检查没有拦住；已补名称约束，仍需复验。天气回答没有充分解释速度顺序，属于解释质量不足。接口成功与窄校验通过不等于全部答案正确。
+人工逐条阅读发现：败局分析把“净化药、能量果”叫作“解药、以太”，数字检查没有拦住；**名称约束与窄校验已补上并已复验**（`coach/runtime.js` 的 `item-name-drift` 与 `causal-cancelled-action`；测试 `item-name drift is rejected even when every number is grounded`；第三轮 44 条真实调用的 `badAnswers` 里没有任何 `item-name-drift`，见 `reports/live-model-eval.json`）。天气回答没有充分解释速度顺序，属于解释质量不足。接口成功与窄校验通过不等于全部答案正确。
 
-原始结果：`reports/live-model-v10.json`；旧v0.8数据保留。S04独立质量评测继续保留未勾。
+原始结果：`reports/live-model-v10.json`；旧v0.8数据保留。S04独立质量评测**当时**继续保留未勾（**2026-09-17 晚复核：S04 已勾选**，三轮共 132 次真实调用，产物 `reports/live-model-eval.json` 与 `reports/live-model-eval-before-after.md`）。
 
 ## 5. 游戏与自动测试
 
-127项自动测试通过，含新增6项机制回归与本地对战回归。660场等等级、默认配招、无道具天气的单宠有序对照，仅用于发现极端项，不代表3v3平衡。风系支援伙伴在此口径下偏弱，不能靠单项胜率宣称全宠平衡；后续需配装、环境和队伍组合矩阵。
+**写作时为 127 项**自动测试通过，含新增6项机制回归与本地对战回归（**该数字已过时**：此后 `reports/test-output.txt` 记录 **251 / 251 / 0**，写这份修复报告时现场 `npm test` 为 **257 项**——含并发进行的宠物扩展，见 `docs/DOCS-AUDIT-FIXES.md`。现场复核请直接跑 `npm test`）。660场等等级、默认配招、无道具天气的单宠有序对照，仅用于发现极端项，不代表3v3平衡。风系支援伙伴在此口径下偏弱，不能靠单项胜率宣称全宠平衡；后续需配装、环境和队伍组合矩阵。
 
 ## 6. 来源与资源
 
