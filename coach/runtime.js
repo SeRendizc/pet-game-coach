@@ -92,9 +92,17 @@ export async function gatherAgentEvidence({message,context,plan,limit=2,retrieve
  return {trace,stopped:'tool-budget'};
 }
 
+// 模型真实容量。来源：DeepSeek 官方 Models & Pricing（2026-09-17 核对）——
+// deepseek-flash 即 DeepSeek-V4.1-Flash，CONTEXT LENGTH 1M，MAX OUTPUT 384K。
+// 此前项目按 32768 做预算，比真实窗口小约 30 倍。
+export const MODEL_CONTEXT=1000000;
+export const MODEL_MAX_OUTPUT=384000;
+// 工作预算仍小于容量上限：不是为了塞满，而是控制成本与延迟。可显式调大。
+export const WORKING_CONTEXT=200000;
+export const OUTPUT_RESERVE=4096;
 // UTF-8 bytes are used as a conservative engineering budget, not advertised as the
 // provider's exact tokenizer. Original archives remain outside the prompt.
-export function assembleContext(payload,{window=32768,output=512,system=4096,tools=2048}={}){
+export function assembleContext(payload,{window=WORKING_CONTEXT,output=OUTPUT_RESERVE,system=4096,tools=2048}={}){
  const budget=window-output-system-tools;
  if(budget<1024)throw Error('上下文预算不足');
  const bytes=x=>new TextEncoder().encode(JSON.stringify(x)).length;
@@ -146,7 +154,7 @@ export function checkGroundedAnswer(answer){
  for(const id of text.match(/(?:tactic|ui|rule):[a-z:-]+/g)||[])if(!available.has(id))reasons.push('unsupported-citation:'+id);
  return {valid:reasons.length===0,reasons:[...new Set(reasons)],scope:'Narrow numeric/citation/certainty guard; not a proof of all natural language correctness'};
 }
-export function fitModelMessages(messages,{window=32768,output=512,reserve=1024}={}){
+export function fitModelMessages(messages,{window=WORKING_CONTEXT,output=OUTPUT_RESERVE,reserve=1024}={}){
  const budget=window-output-reserve,bytes=x=>new TextEncoder().encode(JSON.stringify(x)).length;
  const copy=structuredClone(messages);
  // Never silently trim the final evidence-bearing request or hard system rules.

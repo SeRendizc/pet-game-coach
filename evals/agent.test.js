@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {freshMemory,rememberDecision,recordCoachEvent,adaptiveGate,deleteMemoryEvidence,readMemory} from '../coach/memory.js';
-import {assembleContext,buildContext,gatherAgentEvidence} from '../coach/runtime.js';
+import {assembleContext,buildContext,gatherAgentEvidence,WORKING_CONTEXT,MODEL_CONTEXT} from '../coach/runtime.js';
 import {newProfile} from '../progression.js';
 import {createGame} from '../engine.js';
 import {searchKnowledge,verifyCitations,resolveCitation} from '../coach/strategist.js';
@@ -21,13 +21,18 @@ test('dismissals persist with source and suppress only routine reminders',()=>{
  assert.equal(adaptiveGate(m,{}).reason,'recent-dismissals');assert.equal(adaptiveGate(m,{risk:true}).allow,true);
  assert.equal(adaptiveGate(freshMemory(),{}).allow,true);
 });
-test('32K assembly handles huge history, preserves exact current facts and does not mutate archive',()=>{
+test('context assembly trims to an explicit budget, preserves current facts and does not mutate the archive',()=>{
  const context=buildContext(createGame(17),newProfile(),'fox');const memory=freshMemory();memory.preference='brief';
  memory.dialogue=Array.from({length:1000},()=>({role:'user',content:'历史'.repeat(1000)}));
- const p={message:'这回合怎么打',role:'auto',context,memory,conversation:memory.dialogue};const out=assembleContext(p);
+ const p={message:'这回合怎么打',role:'auto',context,memory,conversation:memory.dialogue};
+ // 显式传窗口，测试的是裁剪机制本身，不依赖默认预算的大小。
+ const out=assembleContext(p,{window:32768,output:512,system:4096,tools:2048});
  assert(out.audit.estimatedInput<=32768-512-4096-2048);assert.equal(out.payload.memory.preference,'brief');
  assert.deepEqual(out.payload.context.battle.player,p.context.battle.player);assert.equal(p.memory.dialogue.length,1000);
- assert.throws(()=>assembleContext({...p,message:'x'.repeat(40000)}),/超过上下文预算/);
+ assert.throws(()=>assembleContext({...p,message:'x'.repeat(40000)},{window:32768,output:512,system:4096,tools:2048}),/超过上下文预算/);
+ // 真实容量：模型上下文是 1M（DeepSeek 官方 Models & Pricing），默认工作预算远小于它。
+ assert.equal(MODEL_CONTEXT,1000000);
+ assert(WORKING_CONTEXT<MODEL_CONTEXT,'工作预算必须小于模型容量');
 });
 test('RAG citations fail closed on deleted IDs and wrong rules version; applicability is explicit',()=>{
  assert.equal(verifyCitations(['tactic:invented']).valid,false);assert.equal(resolveCitation('tactic:burn-combo','0.1'),null);
@@ -53,7 +58,9 @@ test('unsupported numeric claims and certainty are rejected while grounded compa
  assert.equal(checkGroundedAnswer({text:'潮汐造成38伤害，对方31HP。',evidence:['计算38，HP31']}).valid,true);
  assert.equal(checkGroundedAnswer({text:'潮汐必胜，造成999伤害。',evidence:['计算38']}).valid,false);
  assert.equal(checkGroundedAnswer({text:'看 tactic:invented',knowledge:[]}).valid,false);
- assert.throws(()=>fitModelMessages([{role:'system',content:'rules'},{role:'user',content:'x'.repeat(40000)}]),/预算/);
+ assert.throws(()=>fitModelMessages([{role:'system',content:'rules'},{role:'user',content:'x'.repeat(40000)}],{window:32768,output:512,reserve:1024}),/预算/,'显式小窗口下必须拒绝超预算输入');
+ // 用真实工作预算时，同样内容应当放得下
+ assert.doesNotThrow(()=>fitModelMessages([{role:'system',content:'rules'},{role:'user',content:'x'.repeat(40000)}]));
 });
 
 import {runCoach} from '../coach/runtime.js';import {watchCandidate} from '../coach/experience.js';import {makeQuiz,teacher} from '../coach/teacher.js';
@@ -259,8 +266,8 @@ test('evidence trimmed out of the prompt is still retrievable from the archive',
  const context=buildContext(g,newProfile(),'fox');
  const memory=freshMemory();memory.preference='brief';
  memory.dialogue=Array.from({length:800},()=>({role:'user',content:'历史'.repeat(900)}));
- const out=assembleContext({message:'回顾第1回合',role:'auto',context,memory,conversation:memory.dialogue});
- assert(out.audit.estimatedInput<=32768-512-4096-2048,'必须裁到预算内');
+ const out=assembleContext({message:'回顾第1回合',role:'auto',context,memory,conversation:memory.dialogue},{window:32768,output:512,system:4096,tools:2048});
+ assert(out.audit.estimatedInput<=32768-512-4096-2048,'必须裁到显式给定的预算内');
  assert.equal(out.payload.memory.preference,'brief','裁剪后硬偏好仍在');
  // 归档本身未被改动：回合数不变
  const turnsBefore=g.history.filter(h=>h.type==='turn').length;
