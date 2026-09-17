@@ -85,7 +85,7 @@ function renderLoadout(){
  // 默认折叠：只列出已选 4 个技能，避免整页被 6 张卡撑长。
  if(!loadoutOpen){
   const chips=draft.map(id=>{const s=SKILLS[id];return `<span>${s.name}${s.priority?` <i>先制+${s.priority}</i>`:''}</span>`;}).join('');
-  box.innerHTML=`<div class="loadout"><div class="loadout-head"><strong>配招 · 6 选 4</strong><span class="muted">携带物 · ${held==='none'?'未装备':HELD_ITEMS[held].name}</span></div><div class="chosen-chips">${chips}</div><p class="loadout-note">改动只影响下一局。</p><button id="edit-loadout" class="wide">编辑配招</button></div>`;
+  box.innerHTML=`<div class="loadout"><div class="loadout-head"><strong>配招 · 6 选 4</strong><span class="muted">携带物 · ${held==='none'?'未装备':HELD_ITEMS[held].name}</span></div><div class="chosen-chips">${chips}</div><p class="loadout-note">保存后从下一局开始生效，之后一直保留。</p><button id="edit-loadout" class="wide">编辑配招</button></div>`;
   $('edit-loadout').onclick=()=>{loadoutOpen=true;renderLoadout();};
   return;
  }
