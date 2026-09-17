@@ -32,26 +32,26 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  context={...context,goal:memory.goal||null,favorite:memory.favorite||null};
  let next=rememberPreference(memory,message),packet,route=role,locked=false;
  const previous=Array.isArray(conversation)&&conversation.length?conversation.slice(-8):(memory.dialogue||[]);
- const followup=/^[？?]+$|什么意思|为什么|为啥|没懂|说反|连续性|接着|然后呢/.test(message);
- const ruleCard=cards.find(c=>c.id.startsWith('rule:')&&message.includes(c.title.split(' ')[0])&&/消耗|威力|优先级|面板|介绍|多少/.test(message));
- const situational=/咋办|怎么办|怎么救|救一下|救命|分析|输了|输在哪|打不过|damn/i.test(message);
- const matchRequest=/整局|整场|上一局|一整局/.test(message)||/复盘|回顾/.test(message)&&!/回合/.test(message)||(situational||followup)&&!!(context.battle?.result||!context.battle&&context.lastMatch);
- const quizRequest=/小测|练习题|出.{0,5}题/.test(message);
+ const followup=/^[？?]+$|什么意思|为什么|为啥|没懂|说反|连续性|接着|然后呢/.test(routingText);
+ const ruleCard=cards.find(c=>c.id.startsWith('rule:')&&routingText.includes(c.title.split(' ')[0])&&/消耗|威力|优先级|面板|介绍|多少/.test(routingText));
+ const situational=/咋办|怎么办|怎么救|救一下|救命|分析|输了|输在哪|打不过|damn/i.test(routingText);
+ const matchRequest=/整局|整场|上一局|一整局/.test(routingText)||/复盘|回顾/.test(routingText)&&!/回合/.test(routingText)||(situational||followup)&&!!(context.battle?.result||!context.battle&&context.lastMatch);
+ const quizRequest=/小测|练习题|出.{0,5}题/.test(routingText);
  if(isLiveMatch(context))return {text:'线上竞技 PVP 赛中不提供战术分析或教学，结束后我们再聊。',evidence:[],memory:next,route:'policy',provider:'local'};
  if(next.goal!==memory.goal){next.lastTopic='preference';packet={text:`记住了，你更想${next.goal==='稳健'?'打得稳一些，培养时我会优先比较生存空间':'打得主动些，培养时我会优先比较输出和先手'}。这个偏好随时可以改。`,evidence:['来源：你明确表达的玩法目标。']};locked=true;}
  else if(next.preference!==memory.preference)packet={text:'记住了，以后'+(next.preference==='brief'?'简短说。':'多解释一点。'),evidence:['来源：你刚才明确表达的偏好。']};
  else if(followup&&memory.lastTopic==='watch'){packet={text:next.watches?.length?'刚才的委托只在当前对局有效，未来10回合内符合条件时提醒一次。静默设置仍优先，也可以说“取消提醒”。':'刚才的条件提醒已经取消或触发完成，不会继续等待。',evidence:[]};locked=true;route='guide';}
- else if(/取消.*提醒|取消.*委托/.test(message)){next.lastTopic='watch';next.watches=[];packet={text:'已取消你委托的条件提醒，平时的提醒档位不变。',evidence:[]};locked=true;route='guide';}
- else if(/提醒/.test(message)&&/能量|豆|收尾/.test(message)){next.lastTopic='watch';const kind=/收尾/.test(message)?'finish':'energy';if(!context.battle?.id||context.battle.result)packet={text:'先进入一场训练，我才能把这个提醒绑定到当前对局。',evidence:[]};else{next.watches=[{id:`watch:${context.battle.id}:${kind}`,matchId:context.battle.id,kind,expiresTurn:context.battle.turn+10,once:true}];packet={text:`好，这局接下来10回合，${kind==='finish'?'合法攻击满足当前目标的直接收尾条件':'场上伙伴能量降到1豆或以下'}时提醒一次。仍遵守你的安静设置，随时可以说“取消提醒”。`,evidence:['只检查公开状态；收尾条件不保证对方留场或不防御。']};}locked=true;route='guide';}
- else if(/种子|随机编号/.test(message)||followup&&memory.lastTopic==='seed'){
+ else if(/取消.*提醒|取消.*委托/.test(routingText)){next.lastTopic='watch';next.watches=[];packet={text:'已取消你委托的条件提醒，平时的提醒档位不变。',evidence:[]};locked=true;route='guide';}
+ else if(/提醒/.test(routingText)&&/能量|豆|收尾/.test(routingText)){next.lastTopic='watch';const kind=/收尾/.test(routingText)?'finish':'energy';if(!context.battle?.id||context.battle.result)packet={text:'先进入一场训练，我才能把这个提醒绑定到当前对局。',evidence:[]};else{next.watches=[{id:`watch:${context.battle.id}:${kind}`,matchId:context.battle.id,kind,expiresTurn:context.battle.turn+10,once:true}];packet={text:`好，这局接下来10回合，${kind==='finish'?'合法攻击满足当前目标的直接收尾条件':'场上伙伴能量降到1豆或以下'}时提醒一次。仍遵守你的安静设置，随时可以说“取消提醒”。`,evidence:['只检查公开状态；收尾条件不保证对方留场或不防御。']};}locked=true;route='guide';}
+ else if(/种子|随机编号/.test(routingText)||followup&&memory.lastTopic==='seed'){
    packet={text:'首页的“种子”是随机编号，不是宠物或培养材料。它用于复现随机过程：同一规则版本、阵容、成长、难度和操作序列下，同一个编号可重现对战。正常玩保持默认就好，改它不会直接增强宠物。',evidence:['来源：engine.js createGame / random；首页 seed 输入框。']};route='guide';locked=true;next.lastTopic='seed';
  }else if(ruleCard||followup&&memory.lastTopic==='rules'){const card=ruleCard||resolveCitation(memory.ruleReferenceId);packet=card?{text:card.principle,evidence:[`[${card.id}] ${card.counterexample} 来源：${card.authority.join('、')}，规则${card.rulesVersion}。`]}:{text:'这条规则依据已不可用，需要重新核对。',evidence:[]};next.lastTopic='rules';next.ruleReferenceId=card?.id||null;route='guide';locked=true;}else if(quizRequest){
    const quiz=makeQuiz(context,{variant:next.quizCount||0});next.quizCount=(next.quizCount||0)+1;next.pendingQuiz=quiz;packet={text:quiz.question,evidence:[],choices:['先出手','后出手','不确定','先不做了']};route='teacher';locked=true;next.lastTopic='quiz';
- }else if(memory.pendingQuiz&&!/复盘|回顾|整局|整场|上一局|详看第.+回合/.test(message)){
+ }else if(memory.pendingQuiz&&!/复盘|回顾|整局|整场|上一局|详看第.+回合/.test(routingText)){
    const quiz=memory.pendingQuiz;
-   if(/取消|不做|跳过/.test(message)){next.pendingQuiz=null;packet={text:'好，先放着。继续玩就行。',evidence:[]};locked=true;route='teacher';}
-   else if(/^(我选|选|应该|是)?[「“"]?(先(出手)?|后(出手)?|不确定)[」”"]?[。！! ]*$/.test(message.trim())){
-     const answer=message.includes('不确定')?'不确定':message.includes('先')?'先':'后';
+   if(/取消|不做|跳过/.test(routingText)){next.pendingQuiz=null;packet={text:'好，先放着。继续玩就行。',evidence:[]};locked=true;route='teacher';}
+   else if(/^(我选|选|应该|是)?[「“"]?(先(出手)?|后(出手)?|不确定)[」”"]?[。！! ]*$/.test(routingText.trim())){
+     const answer=routingText.includes('不确定')?'不确定':routingText.includes('先')?'先':'后';
      const correct=answer===quiz.answer;packet={text:(correct?'答对了。':'这里应选“'+quiz.answer+'出手”。')+quiz.explanation,evidence:[quiz.lesson],quizResult:{correct,lesson:quiz.lesson}};
      if(correct&&!next.lessons.includes(quiz.lesson))next.lessons.push(quiz.lesson);next.pendingQuiz=null;route='teacher';locked=true;next.lastTopic='quiz';
    }else if(followup){packet={text:'刚才这道题还在等你作答，我不该先报答案。'+quiz.question,evidence:[],choices:['先出手','后出手','不确定','先不做了']};route='teacher';locked=true;}
@@ -63,7 +63,7 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  if(!packet){
    // 换宠/守备这类「选哪个行动」的问法也是军师问题：只说「守一下和换潮甲龟哪个好」时
    // 一个关键词都不匹配，会被判成陪练，于是政策要求的分支模拟被整段跳过。
-   if(role==='auto')route=/培养|加点|成长/.test(message)?'teacher':(/怎么打|建议|这回合|换宠|换上|换成|换掉|换一只|补位|技能|出招|先手|能量|豆|属性|克制|防御|守一下|守住|预判/.test(message)||situational&&context.battle)?'strategist':'companion';
+   if(role==='auto')route=/培养|加点|成长/.test(routingText)?'teacher':(/怎么打|建议|这回合|换宠|换上|换成|换掉|换一只|补位|技能|出招|先手|能量|豆|属性|克制|防御|守一下|守住|预判/.test(routingText)||situational&&context.battle)?'strategist':'companion';
    if(followup&&['teacher','strategist'].includes(memory.lastTopic))route=memory.lastTopic;
    packet=route==='strategist'?strategist({...context,query:message}):route==='teacher'?teacher(context):companion(context,next,message);next.lastTopic=route;
  }

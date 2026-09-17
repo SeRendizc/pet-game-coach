@@ -1062,3 +1062,27 @@ test('the appended 「回答要求」 never changes how the companion reads the 
 });
 // 上一条用的探针：附加说明里确实含「技能」「能量」这类战术词。
 const TACTICAL_HINT_PROBE=/技能|能量|防御/;
+
+test('页面默认的「自动」角色 + 拼接说明：闲聊仍归陪练，真复盘仍归老师',async()=>{
+ // 上一条只修了 role='companion' 的情形。审阅指出 **role='auto'（页面默认）仍然是错的**：
+ // if(!packet) 里的角色判断用的是原始 message，而 RESPONSE_INSTRUCTIONS 含「技能」「能量」，
+ // 正好命中军师正则 → 玩家说「我们聊聊呗」被路由成 strategist。
+ // 修法是所有**判断处**读 routingText（玩家原话），传给模型的仍是全文。
+ const {runCoach,buildContext}=await import('./coach/runtime.js');
+ const {RESPONSE_INSTRUCTIONS}=await import('./coach/client.js');
+ const {createGame}=await import('./engine.js');
+ const {newProfile}=await import('./progression.js');
+ const {freshMemory}=await import('./coach/memory.js');
+ const ctx={...buildContext(createGame(17),newProfile(),'fox'),mode:'camp'};
+ const I=RESPONSE_INSTRUCTIONS;
+ for(const text of ['你好哦','我们聊聊呗','今天有点累']){
+  const r=await runCoach({message:text+I,role:'auto',context:ctx,memory:freshMemory()});
+  assert.equal(r.route,'companion',
+   `「${text}」在「自动」角色下被路由成了 ${r.route}——说明判断读到了附加说明里的「技能」「能量」`);
+ }
+ // 反向：真实意图不能被误伤
+ const review=await runCoach({message:'复盘一下上一局'+I,role:'auto',context:ctx,memory:freshMemory()});
+ assert.equal(review.route,'teacher','玩家要求复盘时仍走老师');
+ const growth=await runCoach({message:'帮我看看培养'+I,role:'auto',context:ctx,memory:freshMemory()});
+ assert.equal(growth.route,'teacher','玩家问培养时仍走老师');
+});
