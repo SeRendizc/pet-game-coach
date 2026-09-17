@@ -1,1 +1,31 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>小芽 · 加密接入 DeepSeek</title><link rel="stylesheet" href="connect.css"></head><body><main><a href="/">← 返回训练场</a><h1>让小芽连接 DeepSeek</h1><p>密钥在本页加密后提交给本机后端，仅保存在后端内存。关闭服务即失效。</p><div class="status" id="status" role="status">正在建立本机通道…</div><form id="connect-form" autocomplete="off"><label for="api-key">DeepSeek API Key</label><input id="api-key" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="none" maxlength="128" placeholder="在这里粘贴密钥，不要发到聊天里" required><label for="model">模型名称</label><input id="model" value="deepseek-flash" autocomplete="off" maxlength="80" required><small>默认 deepseek-flash，也可以填你账号支持的其他 DeepSeek 模型 ID。</small><button id="save" type="submit">加密保存到本机内存</button></form><div class="actions"><button id="verify" disabled>验证连接（少量 API 调用）</button><button id="disconnect" disabled>移除密钥</button></div><p id="message" role="status"></p><section><h2>密钥经过哪里？</h2><ol><li>浏览器使用 RSA-OAEP / SHA-256 加密密钥。</li><li>密文通过本机回环地址提交，后端用临时私钥解密。</li><li>后端通过 HTTPS 请求 api.deepseek.com。</li></ol><p>不写入项目、日志、浏览器存储或聊天记录。本机页面使用 HTTP，密钥字段额外加密；这不是公开的 HTTPS 网站，不能转发给其他设备使用。</p><p>点击验证会发送一句连接测试；之后向小芽提问会把你的问题、最近几条聊天和对应游戏依据发送到 DeepSeek。保存本身不会调用模型。</p><p><a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noreferrer">查看 DeepSeek 官方模型说明</a></p></section></main><script type="module" src="connect.js"></script></body></html>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>小芽 · 加密接入 DeepSeek</title><link rel="stylesheet" href="connect.css"></head><body><main><a href="/">← 返回训练场</a><h1>让小芽连接 DeepSeek</h1><p>密钥在本页加密后提交给本机后端，仅保存在后端内存。关闭服务即失效。</p><div class="status" id="status" role="status">正在建立本机通道…</div><form id="connect-form" autocomplete="off"><label for="api-key">DeepSeek API Key</label><input id="api-key" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="none" maxlength="128" placeholder="在这里粘贴密钥，不要发到聊天里" required><label for="model">模型名称</label><input id="model" value="deepseek-flash" autocomplete="off" maxlength="80" required><small>默认 deepseek-flash，也可以填你账号支持的其他 DeepSeek 模型 ID。</small><button id="save" type="submit">加密保存到本机内存</button></form><div class="actions"><button id="verify" disabled>验证连接（少量 API 调用）</button><button id="disconnect" disabled>移除密钥</button></div><p id="message" role="status"></p><section><h2>密钥经过哪里？</h2><ol><li>浏览器使用 RSA-OAEP / SHA-256 加密密钥。</li><li>密文通过本机回环地址提交，后端用临时私钥解密。</li><li>后端通过 HTTPS 请求 api.deepseek.com。</li></ol><p>不写入项目、日志、浏览器存储或聊天记录。本机页面使用 HTTP，密钥字段额外加密；这不是公开的 HTTPS 网站，不能转发给其他设备使用。</p><p>点击验证会发送一句连接测试；之后向小芽提问会把你的问题、最近几条聊天和对应游戏依据发送到 DeepSeek。保存本身不会调用模型。</p><p><a href="https://api-docs.deepseek.com/quick_start/pricing/" target="_blank" rel="noreferrer">查看 DeepSeek 官方模型说明</a></p></section></main><script type="module" src="connect.js"></script><section id="voice-probe" style="margin-top:26px;border-top:1px solid #33475c;padding-top:14px"><h2 style="font-size:16px">语音诊断（临时工具）</h2><p style="font-size:13px;color:#9caebe">这页和训练场互相独立。请依次点下面每个按钮，听哪几个是<b>普通话</b>、哪几个是<b>粤语</b>、哪几个有<b>爆音</b>，然后把结果告诉我。</p><div id="vp-buttons"></div><p style="font-size:12px;color:#9caebe">下面会显示每次实际请求的声音。若某次显示 zh-CN 但你听到粤语，说明问题在系统/浏览器层，不在选择逻辑。</p><ol id="vp-log" style="font-size:12px;color:#c6d2de;line-height:1.7"></ol></section><script>
+const VP_SENT='我是小芽。这回合建议先用火花挂上灼烧，再看对方是留场还是换宠。';
+const log=(m)=>{const li=document.createElement('li');li.textContent=new Date().toLocaleTimeString()+' '+m;document.getElementById('vp-log').prepend(li);};
+function names(){const l=speechSynthesis.getVoices()||[];return l.filter(v=>/^zh/i.test(v.lang||''));}
+function show(){const l=names();log('共 '+l.length+' 个中文声音：'+l.map(v=>v.name+'('+v.lang+')').join('、'));}
+speechSynthesis.onvoiceschanged=show;
+function say(label,{voiceName=null,lang='zh-CN',doCancel=false}={}){
+  if(doCancel){speechSynthesis.cancel();log(label+'：已 cancel()');}
+  const delay=doCancel?300:0;
+  setTimeout(()=>{
+    const u=new SpeechSynthesisUtterance(VP_SENT);
+    const v=voiceName?names().find(x=>x.name===voiceName):null;
+    u.voice=v||null;u.lang=v?v.lang:lang;u.volume=.9;u.rate=1;u.pitch=1;
+    u.onstart=()=>log(label+' ▶ 实际使用：'+(u.voice?u.voice.name+'（'+u.voice.lang+'）':'未指定声音，仅 lang='+u.lang));
+    u.onend=()=>log(label+' ■ 结束');
+    u.onerror=e=>log(label+' ✕ 错误 '+e.error);
+    speechSynthesis.speak(u);
+  },delay);
+}
+const cases=[
+ ['A 不指定声音 + lang=zh-CN（第一次生效的那条路径）',{lang:'zh-CN'}],
+ ['B 指定：婷婷',{voiceName:'婷婷'}],
+ ['C 指定：Google 普通话（中国大陆）',{voiceName:'Google 普通话（中国大陆）'}],
+ ['D 先 cancel，再不指定声音',{lang:'zh-CN',doCancel:true}],
+ ['E 先 cancel，再指定婷婷',{voiceName:'婷婷',doCancel:true}],
+ ['F 指定：Google 粤語（香港）（对照，预期是粤语）',{voiceName:'Google 粤語（香港）'}],
+];
+document.getElementById('vp-buttons').innerHTML=cases.map((c,i)=>`<button data-i="${i}" style="margin:0 6px 8px 0">${c[0]}</button>`).join('');
+document.querySelectorAll('#vp-buttons button').forEach(b=>b.onclick=()=>{const [label,opts]=cases[Number(b.dataset.i)];say(label,opts);});
+show();
+</script></body></html>

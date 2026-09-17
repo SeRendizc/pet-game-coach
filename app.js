@@ -266,7 +266,11 @@ if(window.speechSynthesis){
  window.speechSynthesis.onvoiceschanged=()=>{const best=renderVoiceOptions();chosenVoice=best;};
  renderVoiceOptions();
 }
-function cancelVoice(){const s=window.speechSynthesis;if(!s)return;utterance=null;if(s.speaking||s.pending){s.cancel();lastCancelAt=Date.now();}}
+// 不再调用 speechSynthesis.cancel()。macOS Chrome 上它会持久破坏后续播报的声音选择：
+// 之后无论 utterance.voice 设成哪个 zh-CN 声音，实际都播成粤语，并在结尾爆音；
+// 实测间隔 300ms 也无法恢复，只有刷新页面才复原。因此这里只做「标记作废」。
+// 代价：已经开口的那一句会读完（提示都很短），无法中途掐断。
+function cancelVoice(){utterance=null;lastCancelAt=Date.now();}
 function playVoice(text,{test=false}={}){
  if(!window.speechSynthesis){voiceStatus('当前浏览器不支持语音，请使用文字');return;}
  if(voiceVolume===0){voiceStatus('音量为0，请调高后试听');return;}
@@ -274,7 +278,7 @@ function playVoice(text,{test=false}={}){
  // 播报路径里绝不 cancel。macOS Chrome 上 cancel() 之后紧接着 speak() 会让引擎沿用
  // 上一次的坏状态：换成另一个声音（本机表现为粤语）并在结尾爆音。已在播的先让它播完，
  // 排队超过一条就跳过，宁可少说一句。
- if(synth.speaking||synth.pending){voiceStatus('已有语音在播报，本次提示跳过');return;}
+ if(synth.speaking||synth.pending){voiceStatus('上一条还在播报，本次提示跳过（不会打断）');return;}
  // utterance 也尽量晚创建：cancel 之后重建实例才拿得到正确的声音。
  const fire=()=>{
   const u=new SpeechSynthesisUtterance(concise(text,90));
@@ -288,15 +292,14 @@ function playVoice(text,{test=false}={}){
   if(synth.paused)synth.resume();
   synth.speak(u);
  };
- // 只有刚 cancel 过才等一会儿，让音频管线重建完再播。
- const wait=Math.max(0,300-(Date.now()-lastCancelAt));
+ const wait=0;
  setTimeout(fire,wait);
  setTimeout(()=>{if(utterance&&!synth.speaking&&!synth.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},wait+1500);
 }
 function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||game?.mode!=='pve')return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
 function saveVoice(){try{localStorage.setItem('xiaoya-voice',JSON.stringify({enabled:voiceEnabled,volume:voiceVolume,voice:voiceName}));}catch{}}
 $('voice-test').onclick=()=>playVoice('我是小芽。有需要时，我会简短提醒。',{test:true});
-$('voice-enabled').onchange=()=>{voiceEnabled=$('voice-enabled').checked;cancelVoice();saveVoice();if(voiceEnabled)playVoice('语音已开启，我会按你的陪伴风格提醒。',{test:true});else voiceStatus('语音已关闭');};
+$('voice-enabled').onchange=()=>{voiceEnabled=$('voice-enabled').checked;cancelVoice();saveVoice();if(voiceEnabled)playVoice('语音已开启，我会按你的陪伴风格提醒。',{test:true});else voiceStatus('语音已关闭（已开口的一句会读完，不再有新的）');};
 $('voice-pick').onchange=()=>{voiceName=$('voice-pick').value;cancelVoice();saveVoice();const v=resolveVoice();voiceStatus(voiceName?('已选择 '+voiceName+'（'+(v?v.lang:'')+'）'):('自动选择：'+(v?v.name+'（'+v.lang+'）':'无可用中文声音')));if(voiceEnabled)playVoice('这是当前的播报声音。',{test:true});};
 $('voice-volume').oninput=()=>{voiceVolume=Number($('voice-volume').value);cancelVoice();saveVoice();voiceStatus(voiceVolume===0?'音量为0':voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');};
 if('speechSynthesis' in window)voiceStatus(voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');
