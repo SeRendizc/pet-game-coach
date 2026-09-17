@@ -82,8 +82,11 @@ function renderTypeFilter(navId,rerender,which='rosterType'){
 // 选宠卡片只有这一个模板，两侧共用。
 // 之前对方那侧另写了一份简化模板（只有图标、名字、等级），于是两栏的文字高度不一样——
 // 同一件事两套渲染，是这轮反复出现的毛病。
-function petCard(base,{order=-1,level=1,action=''}={}){
- const p={...base,level};
+function petCard(base,{order=-1,level=1,action='',stats=null}={}){
+ // stats 传入的是 grown() 的结果（已含等级与加点）。不传就退回物种基础面板。
+ // 抽这个函数时只传了 base，出征页于是显示基础数值（烬尾狐 98 生命），
+ // 而营地显示 137——同一只宠物在两张页面上面板不同。
+ const p=stats||{...base,level};
  return `<article class="pet-option ${order>=0?'chosen':''}">`
   +`<span class="order">${order>=0?`${order+1}号位`:''}</span>`
   +`<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div>`
@@ -97,7 +100,7 @@ function deployView(){
  $('roster').innerHTML=filteredSpecies().map(base=>{
   const p=grown(base.id),order=selected.indexOf(p.id);
   const act=`<button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}">加入队伍</button>`}`;
-  return petCard(base,{order,level:p.level,action:act});}).join('');
+  return petCard(base,{order,level:p.level,action:act,stats:p});}).join('');
  $('selection').innerHTML=selected.length?selected.map((id,i)=>`<span class="slot"><em>${i+1}</em>${SPECIES.find(p=>p.id===id).name}</span>`).join(''):'<span class="muted">按 1 → 2 → 3 的出场顺序选择三只伙伴</span>';
  const advice=selected.length?rosterAdvice(selected.map(grown)):null;
  if(advice){const head=advice.lines[0]+' '+advice.lines[2];
@@ -139,7 +142,7 @@ function renderPickSplit(){
   // AI 那侧不可点，但卡片本身与左侧完全一致；用一个不可用的按钮占位，保持高度相同。
   const act=ai?`<button disabled>${at>=0?'AI 已选':'—'}</button>`
    :`<button data-enemy-pet="${base.id}" ${at<0&&enemySelected.length>=3?'disabled':''}>${at>=0?'移出队伍':'加入队伍'}</button>`;
-  return petCard(base,{order:at,level:lv,action:act});}).join('');
+  return petCard(base,{order:at,level:lv,action:act,stats:{...base,...(profile.pets[base.id]||{}),level:lv}});}).join('');
  if(!ai)document.querySelectorAll('#roster-enemy [data-enemy-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.enemyPet;
   enemySelected=enemySelected.includes(id)?enemySelected.filter(x=>x!==id):[...enemySelected,id];deployView();});
  // 双方阵容各评估一次；AI 那侧糊掉——看得见有评估，读不出内容。
