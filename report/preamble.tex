@@ -37,9 +37,9 @@
   subsection/afterskip  = 0.35em,
 }
 
-% 浮动体（本节只有表格）与正文的间距：默认 12pt 偏松，四张表累计能省出小半页
-\setlength{\intextsep}{8pt plus 2pt minus 2pt}
-\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+% 浮动体间距：默认 12pt 偏松，报告里图表多，收紧能省出小半页
+\setlength{\intextsep}{6pt plus 1pt minus 1pt}
+\setlength{\textfloatsep}{6pt plus 1pt minus 1pt}
 
 \pagestyle{plain}
 
@@ -48,3 +48,7 @@
 
 % 定宽表格列：内容短，不设 \sloppy 也不会溢出
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% 截图：只给图，不给标题，图注写在正文里。宽度留出余量避免 overfull。
+\newcommand{\shot}[2][0.72]{%
+  \begin{center}\includegraphics[width=#1\linewidth]{figs/#2}\end{center}}

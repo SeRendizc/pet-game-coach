@@ -1,13 +1,13 @@
 \section{索引与复现}
 
-\begin{verbatim}
-npm start                 # 启动，默认 127.0.0.1:8765
-npm test                  # 257 项自动测试
-npm run test:smoke        # 无头浏览器真打一局
-npm run build:knowledge   # 从引擎重新生成知识卡
-npm run eval:retrieval    # 检索四臂对照
-\end{verbatim}
+仓库已发布，公开可克隆：\url{https://github.com/SeRendizc/pet-game-coach}（256 个文件，无第三方运行时依赖）。克隆之后 \code{npm start} 可完整游玩，\code{npm test} 可复现正文里除模型实验之外的全部结论。
 
-正文数字的来源：规模与测试数取自 \code{npm test} 的现场输出；检索对照、工具决策三轮、平衡矩阵与对手 agent 实测分别见 \path{reports/} 下的 \code{retrieval-extended.json}、\code{live-model-eval*.json}、\code{balance-matrix.json} 与 \code{opponent-agent.json}。宠物数、属性数与知识卡数都能用一行命令现场复算。
+\begin{itemize}[leftmargin=1.5em,itemsep=0.1em,topsep=0.2em]
+\item \code{npm start}：启动，默认 \texttt{127.0.0.1:8765}
+\item \code{npm test}：257 项自动测试
+\item \code{npm run test:smoke}：无头浏览器真打一局
+\item \code{npm run build:knowledge}：从引擎重新生成知识卡
+\item \code{npm run eval:retrieval}：检索四臂对照
+\end{itemize}
 
-\textbf{交付与发布。} 仓库目前是本机工程。我会在提交后整理成一个可独立运行的仓库发布到 GitHub：去掉与本机环境绑定的脚本路径，补齐 README 的启动步骤与依赖说明，使克隆之后执行 \code{npm start} 即可完整游玩、\code{npm test} 即可复现全部结论；只有模型实验需要自己的密钥。
+正文数字的来源：规模与测试数取自 \code{npm test} 的现场输出；检索对照、工具决策三轮、平衡矩阵与对手 agent 实测分别见 \path{reports/} 下的 \code{retrieval-extended.json}、\code{live-model-eval*.json}、\code{balance-matrix.json} 与 \code{opponent-agent.json}。宠物数、属性数与知识卡数都能用一行命令现场复算，README 里写明了命令；模型实验需要自己的密钥。
