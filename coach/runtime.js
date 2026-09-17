@@ -20,6 +20,15 @@ export function buildContext(game,profile,focus,archive=null,stageId='meadow',me
  battle:game?{environment:structuredClone(game.environment||null),energyLimit:6,id:game.id,version:game.version,mode:game.mode,phase:game.phase,result:game.result,turn:game.turn,seed:0,player:structuredClone(game.player),enemy:structuredClone(game.enemy),history:[],log:[],frames:[]}:null};
 }
 export async function runCoach({message,role='auto',context,memory,conversation=[],provider=localProvider}){
+ // 路由只认**玩家原话**。
+ //
+ // coach/client.js 会把 RESPONSE_INSTRUCTIONS 拼在 message 后面一起发过来，而那段的开头是
+ // 「不要向玩家报内部局面评分…游戏按回合结算…」，里面有「回合」；后面的说明里还有「复盘」。
+ // 下面的路由分支（/复盘|回顾|详看第.+回合/）在**角色判断之前**命中，于是玩家选了陪练、
+ // 只说一句「你好」，也会被当成老师在要求复盘——陪练包根本没生成，
+ // /api/coach 返回的 meta 是 route:'teacher'。把附加说明切掉再路由，规则包照旧带着它。
+ const answerRequirements='\n回答要求：';
+ const routingText=String(message||'').split(answerRequirements)[0];
  context={...context,goal:memory.goal||null,favorite:memory.favorite||null};
  let next=rememberPreference(memory,message),packet,route=role,locked=false;
  const previous=Array.isArray(conversation)&&conversation.length?conversation.slice(-8):(memory.dialogue||[]);
@@ -49,7 +58,7 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  }else if(followup&&memory.lastTopic==='quiz'){
    packet={text:'你是在接着问刚才的小测。'+(previous.filter(x=>x.role==='assistant').at(-1)?.content||'可以重新出一道题，我们一步步来。'),evidence:[]};route='teacher';locked=true;
  }else if(matchRequest){packet=reviewMatch(context);route='teacher';next.lastTopic='match-review';locked=true;}
- else if(/复盘|回顾|详看第.+回合/.test(message)){packet=context.requestedTurn&&!context.lastTurn?{text:`这份对局记录里没有第 ${context.requestedTurn} 回合，不能用其他回合替代。`,evidence:[]}:review(context);if(context.lastTurn)packet={...packet,evidence:[...packet.evidence,compareTurnAlternatives(context.lastTurn,context.evidenceRulesVersion||'0.6')?.text].filter(Boolean),text:`第 ${context.lastTurn.before.turn} 回合：${analyzeTurn(context.lastTurn,{rulesVersion:context.evidenceRulesVersion||'0.6'})}`};route='teacher';next.lastTopic='review';locked=true;}
+ else if(/复盘|回顾|详看第.+回合/.test(routingText)){packet=context.requestedTurn&&!context.lastTurn?{text:`这份对局记录里没有第 ${context.requestedTurn} 回合，不能用其他回合替代。`,evidence:[]}:review(context);if(context.lastTurn)packet={...packet,evidence:[...packet.evidence,compareTurnAlternatives(context.lastTurn,context.evidenceRulesVersion||'0.6')?.text].filter(Boolean),text:`第 ${context.lastTurn.before.turn} 回合：${analyzeTurn(context.lastTurn,{rulesVersion:context.evidenceRulesVersion||'0.6'})}`};route='teacher';next.lastTopic='review';locked=true;}
  if(!packet&&followup&&['review','match-review'].includes(memory.lastTopic)){packet=memory.lastTopic==='match-review'?reviewMatch(context):review(context);route='teacher';locked=true;}
  if(!packet){
    // 换宠/守备这类「选哪个行动」的问法也是军师问题：只说「守一下和换潮甲龟哪个好」时

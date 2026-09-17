@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {createGame,step,legalActions,rankEnemyActions,SKILLS,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,chatReply,chatThread,previousChatThread,CHAT_THREADS} from './coach/companion.js';
+import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {strategistTrigger,strategistSession,attentionState} from './coach/experience.js';
 import {coachEvent,coachContext} from './coach.js';
@@ -319,10 +319,13 @@ test('register table: silence stays first and engagement never raises the ceilin
  assert.equal(stateFor('烦').register,'R3','真实连败时的倾诉才进收尾陪坐');
  assert.equal(stateFor('烦',{},history([winGame()])).register,'R2','没有连败记录时只做具体关切');
  assert.equal(stateFor('？').register,'R2');
- // 寒暄也要接住：有真实记录时「你好」按 R1 接话（先应一声，再落一件记得的事），
- // 什么都没记过时仍然只回最短承接句 R0——不编。
+ // 寒暄也要接住：有真实记录时「你好」按 R1 接话（先应一声，再落一件记得的事）。
+ // 一条记录都没有时**也是 R1**：闲聊本来就不依赖记录，上一版把它压回 R0，
+ // 于是三句家常话换来同一句「我在。」（见文件末尾 freshMemory 那一条验收）。
  assert.equal(stateFor('你好').register,'R1');
- assert.equal(stateFor('你好',{},freshMemory()).register,'R0');
+ assert.equal(stateFor('你好',{},freshMemory()).register,'R1','空账本也要接住寒暄，不能压回「我在。」');
+ assert.equal(stateFor('今天有点累',{},freshMemory()).register,'R1','空账本下说心情同样要接住');
+ assert.equal(stateFor('随便陪我聊两句',{},freshMemory()).register,'R1','空账本下要人陪聊同样要接住');
  assert.equal(stateFor('这局怎么打').register,'R2');
  assert.equal(stateFor('随便聊聊').register,'R1');
  assert.equal(stateFor('这局怎么打',{},freshMemory()).register,'R0','没有真实记录时不进具体关切');
@@ -341,9 +344,10 @@ test('the register changes the wording and the length ceiling',()=>{
  const memory=history([winGame(),lossGame(),play(7)]);
  const answers=['你好','这局怎么打','烦'].map(message=>companion({mode:'camp'},memory,message));
  const [r1,r2,r3]=answers;
- // R0 是「没有可核对的经历」时的最短承接句，不是在档位表里排第一的那句：
- // 有记录时寒暄也要接住（R1），所以这里用一个空记忆把 R0 取出来。
- const r0Empty=companion({mode:'camp'},freshMemory(),'你好');
+ // R0 是「这个档位一条事实都拼不出来」时的最短承接句，不是在档位表里排第一的那句。
+ // 用一句需要事实才能回答的提问把 R0 取出来：寒暄与家常话现在走闲聊通道（R1），
+ // 不再被「本机没有记录」压回「我在。」（那一版的验收在文件末尾）。
+ const r0Empty=companion({mode:'camp'},freshMemory(),'这局怎么打');
  assert.equal(r0Empty.register,'R0');
  assert.equal(r0Empty.text,'我在。');
  assert.deepEqual(answers.map(a=>a.register),['R1','R2','R3']);
@@ -888,12 +892,173 @@ test('small talk never hijacks a tactical question, and never invents a chat thr
  assert.equal(answer.register,'R2');
  assert.equal(answer.chatThread,null,'战术提问不能被闲聊线程接走');
  assert(!/小芽，一直跟着你的那只/.test(answer.text),answer.text);
- // 没有任何记录时不开闲聊：只回最短承接句，不编经历
- assert.equal(chatReply({message:'你好',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'}),null);
- assert.equal(companion({mode:'camp'},freshMemory(),'你好').text,'我在。');
+ // 没有任何记录时也开闲聊，但只接住这句话本身 + 一句实话「账本还是空的」，不编经历
+ const bare=chatReply({message:'你好',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'});
+ assert(bare,'空账本下的寒暄也必须接住，不能返回 null 让玩家拿到「我在。」');
+ assert.equal(bare.thread,'self');
+ assert.equal(bare.emptyLedger,true);
+ assert.match(bare.text,/你好/);
+ assert(!/上次|之前|上回|上一场|那一局|那天/.test(bare.text),`空账本下不许提过去：${bare.text}`);
+ assert.equal(companion({mode:'camp'},freshMemory(),'你好').text,bare.text,'被动通道走的必须是同一句接话');
  // 线程识别本身：认出上一轮玩家说过的话题，也认得出陪练回话里的签名
  assert.equal(chatThread('你还记得我最常带哪只吗？').id,'pet');
  assert.equal(chatThread('今天随便聊聊').id,'self');
  assert.equal(previousChatThread({dialogue:[{role:'user',content:'你好呀'},{role:'assistant',content:'（模型改写过的一句）'}]}).id,'self');
  assert.equal(CHAT_THREADS.length>=4,true,'闲聊线程至少覆盖：陪练自己、久别、伙伴、战绩');
 });
+
+// ── freshMemory 的两轮闲聊：本轮修复的验收 ──────────────────────────────────
+// 上一版这里是不成立的：`decideRegister` 在 `!hasExperience` 时提前返回 R0，
+// `companion()` 直接给出「我在。」，`chatReply` 根本不会被调用（就算调了，
+// 空账本下每条线程的 memory 句都是 null，`if(!built.memory)return null` 又把它挡回去）。
+// 于是面试官打开 Demo 说的三句话——「你好」「今天有点累」「随便陪我聊两句」——拿到的是
+// 同一句「我在。」。这一条把那次审阅的判定钉死成可失败的测试：
+//   第一轮：三句问候必须三句不同的回答，且不许编造过去（硬线）；
+//   第二轮：**用第一轮存下来的 dialogue** 再走一轮，必须接住同一个话题。
+const FRESH_GREETINGS=['你好','今天有点累','随便陪我聊两句'];
+// 硬线③④：不冒充军师、不空泛打鸡血。
+const TACTIC_TALK=/建议你|不如换|最好换|换掉|改用|别用|先出|先打|集火|留着药|怎么打|配招|该出什么|守住|换成/;
+const HYPE_TALK=/加油|别灰心|你已经很棒|你能行|一定可以|没关系|放轻松|下次一定|不要放弃/;
+// 硬线（本轮新增）：空账本下不许出现编造的过去。这些说法在一条记录都没有时没有依据，
+// 「之前你／上次」正是审阅点名要拦的那类。
+const FAKE_PAST=/上次|上回|之前你|以前的|你以前|上一场|那一局|那天你|你打过的那一局|我记得你|已经打过/;
+function sayFresh(memory,message){
+ const answer=companion({mode:'camp'},memory,message);
+ return {answer,memory:{...memory,dialogue:[...(memory.dialogue||[]),{role:'user',content:message},{role:'assistant',content:answer.text}].slice(-8)}};
+}
+test('fresh memory: the three greetings get three different answers, and the second turn continues that thread',()=>{
+ // ① 第一轮：三句问候不能得到同一句（这是本次审阅最直接的证据）
+ const firsts=FRESH_GREETINGS.map(g=>companion({mode:'camp'},freshMemory(),g));
+ assert.equal(new Set(firsts.map(a=>a.text)).size,3,
+  `三种问候得到了同一句：${firsts.map(a=>a.text).join(' | ')}`);
+ for(const [i,answer] of firsts.entries()){
+  const message=FRESH_GREETINGS[i];
+  // 不能只剩「我在。」：R0 的上限是 8 字，一个字都多不出来
+  assert.notEqual(answer.text,'我在。',`空账本下不许只回「我在。」（玩家说的是「${message}」）`);
+  assert(answer.text.length>REGISTERS.R0.limit,`「${message}」只挤出一句 8 字以内的承接句：${answer.text}`);
+  assert.equal(answer.register,'R1',`「${message}」应当接住，而不是降档`);
+  assert.equal(answer.chatThread,'self');
+  // 硬线①无编造的过去 / ③不冒充军师 / ④不空泛打鸡血
+  assert(!FAKE_PAST.test(answer.text),`「${message}」编造了过去：${answer.text}`);
+  assert(!TACTIC_TALK.test(answer.text),`「${message}」闲聊里给了战术指令：${answer.text}`);
+  assert(!HYPE_TALK.test(answer.text),`「${message}」是空泛打鸡血：${answer.text}`);
+  // 空账本的依据里也不能冒出战绩：说了没有记录，就得真的是空的
+  assert(answer.evidence.some(x=>/memory\.events 里一局都还没有/.test(x)),answer.evidence.join(' | '));
+  assert(!/已结束\s*[1-9]/.test(answer.evidence.join(' ')),'空账本的依据里不许有战绩');
+  // 空账本下按最严的口径过一遍克制扫描：连「过去」都不许提
+  assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]}}).valid,
+   `${answer.text} → ${checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]}}).reasons.join(',')}`);
+ }
+ // 接住的是话头，不是同一句模板：问候得到应答，说累得到的接话里带着「累」
+ assert(/你好/.test(firsts[0].text)&&/小芽/.test(firsts[0].text),firsts[0].text);
+ assert(/累/.test(firsts[1].text),firsts[1].text);
+ assert(/聊/.test(firsts[2].text),firsts[2].text);
+ // ② 第二轮：把第一轮的 dialogue 存下来再走一轮，九个组合都要接住同一个话题
+ for(const first of FRESH_GREETINGS)for(const second of FRESH_GREETINGS.filter(x=>x!==first)){
+  const one=sayFresh(freshMemory(),first);
+  const two=sayFresh(one.memory,second);
+  assert.equal(two.answer.chatThread,one.answer.chatThread,`第二轮换了话题：${first} → ${second}`);
+  assert.equal(two.answer.chatThread,'self',`${first} → ${second} 没接住线程`);
+  assert.equal(two.answer.chatContinued,true,`第二轮没认出上一轮的话题：${first} → ${second}`);
+  assert.notEqual(two.answer.text,one.answer.text,`第二轮把第一轮那句重说了：${first} → ${second}`);
+  assert.notEqual(two.answer.text.split('。')[0],one.answer.text.split('。')[0],'第二轮的开头必须不是第一轮的开头');
+  assert(/还|接着/.test(two.answer.text),`第二轮没有明说在接着上一轮：${two.answer.text}`);
+  assert(!FAKE_PAST.test(two.answer.text),`第二轮编造了过去：${two.answer.text}`);
+  assert(!TACTIC_TALK.test(two.answer.text),`第二轮给了战术指令：${two.answer.text}`);
+  assert(!HYPE_TALK.test(two.answer.text),`第二轮是空泛打鸡血：${two.answer.text}`);
+  assert(checkCompanionRestraint(two.answer.text,{register:two.answer.register,facts:{allowPast:false,lessons:[]}}).valid,
+   `${second}：${two.answer.text}`);
+  // 第二轮问的如果是「今天有点累」，接话必须落在这件事上（不是换一件毫不相干的事）
+  if(/累/.test(second))assert(/累/.test(two.answer.text),`说累却没有接住：${two.answer.text}`);
+ }
+ // ③ 有历史时：接话里带一条真的记得的事，而不是硬塞一句战绩播报
+ const withRecord=companion({mode:'camp'},history([winGame(),lossGame()]),'你好');
+ assert.equal(withRecord.register,'R1');
+ assert.match(withRecord.text,/你打过的那2局我都留着底/,withRecord.text);
+ assert(!FAKE_PAST.test(withRecord.text),withRecord.text);
+});
+
+// ── 负向验证：改回「一律 R0／一律『我在。』」，上面的验收必须变红 ──────────────
+// 逐字复刻被判定「没兑现」的那一版行为（`decideRegister` 在 `!hasExperience` 时返回 R0，
+// 被动通道一律「我在。」），用它当对照组跑同一条验收。旧行为必须每一条都不合格：
+// 三句同一句、长度只有 3 字、没有线程可承接、parts 里没有一句信息句。
+test('negative verification: the old 「一律 R0／一律『我在。』」 chat channel fails this acceptance',()=>{
+ const legacy=()=>({register:'R0',text:'我在。',chatThread:null,chatContinued:false,
+  parts:[{kind:'chat',text:'我在。'}],evidence:['本机没有任何真实记录，不编造过去']});
+ const old=FRESH_GREETINGS.map(()=>legacy());
+ // 三句问候同一句——正是这次审阅判定「没有兑现」的那一条
+ assert.equal(new Set(old.map(a=>a.text)).size,1,'对照组：旧实现三句问候得到同一句');
+ assert(old.every(a=>a.text==='我在。'));
+ // 只有 3 字，连 R0 的 8 字上限都没用掉：作为第一印象就是短废话
+ assert(old[0].text.length<=REGISTERS.R0.limit);
+ // 没有线程：第二轮无从「承接上一轮」
+ assert.equal(old[0].chatThread,null);
+ assert.equal(old[1].chatContinued,false);
+ // 信息自检：那条承接句只有一句 chat，没有 memory/derived，判不合格
+ const check=checkCompanionInformation('我在。',{parts:old[0].parts});
+ assert.equal(check.valid,false);
+ assert(check.reasons.includes('no-new-information'));
+ // 同一条自检对新实现是过的：接话句 + 一句 memory（空账本），两句都有来源
+ const fresh=chatReply({message:'你好',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'});
+ assert(fresh,'空账本下 chatReply 必须给出接话句（旧实现这里返回 null）');
+ const freshCheck=checkCompanionInformation(fresh.text,{parts:fresh.parts});
+ assert.equal(freshCheck.valid,true,freshCheck.reasons.join(','));
+ assert.deepEqual(fresh.parts.map(p=>p.kind),['chat','memory']);
+});
+
+
+test('路由只认玩家原话：附加的「回答要求」不能把陪练顶成老师',async()=>{
+ // 这条修的是一个真实的 Demo 缺陷，而且是端到端才暴露出来的：
+ // coach/client.js 会把 RESPONSE_INSTRUCTIONS 拼在 message 后面，那段的开头是
+ // 「不要向玩家报内部局面评分…游戏按回合结算…」，含「回合」；后面的说明里还有「复盘」。
+ // runtime 的路由分支 /复盘|回顾|详看第.+回合/ 在**角色判断之前**命中，
+ // 于是玩家选了陪练、只说一句「你好」，也被当成老师在要求复盘——陪练包根本没生成，
+ // /api/coach 返回的 meta 是 route:'teacher'。**单元测试全绿，因为测的是不拼说明的那条路径。**
+ const {runCoach,buildContext}=await import('./coach/runtime.js');
+ const {RESPONSE_INSTRUCTIONS}=await import('./coach/client.js');
+ const {createGame}=await import('./engine.js');
+ const {newProfile}=await import('./progression.js');
+ const {freshMemory}=await import('./coach/memory.js');
+ const ctx={...buildContext(createGame(17),newProfile(),'fox'),mode:'camp'};
+ for(const text of ['你好','今天有点累','随便陪我聊两句']){
+  const plain=await runCoach({message:text,role:'companion',context:ctx,memory:freshMemory()});
+  const padded=await runCoach({message:text+RESPONSE_INSTRUCTIONS,role:'companion',context:ctx,memory:freshMemory()});
+  assert.equal(plain.route,'companion',`「${text}」不带说明时应当是陪练`);
+  assert.equal(padded.route,'companion',
+   `「${text}」带上回答要求后被路由成了 ${padded.route}——说明路由读到了附加说明里的「复盘」「回合」`);
+  // 玩家真的要复盘时仍应走老师：附加说明不影响正常意图
+ }
+ const review=await runCoach({message:'复盘一下上一局'+RESPONSE_INSTRUCTIONS,role:'auto',context:ctx,memory:freshMemory()});
+ assert.equal(review.route,'teacher','玩家真的要求复盘时仍走老师');
+});
+
+// 上一条钉住了「路由」这一侧；这一条钉住陪练自己那一侧：
+// 就算附加说明跟着 message 一起送进陪练通道（那段里有「技能」「能量」「防御」），
+// 陪练也必须按**玩家原话**判断意图与线程——否则一句「你好」会被 TACTICAL_HINT
+// 当成战术提问，接话通道让开，又退回「我在。」（这正是 Demo 上的实际症状）。
+// memory.js 读存档对话切的是同一个标记，陪练这里对齐同一把尺子。
+test('the appended 「回答要求」 never changes how the companion reads the player',async()=>{
+ const {RESPONSE_INSTRUCTIONS}=await import('./coach/client.js');
+ assert.equal(playerWords('你好'+RESPONSE_INSTRUCTIONS),'你好');
+ assert(TACTICAL_HINT_PROBE.test('你好'+RESPONSE_INSTRUCTIONS),'前提：附加说明里确实有战术词，否则这条测不到东西');
+ for(const greeting of FRESH_GREETINGS){
+  const clean=companion({mode:'camp'},freshMemory(),greeting);
+  const padded=companion({mode:'camp'},freshMemory(),greeting+RESPONSE_INSTRUCTIONS);
+  assert.equal(padded.register,clean.register,`附加说明改变了档位：${greeting}`);
+  assert.equal(padded.chatThread,clean.chatThread,`附加说明改变了线程：${greeting}`);
+  assert.equal(padded.chatContinued,clean.chatContinued);
+  assert.equal(padded.text,clean.text,`附加说明改变了回答：${greeting}`);
+  assert.notEqual(padded.text,'我在。');
+  assert(!/回答要求/.test(padded.text),`把附加说明说给玩家听了：${padded.text}`);
+ }
+ // 第二轮同样成立：存下来的 dialogue 认的是玩家原话
+ const withTail=`今天有点累${RESPONSE_INSTRUCTIONS}`;
+ const one=companion({mode:'camp'},freshMemory(),withTail);
+ const memory={...freshMemory(),dialogue:[{role:'user',content:withTail},{role:'assistant',content:one.text}]};
+ const two=companion({mode:'camp'},memory,`随便陪我聊两句${RESPONSE_INSTRUCTIONS}`);
+ assert.equal(two.chatThread,'self');
+ assert.equal(two.chatContinued,true,'带附加说明时第二轮也要认得出上一轮的话题');
+ assert(/还聊|接着/.test(two.text),two.text);
+});
+// 上一条用的探针：附加说明里确实含「技能」「能量」这类战术词。
+const TACTICAL_HINT_PROBE=/技能|能量|防御/;

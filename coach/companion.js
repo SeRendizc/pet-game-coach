@@ -254,11 +254,14 @@ export function decideRegister({context={},intent='other',playerInitiated=false,
  if(playerInitiated){
   if(intent==='emotion')return losing?{register:'R3',reason:`玩家本轮倾诉，且真实记录里连着输（连败${lossStreak}局，momentum=${momentum}）`}:{register:'R2',reason:`玩家本轮倾诉，但真实记录里没有连败（连败${lossStreak}局，momentum=${momentum}）`};
   if(intent==='followup')return {register:'R2',reason:'玩家在追问上一句，需要承接而不是换话题'};
+  // 寒暄／家常话也要接住：上一版纯寒暄恒为 R0（「我在。」），玩家主动搭话永远换不来一句
+  // 有内容的回应，题目里的「能闲聊」就落不了地。这里**不再**因为「本机没有任何记录」
+  // 提前返回 R0——闲聊本来就不依赖记录，玩家这一轮说的话就是全部依据：有记录时接完话再落
+  // 一件真的记得的事（chatReply 负责），一条记录都没有时就只接住这句话本身，并说明账本
+  // 还是空的（不编造过去）。之前 `!hasExperience` 排在这一句前面，于是「你好」「今天有点累」
+  // 「随便陪我聊两句」三句换来的是同一句「我在。」——CHAT_THREADS 在全新玩家身上等于不存在。
+  if(intent==='chat'||intent==='other')return {register:'R1',reason:hasExperience?'玩家主动搭话：先接住这句话，再落一件自己真的记得的事':'本机还没有记录：只接住这句话本身，不补造任何过去'};
   if(!hasExperience)return {register:'R0',reason:'本机没有任何真实记录，不编造过去'};
-  // 寒暄也要接住：上一版纯寒暄恒为 R0（「我在。」），玩家主动搭话永远换不来一句有内容的回应，
-  // 题目里的「能闲聊」就落不了地。有真实记录时就按 R1 的长度接话（先应一声，再落一件记得的事）；
-  // 什么都没记过时仍然只回最短承接句，不编。
-  if(intent==='chat')return {register:'R1',reason:'玩家主动搭话：先接住这句话，再落一件自己真的记得的事'};
   if(intent==='ask')return {register:'R2',reason:'玩家提出了需要回应的具体问题'};
   return {register:'R1',reason:'玩家没有明确意图，只陈述一条可核对的事实'};
  }
@@ -774,31 +777,94 @@ export function checkCompanionInformation(text,{parts=[],requireStance=false,kla
 // 连续两轮必须接得住，所以每条线程都写了两版：开场（opener）与续说（followup）。
 // 认线程用两个来源——玩家上一轮说的话、陪练上一轮的回话（模型改写过也认得出玩家那句），
 // 所以第二轮不会各说各的。
+//
+// ── 第三次修正：账本还是空的时候，闲聊通道也必须接得住（freshMemory）────────────
+// 上面那两版都要求「落一件真的记得的事」（`if(!built.memory)return null`），而
+// `decideRegister` 又在没有任何记录时提前返回 R0。两条加在一起，全新玩家（freshMemory）
+// 说「你好」「今天有点累」「随便陪我聊两句」，拿到的是同一句「我在。」——面试官打开 Demo
+// 看到的第一句话就是这三个字，CHAT_THREADS 在空账本下等于不存在。修法是给每条线程补一版
+// 「空账本」接话，两条纪律同时成立：
+//   1. 接住句子本身（问候回问候，说累接累，要人陪聊就应一声）。用词只来自玩家这一轮
+//      自己说的话（名字也是他自己说的），所以一条记录都没有也不会编造过去；
+//   2. 第二句说实话：`memory.events` 里一局都还没有。这是可核对的事实（空账本），
+//      不是安慰，也不是编出来的「上次」。
+// 有记录时行为不变：接完话落一件真的记得的事（跨局记录 / 本命 / 答对过的题）。
 const PET_NAMES=SPECIES.map(s=>s.name).join('|');
 // 战术问句是军师的活：这类句子不走闲聊线程，免得陪练抢答。
 const TACTICAL_HINT=/怎么打|怎么用|怎么配|怎么选|建议|该不该|怎么办|咋办|该怎么|换上|换成|换掉|技能|能量|克制|属性|先手|防御|守住|培养|加点|阵容|战术|值得|哪个好/;
+// 这一句家常话是哪一类：问候、说心情（累／烦）、要人陪聊、问陪练自己。这几张词表只决定
+// 「先接住哪一句」，不新增任何关于过去的事实——空账本下接话里的每个字都出自玩家这一轮。
+const GREETING_LINE=/^(你?好|您好|hi|hello|嗨|早|早安|晚安|在吗|在么|在不在)/i;
+const TIRED_LINE=/累|疲惫|没精神|困/;
+const UPSET_LINE=/烦|难受|心情|压力|撑不住|不想玩|不想打/;
+const MOOD_LINE=new RegExp(`${TIRED_LINE.source}|${UPSET_LINE.source}`);
+const CHAT_ASK_LINE=/陪我聊|随便聊|聊聊|说说话|唠|闲聊|说两句/;
+// 空账本的第二句。它确实是「关于过去」的一句话，但说的是**没有记录**这件事本身，
+// 所以它一个编造的过去都不含：memory.events 为空，正是「一局都还没记上」。
+const EMPTY_LEDGER_OPEN='你打的局我这儿一局都还没记上，等你打完第一局我就能接上话。';
+const EMPTY_LEDGER_MOOD='你打的局我这儿还没记上——先不聊对局，想说什么都行。';
+const EMPTY_LEDGER_MORE='账本还是空的，今天这些话我记着；第一局打完就能聊具体的了。';
+function emptyLedgerLine(continuing=false,mood=false){
+ return continuing?EMPTY_LEDGER_MORE:(mood?EMPTY_LEDGER_MOOD:EMPTY_LEDGER_OPEN);
+}
+// 接住玩家这一句：问候回问候，说累接累，要人陪聊就应一声。
+// 开场与续说两版出自同一个函数，所以第二轮的接话一定不是开场那句。
+function selfLine(message,continuing){
+ const t=String(message||'');
+ if(continuing){
+  if(TIRED_LINE.test(t))return '还累着啊——那就接着说。';
+  if(UPSET_LINE.test(t))return '还烦着啊——那接着说。';
+  if(CHAT_ASK_LINE.test(t))return '还聊我啊，那我接着说。';
+  if(GREETING_LINE.test(t))return '还在，接着聊。';
+  return '还聊我啊，那我再说一件。';
+ }
+ if(TIRED_LINE.test(t))return '今天累了就先缓着。';
+ if(UPSET_LINE.test(t))return '烦就先搁着，不聊对局也行。';
+ if(CHAT_ASK_LINE.test(t))return '行，聊两句。';
+ if(GREETING_LINE.test(t))return '你好，我是小芽。';
+ return '我在——小芽，一直跟着你的那只。';
+}
+// 玩家这一轮自己提到的伙伴名：空账本下唯一能说出口的名字，因为它出自玩家这句话。
+function namedPet(message){const m=String(message||'').match(new RegExp(PET_NAMES));return m?m[0]:null;}
 export const CHAT_THREADS=[
  {id:'self',
-  match:new RegExp(`你是谁|你叫什么|你叫啥|小芽|陪练|在吗|你在吗|你在干嘛|你还?记得我吗|认识我吗|陪我聊|随便聊|聊聊|你好|您好|hi|hello|嗨|早`,'i'),
+  match:new RegExp(`你是谁|你叫什么|你叫啥|小芽|陪练|在吗|你在吗|你在干嘛|你还?记得我吗|认识我吗|陪我聊|随便聊|聊聊|你好|您好|hi|hello|嗨|早|${MOOD_LINE.source}`,'i'),
   signature:/小芽|陪练/,
-  opener:f=>({chat:'我在——小芽，一直跟着你的那只。',memory:linesOf(f).length?`你打过的那${linesOf(f).length}局我都留着底。`:null}),
-  followup:f=>({chat:'还聊我啊，那我再说一件。',memory:habitLine(f)})},
+  opener:(f,{message=''}={})=>({chat:selfLine(message,false),memory:linesOf(f).length?`你打过的那${linesOf(f).length}局我都留着底。`:null}),
+  followup:(f,{message=''}={})=>({chat:selfLine(message,true),memory:habitLine(f)})},
  {id:'away',
   match:/好久没|好久不见|很久没|最近忙|几天没|一段时间没|回来了|回坑|没怎么玩|没时间玩/,
   signature:/上次来|隔了\d+天|好久/,
-  opener:f=>f.daysAgo===null?null:{chat:'你回来啦。',memory:`你上次来是${f.daysAgo}天前，那天打了${sessionCount(f)}局，${sessionWins(f)}胜${sessionLosses(f)}负。`},
-  followup:f=>({chat:'接着说你不在的这段——',memory:habitLine(f)||`你上次来是${f.daysAgo}天前，那天的记录我还留着。`})},
+  // 「你上次来是 N 天前」只有在真有那一天的记录时才是真话；空账本下只接住「我回来了」。
+  opener:(f,{message=''}={})=>linesOf(f).length&&f.daysAgo!==null
+   ?{chat:'你回来啦。',memory:`你上次来是${f.daysAgo}天前，那天打了${sessionCount(f)}局，${sessionWins(f)}胜${sessionLosses(f)}负。`}
+   :{chat:'回来就好，先坐会儿。',memory:null},
+  followup:(f,{message=''}={})=>linesOf(f).length&&f.daysAgo!==null
+   ?{chat:'接着说你不在的这段——',memory:habitLine(f)||`你上次来是${f.daysAgo}天前，那天的记录我还留着。`}
+   :{chat:'接着说你不在的这段，我听着。',memory:null}},
  {id:'pet',
   match:new RegExp(`本命|最喜欢|最爱|最常带|哪只|哪一只|你记得.{0,6}(队伍|伙伴|宠物)|${PET_NAMES}`),
   signature:new RegExp(PET_NAMES),
-  opener:f=>knownPet(f)&&petFaints(f)>0?{chat:`${knownPet(f)}啊。`,memory:`你最近${linesOf(f).length}局的记录里，它倒下过${petFaints(f)}次。`}:null,
-  followup:f=>{const pet=knownPet(f),falls=petFirstFallen(f);if(!pet||!falls)return pet&&petFaints(f)>0?{chat:`还说${pet}——`,memory:`它在这${linesOf(f).length}局里一共倒下过${petFaints(f)}次。`}:null;
-   return {chat:`还说${pet}——`,memory:`最先倒下的有${falls.times}次是它，最近一次在第${falls.lastTurn}回合。`};}},
+  opener:(f,{message=''}={})=>{
+   const pet=knownPet(f);
+   if(pet&&petFaints(f)>0)return {chat:`${pet}啊。`,memory:`你最近${linesOf(f).length}局的记录里，它倒下过${petFaints(f)}次。`};
+   if(!linesOf(f).length){const said=namedPet(message);return {chat:said?`${said}啊。`:'想聊哪只都行。',memory:null};}
+   return null;},
+  followup:(f,{message=''}={})=>{
+   const pet=knownPet(f),falls=petFirstFallen(f);
+   if(pet&&falls)return {chat:`还说${pet}——`,memory:`最先倒下的有${falls.times}次是它，最近一次在第${falls.lastTurn}回合。`};
+   if(pet&&petFaints(f)>0)return {chat:`还说${pet}——`,memory:`它在这${linesOf(f).length}局里一共倒下过${petFaints(f)}次。`};
+   if(!linesOf(f).length){const said=namedPet(message)||pet;return {chat:said?`还说${said}——`:'还聊伙伴啊，那我接着说。',memory:null};}
+   return null;}},
  {id:'record',
   match:/战绩|胜率|赢了几|输了几|几胜|几负|打了几局|多少局|账本/,
   signature:/这几局|今天第\d+次|^\d+胜|胜\d*负/,
-  opener:f=>({chat:'想问账本啊，我给你念真的。',memory:`最近${linesOf(f).length}局${winCount(f)}胜${lossCount(f)}负，${todayCount(f)>0?`其中${todayCount(f)}局是今天打的`:'今天的还没记上'}。`}),
-  followup:f=>({chat:'接着说这几局——',memory:longestTurns(f)?`回合数是${linesOf(f).slice(-3).map(e=>num(e.turns,1)||'?').join('、')}，${paceWords(f)}`:'这几局的回合数我都记着。'})},
+  opener:(f,{message=''}={})=>linesOf(f).length
+   ?{chat:'想问账本啊，我给你念真的。',memory:`最近${linesOf(f).length}局${winCount(f)}胜${lossCount(f)}负，${todayCount(f)>0?`其中${todayCount(f)}局是今天打的`:'今天的还没记上'}。`}
+   :{chat:'账本啊——',memory:null},
+  followup:(f,{message=''}={})=>linesOf(f).length
+   ?{chat:'接着说这几局——',memory:longestTurns(f)?`回合数是${linesOf(f).slice(-3).map(e=>num(e.turns,1)||'?').join('、')}，${paceWords(f)}`:'这几局的回合数我都记着。'}
+   :{chat:'接着说——',memory:null}},
 ];
 function linesOf(f){return (f?.history||[]).filter(e=>e&&typeof e.result==='string');}
 function winCount(f){return linesOf(f).filter(e=>e.result==='win').length;}
@@ -859,9 +925,13 @@ export function previousChatThread(memory={}){
 // 返回 null 表示「这句不是闲聊」或「没有可核对的经历」，交给原来的观察通道。
 export function chatReply({message='',memory={},facts=null,intent='other',limit=REGISTERS.R1.limit,now=Date.now()}={}){
  const f=facts||companionFacts(memory,{},now);
- if(!linesOf(f).length&&!f.dialogue.length)return null;
- if(TACTICAL_HINT.test(String(message||'')))return null;
- const own=chatThread(message);
+ const text=String(message||'');
+ if(TACTICAL_HINT.test(text))return null;
+ const hasRecord=linesOf(f).length>0;
+ // 有记录时的「说心情」（烦、难受）仍然走原来的关切通道：那时真的有事可以关切，
+ // 闲聊不该把它换成一句家常。一条记录都没有时没有可关切的事，接住这句话本身就是回应。
+ if(hasRecord&&MOOD_LINE.test(text)&&intent!=='chat')return null;
+ const own=chatThread(text);
  const prev=previousChatThread(memory);
  // 上一轮已经开了一个话题时，这一轮哪怕是个问句也先接着那个话题说——
  // 「各说各的」正是这样断掉的。真正的战术问句由 TACTICAL_HINT 挡在上面。
@@ -869,32 +939,52 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  const thread=own||prev;
  if(!thread)return null;
  const continuing=Boolean(prev&&(!own||own.id===prev.id));
+ const opts={message:text,continuing};
  // 续说版本拼不出来（例如那天没有习惯记录）就退回开场版本，宁可少一句也不空着。
- const built=(continuing?thread.followup(f):thread.opener(f))||thread.opener(f);
- if(!built||!built.memory)return null;
+ const built=(continuing?thread.followup(f,opts):thread.opener(f,opts))||thread.opener(f,opts);
+ if(!built)return null;
+ // 第二句：先落一件真的记得的事（跨局记录 / 本命 / 答对过的题）。
+ // 一条记录都没有时，说实话——账本还是空的，第一局打完才有得聊。这句话也是可核对的
+ // 事实（memory.events 为空），不是安慰，更不是编出来的「上次」。
+ const second=built.memory
+  ?{text:built.memory,source:'memory.events'}
+  :hasRecord?null
+  :f.knowsFavorite?{text:`你说过本命是${f.favorite}，这个我记着。`,source:'memory.favorite'}
+  :f.lessons.length?{text:`你答对过的${list(f.lessons)}，我这儿记着。`,source:'memory.lessons'}
+  :{text:emptyLedgerLine(continuing,MOOD_LINE.test(text)),source:'memory.events（空账本）'};
+ if(!second)return null;
  const affects=[],last=linesOf(f).at(-1);
  if(thread.id==='record'&&last){
   if(last.result==='win')affects.push(AFFECT('praise','最近这一局是拿下的，收得漂亮。','memory.events.result'));
   else if(last.result==='loss')affects.push(AFFECT('pity','最近这一局没拿下来，可惜。','memory.events.result'));
  }
- const sentences=[SENT(built.chat,'chat','本轮消息'),SENT(built.memory,'memory','memory.events'),...affects];
+ const sentences=[SENT(built.chat,'chat','本轮消息'),SENT(second.text,'memory',second.source),...affects];
  const fit=fitSentences(sentences,limit);
  if(!fit)return null;
- return {text:fit.text,parts:fit.parts,thread:thread.id,continued:continuing,evidence:[
-  `闲聊线程「${thread.id}」：你这一轮说的是「${String(message||'').slice(0,24)}」，${continuing?'接着上一轮同一个话题往下说':'开了一个新话题'}（来源：本轮消息 + memory.dialogue 的上一轮）。`,
-  `跨局记录：已结束 ${linesOf(f).length} 场，${winCount(f)}胜${lossCount(f)}负（来源：memory.events）。`,
-  f.daysAgo!==null?`最近一次记录在 ${f.daysAgo} 天前（来源：memory.events.time）。`:'',
-  knownPet(f)?`记录里最常出现的是 ${knownPet(f)}，它出现过 ${petAppearances(f)} 次、倒下过 ${petFaints(f)} 次（来源：memory.events.faints）。`:'',
-  `回合数记录：${linesOf(f).map(e=>num(e.turns,1)||'?').join('、')}（来源：memory.events.turns）。`,
+ return {text:fit.text,parts:fit.parts,thread:thread.id,continued:continuing,emptyLedger:!hasRecord,evidence:[
+  `闲聊线程「${thread.id}」：你这一轮说的是「${text.slice(0,24)}」，${continuing?'接着上一轮同一个话题往下说':'开了一个新话题'}（来源：本轮消息 + memory.dialogue 的上一轮）。`,
+  hasRecord?`跨局记录：已结束 ${linesOf(f).length} 场，${winCount(f)}胜${lossCount(f)}负（来源：memory.events）。`
+   :'跨局记录：memory.events 里一局都还没有（空账本）。这一轮只能说实话「还没记上」，不许提任何过去，也不许编一局出来。',
+  hasRecord&&f.daysAgo!==null?`最近一次记录在 ${f.daysAgo} 天前（来源：memory.events.time）。`:'',
+  hasRecord&&knownPet(f)?`记录里最常出现的是 ${knownPet(f)}，它出现过 ${petAppearances(f)} 次、倒下过 ${petFaints(f)} 次（来源：memory.events.faints）。`:'',
+  hasRecord?`回合数记录：${linesOf(f).map(e=>num(e.turns,1)||'?').join('、')}（来源：memory.events.turns）。`:'',
  ].filter(Boolean)};
 }
 
 // ── 被动通道：玩家先开口 ────────────────────────────────────────────────────
+// 陪练只按**玩家自己那句话**判断意图与线程。模型路径上 coach/client.js 会把
+// RESPONSE_INSTRUCTIONS 拼在 message 后面一起送进来，那段的开头就是「回答要求：」，
+// 里面有「技能」「能量」「防御」「复盘」这些词——照着整条 message 判断，
+// 一句「你好」会被 TACTICAL_HINT 当成战术提问，接话通道直接让开，又只剩「我在。」。
+// memory.js 读存档里的对话切的是同一个标记（readMemory 的 split('\n回答要求：')），
+// 这里对齐同一把尺子：附加说明是给模型的，不是玩家说的话。
+export const ANSWER_REQUIREMENTS='\n回答要求：';
+export function playerWords(message){return String(message??'').split(ANSWER_REQUIREMENTS)[0];}
 // R0 在这里是最短承接句（聊天通道不能真的空消息，runCoach 会拒绝空文本）；
 // 真正的「不发消息」只存在于主动通道（coach.js 返回 null）。
 export function companion(context={},memory={},message=''){
- const now=Date.now(),intent=intentOf(message);
- const state=companionState(memory,context,{playerInitiated:true,intent,message},now);
+ const now=Date.now(),words=playerWords(message),intent=intentOf(words);
+ const state=companionState(memory,context,{playerInitiated:true,intent,message:words},now);
  const f=state.facts;
  const cross=companionLedger(memory,liveGame(context),now);
  const bundle={cross,signals:emptySignals(),context:{goal:f.goal,turn:f.live?.turn||null},now};
@@ -908,7 +998,7 @@ export function companion(context={},memory={},message=''){
  else if(register==='R1'||register==='R2'){
   // 玩家主动搭话（寒暄、家常、问陪练自己）先走闲聊线程：接住这句话，再落一件记得的事。
   // 战术问句与倾诉不走这里——前者是军师的活，后者由 R2/R3 的关切句接。
-  chat=chatReply({message,memory,facts:f,intent,limit,now});
+  chat=chatReply({message:words,memory,facts:f,intent,limit,now});
   if(chat){text=chat.text;parts=chat.parts;}
   else if(register==='R1'){
    reading=pick(CLASSES);
@@ -981,19 +1071,30 @@ function publicPacket({text,register,state,intent,reading=null,chat=null}){
  const settings=[`交流偏好${f.preference||'未设置'}`,`玩法目标${f.goal||'未设置'}`,`本命${f.favorite||'未设置'}`].join('、');
  evidence.push(`你的设置：${settings}（来源：你明确表达过才会记录）。`);
  if(f.lessons.length)evidence.push(`课程记录：${f.lessons.join('、')}（${f.lessons.length}条答对过的练习，不等于熟练掌握）。`);
- return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
+ return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat)}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
 }
 
 // 模型路径下的档位约束：随证据包一起送到服务端（server.js 把整个证据包作为 game_evidence 发给模型）。
 // forbid 里的每一条与 checkCompanionRestraint / checkCompanionInformation 的硬线一一对应：
 // 复述屏幕、播报自己的情绪、空泛安慰、评价水平、说教、战术指挥，一条都不留。
 // allow 里写清这一轮**该有**的东西：情绪不是被禁止的，被禁止的是把情绪落在自己身上。
-export function replyConstraints(register,voice='companion'){
+export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false}={}){
  const r=REGISTERS[register];
+ // 空账本时送模型的那句话要换掉：原来写的是「至少一句要来自跨局记录（memory.events）」，
+ // 而 memory.events 是空的——照这句写，模型只能编一局出来。这时宁可明说：不许提过去。
+ const grounding=emptyLedger
+  ?'本机还没有任何对战记录（memory.events 为空）：不许提过去，也不许编一局出来——只接住玩家这句话本身，并说明记录还是空的。'
+  :'至少一句要来自跨局记录（memory.events）或跨回合统计（game.history），否则不如不说；';
+ // 第二轮是在接着上一轮说：这一点也要写给模型。实测里只给「上一轮说过什么」不够，
+ // 模型会把第二轮当成一个新问题答，读起来就是「各说各的」。
+ const threading=continuing?'这一轮是接着上一轮同一个话题说：正文里要让人听得出是接着说的（「还聊」「接着说」这类词），不要另起一件不相干的事。':'';
+ // 闲聊通道的一轮：模型的毛病是把「没有记录」讲成「等你打完再来」——那是把人挡回去。
+ // 空账本时唯一该做的是接住这句话，所以这一条要和「不许提过去」分开写清楚。
+ const smallTalk=chat?'这一轮是玩家主动搭话：先用一句话回他这句话本身（问候就回问候，说累就接住累，想聊天就应一声），再落事实；不要用「等你打完一回合再来」这类把人挡回去的说法。':'';
  return {register,voice,maxChars:r.limit,maxQuestions:r.maxQuestions,allowAdvice:r.advice,
-  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥'].filter(Boolean),
+  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':''].filter(Boolean),
   allow:['对真实事件的可惜/漂亮/悬/憋屈/松口气（必须落在具体回合、数字或记录上）','跨局记录与偏好（玩家以前说过、打过的事）'],
-  instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，只写有本机记录支撑的事实。至少一句要来自跨局记录（memory.events）或跨回合统计（game.history），否则不如不说；不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
+  instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，只写有本机记录支撑的事实。${grounding}${threading}${smallTalk}不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
 }
 
 // 两条声线。自我中心的情绪在任何声线下都拦——「我看得有点急」正是这一版要修掉的方向：
