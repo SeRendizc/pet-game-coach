@@ -2647,6 +2647,2375 @@
         "回复药 → 潮甲龟：平均局面分 26.3，最坏分 16.3（启发式评分，非胜率）。对方换宠分支：41.3。",
         "撞击：平均局面分 18.1，最坏分 9.5（启发式评分，非胜率）。对方换宠分支：42.6。"
       ]
+    },
+    {
+      "id": "c25",
+      "cat": "cat3-cross-tool",
+      "question": "结合我现在的血量判断这回合该防御还是换宠，另外说明换宠的完整代价。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_state",
+          "compare_actions",
+          "search_rules"
+        ]
+      },
+      "why": "既要当前局面（读局面/比较行动）又要换宠代价规则（检索）。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 5348,
+      "model": "deepseek-flash",
+      "text": "现在上场的潮甲龟55/132，本回合焦点在它。主动换宠的完整代价：本回合唯一行动，换入者要直接吃对方这回合的攻击，不能换完再打、防或吃药；倒下后的强制补位才免费。\n\n证据里“回复药→潮甲龟”平均局面分26.3，优于撞击18.1，但这是启发式评分不是胜率。你用的是换宠还是防御，取决于你想保55血还是让芽角鹿满血承接。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "read_state",
+          "args": {},
+          "result": {
+            "screen": "pve",
+            "focus": "fox",
+            "turn": 9,
+            "player": {
+              "active": 1,
+              "pets": [
+                {
+                  "id": "fox",
+                  "name": "烬尾狐",
+                  "icon": "🦊",
+                  "type": "fire",
+                  "maxHp": 98,
+                  "atk": 27,
+                  "def": 17,
+                  "speed": 38,
+                  "skills": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard"
+                  ],
+                  "bio": "高速游击",
+                  "trait": "火花挂灼烧，追猎增伤；疾爪先制收尾",
+                  "learnset": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard",
+                    "focus",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 0,
+                  "energy": 1,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "turtle",
+                  "name": "潮甲龟",
+                  "icon": "🐢",
+                  "type": "water",
+                  "maxHp": 132,
+                  "atk": 22,
+                  "def": 30,
+                  "speed": 13,
+                  "skills": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "守势水盾",
+                  "trait": "防御时额外恢复 8 HP，适合承接换入伤害",
+                  "guardHeal": 8,
+                  "learnset": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "shell",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 55,
+                  "energy": 2,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "deer",
+                  "name": "芽角鹿",
+                  "icon": "🦌",
+                  "type": "leaf",
+                  "maxHp": 108,
+                  "atk": 27,
+                  "def": 21,
+                  "speed": 29,
+                  "skills": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard"
+                  ],
+                  "bio": "吸血续航",
+                  "trait": "生息藤吸血；速度与持续作战兼顾",
+                  "learnset": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard",
+                    "focus",
+                    "shell"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 108,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                }
+              ],
+              "items": {
+                "potion": 2,
+                "cleanse": 2,
+                "ether": 1
+              }
+            },
+            "enemy": {
+              "active": 1,
+              "pets": [
+                {
+                  "id": "deer",
+                  "name": "芽角鹿",
+                  "icon": "🦌",
+                  "type": "leaf",
+                  "maxHp": 108,
+                  "atk": 27,
+                  "def": 21,
+                  "speed": 29,
+                  "skills": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard"
+                  ],
+                  "bio": "吸血续航",
+                  "trait": "生息藤吸血；速度与持续作战兼顾",
+                  "learnset": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard",
+                    "focus",
+                    "shell"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 0,
+                  "energy": 6,
+                  "status": {
+                    "kind": "burn",
+                    "remaining": 1
+                  },
+                  "lastGuard": false
+                },
+                {
+                  "id": "turtle",
+                  "name": "潮甲龟",
+                  "icon": "🐢",
+                  "type": "water",
+                  "maxHp": 132,
+                  "atk": 22,
+                  "def": 30,
+                  "speed": 13,
+                  "skills": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "守势水盾",
+                  "trait": "防御时额外恢复 8 HP，适合承接换入伤害",
+                  "guardHeal": 8,
+                  "learnset": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "shell",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 38,
+                  "energy": 1,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "fox",
+                  "name": "烬尾狐",
+                  "icon": "🦊",
+                  "type": "fire",
+                  "maxHp": 98,
+                  "atk": 27,
+                  "def": 17,
+                  "speed": 38,
+                  "skills": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard"
+                  ],
+                  "bio": "高速游击",
+                  "trait": "火花挂灼烧，追猎增伤；疾爪先制收尾",
+                  "learnset": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard",
+                    "focus",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 98,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                }
+              ],
+              "items": {
+                "potion": 1,
+                "cleanse": 2,
+                "ether": 2
+              }
+            },
+            "legalPlayer": [
+              {
+                "kind": "skill",
+                "id": "strike"
+              },
+              {
+                "kind": "skill",
+                "id": "wave"
+              },
+              {
+                "kind": "skill",
+                "id": "guard"
+              },
+              {
+                "kind": "switch",
+                "target": 2
+              },
+              {
+                "kind": "item",
+                "id": "potion",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 2
+              },
+              {
+                "kind": "escape"
+              }
+            ],
+            "legalEnemy": [
+              {
+                "kind": "skill",
+                "id": "strike"
+              },
+              {
+                "kind": "skill",
+                "id": "guard"
+              },
+              {
+                "kind": "switch",
+                "target": 2
+              },
+              {
+                "kind": "item",
+                "id": "potion",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 2
+              },
+              {
+                "kind": "escape"
+              }
+            ]
+          },
+          "resultBytes": 2956
+        }
+      ],
+      "calls": 1,
+      "usage": {
+        "prompt_tokens": 3407,
+        "completion_tokens": 110
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:switch-turn",
+        "tactic:guard-repeat",
+        "tactic:switch"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "潮甲龟：55/132 HP，能量 2，速度 13。",
+        "潮甲龟：38/132 HP，能量 1，速度 13。",
+        "[tactic:switch-turn] 主动换宠就是本回合唯一行动，不能换入后再攻击、防御或吃药。对方可能攻击换入者。 注意：倒下后的强制补位免费；它与主动换宠不是同一种成本。 条件：candidate",
+        "[tactic:guard-repeat] 上一回合使用防御后，本回合不能再防御，可从对手合法行动中去掉该分支。 注意：不能假设对方必定攻击，物品和主动换宠仍可能合法。 条件：candidate",
+        "[tactic:switch] 主动换宠占用行动，新上场伙伴可能承受本回合攻击；比较换入后的血量与后续位置。 注意：属性有利也可能因残血换入倒下；不要假定对方一定使用属性攻击。 条件：candidate",
+        "回复药 → 潮甲龟：平均局面分 26.3，最坏分 16.3（启发式评分，非胜率）。对方换宠分支：41.3。",
+        "撞击：平均局面分 18.1，最坏分 9.5（启发式评分，非胜率）。对方换宠分支：42.6。"
+      ]
+    },
+    {
+      "id": "c26",
+      "cat": "cat3-cross-tool",
+      "question": "先看我现在场上的能量，再查一下能量果到底恢复多少。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_state",
+          "search_rules"
+        ]
+      },
+      "why": "一个局面事实加一个规则事实，两个来源。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 5182,
+      "model": "deepseek-flash",
+      "text": "你现在场上：烬尾狐 0 HP、1 能量；潮甲龟 55/132、2 能量；芽角鹿 108、5 能量。\n\n能量果恢复 4 点能量，但占用本回合行动，不能吃完当回合再出招。上限是 6。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "read_state",
+          "args": {},
+          "result": {
+            "screen": "pve",
+            "focus": "fox",
+            "turn": 9,
+            "player": {
+              "active": 1,
+              "pets": [
+                {
+                  "id": "fox",
+                  "name": "烬尾狐",
+                  "icon": "🦊",
+                  "type": "fire",
+                  "maxHp": 98,
+                  "atk": 27,
+                  "def": 17,
+                  "speed": 38,
+                  "skills": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard"
+                  ],
+                  "bio": "高速游击",
+                  "trait": "火花挂灼烧，追猎增伤；疾爪先制收尾",
+                  "learnset": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard",
+                    "focus",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 0,
+                  "energy": 1,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "turtle",
+                  "name": "潮甲龟",
+                  "icon": "🐢",
+                  "type": "water",
+                  "maxHp": 132,
+                  "atk": 22,
+                  "def": 30,
+                  "speed": 13,
+                  "skills": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "守势水盾",
+                  "trait": "防御时额外恢复 8 HP，适合承接换入伤害",
+                  "guardHeal": 8,
+                  "learnset": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "shell",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 55,
+                  "energy": 2,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "deer",
+                  "name": "芽角鹿",
+                  "icon": "🦌",
+                  "type": "leaf",
+                  "maxHp": 108,
+                  "atk": 27,
+                  "def": 21,
+                  "speed": 29,
+                  "skills": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard"
+                  ],
+                  "bio": "吸血续航",
+                  "trait": "生息藤吸血；速度与持续作战兼顾",
+                  "learnset": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard",
+                    "focus",
+                    "shell"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 108,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                }
+              ],
+              "items": {
+                "potion": 2,
+                "cleanse": 2,
+                "ether": 1
+              }
+            },
+            "enemy": {
+              "active": 1,
+              "pets": [
+                {
+                  "id": "deer",
+                  "name": "芽角鹿",
+                  "icon": "🦌",
+                  "type": "leaf",
+                  "maxHp": 108,
+                  "atk": 27,
+                  "def": 21,
+                  "speed": 29,
+                  "skills": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard"
+                  ],
+                  "bio": "吸血续航",
+                  "trait": "生息藤吸血；速度与持续作战兼顾",
+                  "learnset": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard",
+                    "focus",
+                    "shell"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 0,
+                  "energy": 6,
+                  "status": {
+                    "kind": "burn",
+                    "remaining": 1
+                  },
+                  "lastGuard": false
+                },
+                {
+                  "id": "turtle",
+                  "name": "潮甲龟",
+                  "icon": "🐢",
+                  "type": "water",
+                  "maxHp": 132,
+                  "atk": 22,
+                  "def": 30,
+                  "speed": 13,
+                  "skills": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "守势水盾",
+                  "trait": "防御时额外恢复 8 HP，适合承接换入伤害",
+                  "guardHeal": 8,
+                  "learnset": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "shell",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 38,
+                  "energy": 1,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "fox",
+                  "name": "烬尾狐",
+                  "icon": "🦊",
+                  "type": "fire",
+                  "maxHp": 98,
+                  "atk": 27,
+                  "def": 17,
+                  "speed": 38,
+                  "skills": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard"
+                  ],
+                  "bio": "高速游击",
+                  "trait": "火花挂灼烧，追猎增伤；疾爪先制收尾",
+                  "learnset": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard",
+                    "focus",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 98,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                }
+              ],
+              "items": {
+                "potion": 1,
+                "cleanse": 2,
+                "ether": 2
+              }
+            },
+            "legalPlayer": [
+              {
+                "kind": "skill",
+                "id": "strike"
+              },
+              {
+                "kind": "skill",
+                "id": "wave"
+              },
+              {
+                "kind": "skill",
+                "id": "guard"
+              },
+              {
+                "kind": "switch",
+                "target": 2
+              },
+              {
+                "kind": "item",
+                "id": "potion",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 2
+              },
+              {
+                "kind": "escape"
+              }
+            ],
+            "legalEnemy": [
+              {
+                "kind": "skill",
+                "id": "strike"
+              },
+              {
+                "kind": "skill",
+                "id": "guard"
+              },
+              {
+                "kind": "switch",
+                "target": 2
+              },
+              {
+                "kind": "item",
+                "id": "potion",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 2
+              },
+              {
+                "kind": "escape"
+              }
+            ]
+          },
+          "resultBytes": 2956
+        }
+      ],
+      "calls": 1,
+      "usage": {
+        "prompt_tokens": 3432,
+        "completion_tokens": 64
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:ether-cost",
+        "tactic:energy",
+        "tactic:energy-net"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "潮甲龟：55/132 HP，能量 2，速度 13。",
+        "潮甲龟：38/132 HP，能量 1，速度 13。",
+        "[tactic:ether-cost] 能量果恢复4并占用行动。要比较吃果后能否承伤，以及零消耗攻击或防御能否满足下一回合需求。 注意：库存与目标能量必须核对；不能吃果后同回合再攻击。 条件：candidate",
+        "[tactic:energy] 比较当前出招后还能否使用关键技能。防御与能量果提供不同的恢复机会。 注意：能量上限6；低能量不必总防御，零消耗攻击可能直接结束战斗。 条件：candidate",
+        "[tactic:energy-net] 普通存活在场者回合末回1；耗2技能通常净耗1，耗4技能通常净耗3。零消耗攻击可边输出边回能。 注意：倒下者不回能，回能有上限；换宠后恢复属于新上场者而非后备。 条件：candidate",
+        "回复药 → 潮甲龟：平均局面分 26.3，最坏分 16.3（启发式评分，非胜率）。对方换宠分支：41.3。",
+        "撞击：平均局面分 18.1，最坏分 9.5（启发式评分，非胜率）。对方换宠分支：42.6。"
+      ]
+    },
+    {
+      "id": "c27",
+      "cat": "cat3-cross-tool",
+      "question": "第5回合我的宠被打掉多少血？结合那一下判断这回合我该怎么打。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_evidence",
+          "read_match",
+          "compare_actions"
+        ]
+      },
+      "why": "要按回合取原始证据，再做行动比较。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 3676,
+      "model": "deepseek-flash",
+      "text": "第5回合你的苔盾菇被火花打掉58血，又受灼烧6点，共64点，很痛——火克叶，别再硬吃。\n\n当前溪刃獭只剩12血还中毒，对方烬尾狐54血、速度44压制它。备选动作里回复药给溪刃獭平均分-250，净化药-2405差得多。这回合我倾向先喂回复药保溪刃獭，别急着换它上场送死。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "read_evidence",
+          "args": {
+            "turn": 5
+          },
+          "result": {
+            "id": "current:turn:5",
+            "turn": 5,
+            "rulesVersion": "0.6",
+            "events": [
+              "── 第 5 回合 ──",
+              "对手的烬尾狐使用火花，对苔盾菇造成 58 伤害（属性克制）。",
+              "苔盾菇陷入灼烧。",
+              "你的苔盾菇使用撞击，对烬尾狐造成 23 伤害。",
+              "苔盾菇受到灼烧伤害 6。"
+            ]
+          },
+          "resultBytes": 164
+        }
+      ],
+      "calls": 1,
+      "usage": {
+        "prompt_tokens": 2505,
+        "completion_tokens": 105
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:guard-repeat",
+        "tactic:review-scope",
+        "tactic:short-win"
+      ],
+      "validation": {
+        "valid": false,
+        "reasons": [
+          "unsupported-number:64",
+          "unsupported-number:-250",
+          "unsupported-number:-2405"
+        ],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "溪刃獭：12/100 HP，能量 1，速度 34。",
+        "苔盾菇：60/172 HP，能量 5，速度 11。",
+        "[tactic:guard-repeat] 上一回合使用防御后，本回合不能再防御，可从对手合法行动中去掉该分支。 注意：不能假设对方必定攻击，物品和主动换宠仍可能合法。 条件：candidate",
+        "[tactic:review-scope] 整局先统计回合与行动分布，再看关键片段；单回合用该回合前后的证据做条件比较。 注意：只保存最后一回合时无法还原整局，不得编造前面的关键转折。 条件：candidate",
+        "[tactic:short-win] 速胜可以提供小额一次性挑战奖励，基础成长不因回合较长扣减。另保留防守与消耗打法的成就空间。 注意：不能把最短回合当作唯一教练目标，更不能为奖励推荐高风险送宠。 条件：candidate",
+        "回复药 → 溪刃獭：平均局面分 -250.4，最坏分 -268.2（启发式评分，非胜率）。对方换宠分支：-233.2。",
+        "净化药 → 溪刃獭：平均局面分 -2405.6，最坏分 -10000.0（启发式评分，非胜率）。对方换宠分支：-246.8。"
+      ]
+    },
+    {
+      "id": "c28",
+      "cat": "cat3-cross-tool",
+      "question": "我队伍里谁还能上场？顺便说下补位是不是免费的。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_state",
+          "search_rules"
+        ]
+      },
+      "why": "存活后备是局面事实，补位规则是卡片事实。",
+      "context": "pve",
+      "contextPhase": "replace",
+      "status": 200,
+      "latencyMs": 1359,
+      "model": "deepseek-flash",
+      "text": "现在倒下的是潮甲龟，所以能换上场的只有烬尾狐和芽角鹿：烬尾狐是 0 HP，别选；实际能用的是芽角鹿（108 HP、5 豆）。补位是免费的，换上去不消耗能量，也不占回合伤害。",
+      "error": null,
+      "route": "companion",
+      "provider": "deepseek",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 1401,
+        "completion_tokens": 61
+      },
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c29",
+      "cat": "cat3-cross-tool",
+      "question": "查一下连续换宠的规则，再看下对手最近的换宠记录。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "search_rules",
+          "read_match",
+          "read_evidence"
+        ]
+      },
+      "why": "规则检索加回合记录读取。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 5008,
+      "model": "deepseek-flash",
+      "text": "连续换宠本身没有冷却或次数限制，但主动换宠会占掉本回合唯一行动，不能换完再出招。倒下后的强制补位是免费的，性质不同。双方同时换宠时本回合无攻击，异常和能量照常结算。\n\n对手换宠记录：历史面板里没有换宠记录，无法判断频率。刚换过也不代表下一步一定继续换，别按历史去猜。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "search_rules",
+          "args": {
+            "query": "连续换宠规则 连续换宠限制"
+          },
+          "result": {
+            "rulesVersion": "0.6",
+            "cards": [
+              {
+                "id": "tactic:poison",
+                "game": "pet-coach",
+                "rulesVersion": "0.6",
+                "status": "active",
+                "title": "异常持续收益",
+                "keywords": "中毒 孢子 持续伤害 异常 灼烧",
+                "principle": "当前规则中灼烧每次6伤害、中毒每次8伤害，仅在场宠物结算；新异常可在施加回合末结算。",
+                "counterexample": "已有异常不会叠加新异常；换到后备暂停结算，不应把所有剩余跳数当作必得收益。",
+                "requiredEvidence": "状态剩余次数、换宠与净化药分支",
+                "authority": [
+                  "engine.js"
+                ],
+                "inspiration": [
+                  "local-design"
+                ],
+                "conditions": [
+                  "battle",
+                  "poison"
+                ],
+                "score": 0.01639344262295082,
+                "semanticScore": 0.5544618368148804,
+                "applicability": {
+                  "status": "candidate",
+                  "missing": [],
+                  "verified": [
+                    "battle",
+                    "poison"
+                  ],
+                  "warning": "匹配条件不等于建议最优；还需比较合法行动及对手分支"
+                }
+              },
+              {
+                "id": "tactic:guard-repeat",
+                "game": "pet-coach",
+                "rulesVersion": "0.6",
+                "status": "active",
+                "title": "上一回合防御会限制本回合",
+                "keywords": "连续防御 上回合 守住 节奏",
+                "principle": "上一回合使用防御后，本回合不能再防御，可从对手合法行动中去掉该分支。",
+                "counterexample": "不能假设对方必定攻击，物品和主动换宠仍可能合法。",
+                "requiredEvidence": "合法行动、当前公开面板与规则版本",
+                "authority": [
+                  "engine.js"
+                ],
+                "inspiration": [
+                  "local-design"
+                ],
+                "conditions": [
+                  "battle"
+                ],
+                "score": 0.016129032258064516,
+                "applicability": {
+                  "status": "candidate",
+                  "missing": [],
+                  "verified": [
+                    "battle"
+                  ],
+                  "warning": "匹配条件不等于建议最优；还需比较合法行动及对手分支"
+                }
+              }
+            ],
+            "usedCharacters": 1624,
+            "missing": false,
+            "method": "RRF lexical + multilingual embedding",
+            "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            "semanticStatus": "ready",
+            "notApplicableHere": [
+              "tactic:switch-loop"
+            ]
+          },
+          "resultBytes": 1300
+        },
+        {
+          "tool": "read_last_turn",
+          "args": {},
+          "result": {
+            "turn": 10,
+            "action": {
+              "kind": "skill",
+              "id": "wave"
+            },
+            "events": [
+              "── 第 10 回合 ──",
+              "你的溪刃獭使用水流弹，对苔盾菇造成 27 伤害。",
+              "对手的苔盾菇使用毒孢子，对溪刃獭造成 32 伤害（属性克制）。",
+              "溪刃獭受到中毒伤害 8。"
+            ]
+          },
+          "resultBytes": 152
+        }
+      ],
+      "calls": 2,
+      "usage": {
+        "prompt_tokens": 3033,
+        "completion_tokens": 90
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:switch-loop",
+        "tactic:switch-turn",
+        "tactic:double-switch"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "溪刃獭：12/100 HP，能量 1，速度 34。",
+        "苔盾菇：60/172 HP，能量 5，速度 11。",
+        "[tactic:switch-loop] 不要无限猜对方的下一层预判。分别比较对方留场、换入每只伙伴时的收益，优先关注最坏分支能承受的行动。 注意：对手刚换过不代表一定继续换；历史频率不是下一步事实。 条件：conditions-not-met",
+        "[tactic:switch-turn] 主动换宠就是本回合唯一行动，不能换入后再攻击、防御或吃药。对方可能攻击换入者。 注意：倒下后的强制补位免费；它与主动换宠不是同一种成本。 条件：candidate",
+        "[tactic:double-switch] 双方都换宠时本回合没有攻击，仍按引擎结算在场异常与能量。下一回合重新判断，不把换到优势对位当作造成了伤害。 注意：连续换位可能只是消耗回合，并没有改善队伍的存活和资源。 条件：conditions-not-met",
+        "回复药 → 溪刃獭：平均局面分 -250.4，最坏分 -268.2（启发式评分，非胜率）。对方换宠分支：-233.2。",
+        "净化药 → 溪刃獭：平均局面分 -2405.6，最坏分 -10000.0（启发式评分，非胜率）。对方换宠分支：-246.8。"
+      ]
+    },
+    {
+      "id": "c30",
+      "cat": "cat3-cross-tool",
+      "question": "先确认我现在够不够能量用技能，再查防御回能的规则。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_state",
+          "search_rules"
+        ]
+      },
+      "why": "局面能量加防御回能规则。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 2932,
+      "model": "deepseek-flash",
+      "text": "潮甲龟现在能量2：撞击消耗0豆，够用；清风要1豆，也够。要注意的是眼下候选行动是回复药和撞击，技能表里没列防御，所以这回合不能用防御回能。\n\n防御规则：额外回2能量，存活在场者回合末再回1，上限6；但不能连续防御，且对手仍会行动。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 2383,
+        "completion_tokens": 79
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:guard-energy",
+        "rule:skill:guard",
+        "rule:skill:clearwind"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "潮甲龟：55/132 HP，能量 2，速度 13。",
+        "潮甲龟：38/132 HP，能量 1，速度 13。",
+        "[tactic:guard-energy] 防御额外回2能量，存活在场者回合末再回1，上限6；高能量时部分恢复会溢出。 注意：防御不是免费等待：对手仍有一次行动，下一回合不能连续防御。 条件：candidate",
+        "[rule:skill:guard] 防御：消耗0豆，无直接攻击威力，行动优先级3。本回合减伤 65%，阻挡新异常，额外恢复 2 能量；不可连续使用。 注意：必须先检查当前能量、存活状态及合法行动；伤害还受双方攻防、属性、状态和防御影响。 条件：candidate",
+        "[rule:skill:clearwind] 清风：消耗1豆，无直接攻击威力，行动优先级0。移除当前环境；不造成伤害，不移除异常。 注意：必须先检查当前能量、存活状态及合法行动；伤害还受双方攻防、属性、状态和防御影响。 条件：candidate",
+        "回复药 → 潮甲龟：平均局面分 26.3，最坏分 16.3（启发式评分，非胜率）。对方换宠分支：41.3。",
+        "撞击：平均局面分 18.1，最坏分 9.5（启发式评分，非胜率）。对方换宠分支：42.6。"
+      ]
+    },
+    {
+      "id": "c31",
+      "cat": "cat3-cross-tool",
+      "question": "对比这回合两个选择的伤害，再引用连续换宠的反例。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "compare_actions",
+          "simulate_branch",
+          "search_rules"
+        ]
+      },
+      "why": "分支计算加卡片反例检索。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 2798,
+      "model": "deepseek-flash",
+      "text": "这回合两个选择都不是攻击技能，不会造成直接伤害：回复药给溪刃獭回血，净化药只解中毒。分数上回复药平均-250.4、最坏-268.2；净化药平均-2405.6、最坏-10000，差距在保命。连续换宠的反例正说明：一直换不等于安全，双方都换时这回合没攻击，还可能白耗资源和回合，别指望换到就赢。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 2446,
+        "completion_tokens": 101
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:switch-loop",
+        "tactic:switch-turn",
+        "tactic:double-switch"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "溪刃獭：12/100 HP，能量 1，速度 34。",
+        "苔盾菇：60/172 HP，能量 5，速度 11。",
+        "[tactic:switch-loop] 不要无限猜对方的下一层预判。分别比较对方留场、换入每只伙伴时的收益，优先关注最坏分支能承受的行动。 注意：对手刚换过不代表一定继续换；历史频率不是下一步事实。 条件：conditions-not-met",
+        "[tactic:switch-turn] 主动换宠就是本回合唯一行动，不能换入后再攻击、防御或吃药。对方可能攻击换入者。 注意：倒下后的强制补位免费；它与主动换宠不是同一种成本。 条件：candidate",
+        "[tactic:double-switch] 双方都换宠时本回合没有攻击，仍按引擎结算在场异常与能量。下一回合重新判断，不把换到优势对位当作造成了伤害。 注意：连续换位可能只是消耗回合，并没有改善队伍的存活和资源。 条件：conditions-not-met",
+        "回复药 → 溪刃獭：平均局面分 -250.4，最坏分 -268.2（启发式评分，非胜率）。对方换宠分支：-233.2。",
+        "净化药 → 溪刃獭：平均局面分 -2405.6，最坏分 -10000.0（启发式评分，非胜率）。对方换宠分支：-246.8。"
+      ]
+    },
+    {
+      "id": "c32",
+      "cat": "cat3-cross-tool",
+      "question": "告诉我上个回合的事件，并查一下中毒的结算规则。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_last_turn",
+          "read_evidence",
+          "search_rules"
+        ]
+      },
+      "why": "回合事件加异常结算规则。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 1967,
+      "model": "deepseek-flash",
+      "text": "第10回合：溪刃獭用水流弹打敌方苔盾菇27伤害；对方回敬毒孢子，对溪刃獭造成32伤害（克制）并挂中毒；回合末溪刃獭因中毒再掉8血，现在12血、中毒剩3回合。\n\n中毒结算规则我这边没有可靠数值资料，只能确认每回合结束会按层数扣血，具体公式暂不支持。",
+      "error": null,
+      "route": "companion",
+      "provider": "deepseek",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 1449,
+        "completion_tokens": 89
+      },
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c33",
+      "cat": "cat3-cross-tool",
+      "question": "看当前局面决定要不要换宠，同时查换宠和异常暂停的关系。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "read_state",
+          "compare_actions",
+          "search_rules"
+        ]
+      },
+      "why": "局面判断加换宠与异常规则。",
+      "context": "pve",
+      "contextPhase": "replace",
+      "status": 200,
+      "latencyMs": 2907,
+      "model": "deepseek-flash",
+      "text": "潮甲龟倒下，烬尾狐也倒了，现在必须补位。芽角鹿108HP、5豆，是唯一能上的，补位免费不占回合。对手溪刃獭55HP，还活着。换宠和“异常暂停”没有关系，本局没有这种机制。补上后下回合再决定出招。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "read_state",
+          "args": {},
+          "result": {
+            "screen": "pve",
+            "focus": "fox",
+            "turn": 7,
+            "player": {
+              "active": 1,
+              "pets": [
+                {
+                  "id": "fox",
+                  "name": "烬尾狐",
+                  "icon": "🦊",
+                  "type": "fire",
+                  "maxHp": 98,
+                  "atk": 27,
+                  "def": 17,
+                  "speed": 38,
+                  "skills": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard"
+                  ],
+                  "bio": "高速游击",
+                  "trait": "火花挂灼烧，追猎增伤；疾爪先制收尾",
+                  "learnset": [
+                    "dash",
+                    "ember",
+                    "pursuit",
+                    "guard",
+                    "focus",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 0,
+                  "energy": 4,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "turtle",
+                  "name": "潮甲龟",
+                  "icon": "🐢",
+                  "type": "water",
+                  "maxHp": 132,
+                  "atk": 22,
+                  "def": 30,
+                  "speed": 13,
+                  "skills": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "守势水盾",
+                  "trait": "防御时额外恢复 8 HP，适合承接换入伤害",
+                  "guardHeal": 8,
+                  "learnset": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "shell",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 0,
+                  "energy": 2,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "deer",
+                  "name": "芽角鹿",
+                  "icon": "🦌",
+                  "type": "leaf",
+                  "maxHp": 108,
+                  "atk": 27,
+                  "def": 21,
+                  "speed": 29,
+                  "skills": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard"
+                  ],
+                  "bio": "吸血续航",
+                  "trait": "生息藤吸血；速度与持续作战兼顾",
+                  "learnset": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard",
+                    "focus",
+                    "shell"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 1,
+                  "hp": 108,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                }
+              ],
+              "items": {
+                "potion": 3,
+                "cleanse": 2,
+                "ether": 2
+              }
+            },
+            "enemy": {
+              "active": 0,
+              "pets": [
+                {
+                  "id": "otter",
+                  "name": "溪刃獭",
+                  "icon": "🦦",
+                  "type": "water",
+                  "maxHp": 105,
+                  "atk": 31,
+                  "def": 18,
+                  "speed": 40,
+                  "skills": [
+                    "dash",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "先制速攻",
+                  "trait": "疾爪抢先收尾，水流与潮汐负责爆发",
+                  "learnset": [
+                    "dash",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "focus",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 2,
+                  "hp": 55,
+                  "energy": 3,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "turtle",
+                  "name": "潮甲龟",
+                  "icon": "🐢",
+                  "type": "water",
+                  "maxHp": 161,
+                  "atk": 23,
+                  "def": 31,
+                  "speed": 13,
+                  "skills": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard"
+                  ],
+                  "bio": "守势水盾",
+                  "trait": "防御时额外恢复 8 HP，适合承接换入伤害",
+                  "guardHeal": 8,
+                  "learnset": [
+                    "strike",
+                    "wave",
+                    "tide",
+                    "guard",
+                    "shell",
+                    "dispel"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 2,
+                  "hp": 161,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                },
+                {
+                  "id": "deer",
+                  "name": "芽角鹿",
+                  "icon": "🦌",
+                  "type": "leaf",
+                  "maxHp": 125,
+                  "atk": 32,
+                  "def": 22,
+                  "speed": 29,
+                  "skills": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard"
+                  ],
+                  "bio": "吸血续航",
+                  "trait": "生息藤吸血；速度与持续作战兼顾",
+                  "learnset": [
+                    "strike",
+                    "vine",
+                    "drain",
+                    "guard",
+                    "focus",
+                    "shell"
+                  ],
+                  "heldItem": "none",
+                  "heldUsed": false,
+                  "buffs": {},
+                  "environment": null,
+                  "level": 2,
+                  "hp": 125,
+                  "energy": 5,
+                  "status": null,
+                  "lastGuard": false
+                }
+              ],
+              "items": {
+                "potion": 1,
+                "cleanse": 2,
+                "ether": 2
+              }
+            },
+            "legalPlayer": [
+              {
+                "kind": "switch",
+                "target": 2
+              }
+            ],
+            "legalEnemy": [
+              {
+                "kind": "skill",
+                "id": "dash"
+              },
+              {
+                "kind": "skill",
+                "id": "wave"
+              },
+              {
+                "kind": "skill",
+                "id": "guard"
+              },
+              {
+                "kind": "switch",
+                "target": 1
+              },
+              {
+                "kind": "switch",
+                "target": 2
+              },
+              {
+                "kind": "item",
+                "id": "potion",
+                "target": 0
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 0
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 1
+              },
+              {
+                "kind": "item",
+                "id": "ether",
+                "target": 2
+              },
+              {
+                "kind": "escape"
+              }
+            ]
+          },
+          "resultBytes": 2795
+        }
+      ],
+      "calls": 1,
+      "usage": {
+        "prompt_tokens": 2558,
+        "completion_tokens": 74
+      },
+      "evidenceCount": 2,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "当前对手溪刃獭：55HP、3豆。倒下后的补位不占回合，也不会触发一次额外攻击。",
+        "芽角鹿：108HP、5豆；补位后下一回合最佳分支评分-246.2（非胜率，不计免费补位为承伤回合）。"
+      ]
+    },
+    {
+      "id": "c34",
+      "cat": "cat3-cross-tool",
+      "question": "我还有多少训练点？培养哪个属性最能改变先手？请查一下培养阈值。",
+      "expect": {
+        "calls": [
+          2,
+          2
+        ],
+        "tools": [
+          "inspect_training",
+          "search_rules"
+        ]
+      },
+      "why": "训练资源加培养阈值卡片。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 3085,
+      "model": "deepseek-flash",
+      "text": "你有6个训练点、4个培养格，还没执行加点。\n\n先手方面：烬尾狐速度38，本关芽角鹿速度29，已经更快；速度培养只到41，不会改变这个先后关系，所以最能改先手的是——其实不用改。\n\n硬要说配点，先试1点力量：攻击27→31，疾爪伤害约24→26。可以留1点实战后再分配。",
+      "error": null,
+      "route": "teacher",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "inspect_training",
+          "args": {},
+          "result": {
+            "headline": "先试1点力量",
+            "reason": "攻击 27 → 31，提高每次出招的伤害。",
+            "goal": null,
+            "favorite": null,
+            "reserveOption": "也可以先保留1点，实战后再分配",
+            "comparisons": [
+              [
+                "生命",
+                98,
+                110
+              ],
+              [
+                "攻击",
+                27,
+                31
+              ],
+              [
+                "速度",
+                38,
+                41
+              ]
+            ],
+            "brief": "烬尾狐可先试1点力量。速度38对29，已经更快，不必急着加敏捷。",
+            "text": "烬尾狐先考虑力量。当前关卡首发芽角鹿速度29，你的速度38，已经更快，暂时不需要靠敏捷抢先手。还有 4 个培养格、6 个训练点。可以先试一次力量，再去训练场比较效果。",
+            "evidence": [
+              "也可以先保留1点，实战后再分配",
+              "玩家明确目标：未设置；本命：未设置。",
+              "当前关卡首发 芽角鹿，速度 29。敏捷培养：速度 38 → 41，没有改变与该对手的同优先级先后关系。力量培养：攻击 27 → 31，疾爪在对手不换宠、不防御时伤害 24 → 26。耐久培养：生命 98 → 110。",
+              "当前生命 98，攻击 27，防御 17，速度 38。",
+              "一次培养：生命 +12 / 攻击 +4 / 速度 +3；不会替你执行加点。"
+            ],
+            "method": "读取当前宠物与资源 → 职责建议 → 训练验证"
+          },
+          "resultBytes": 575
+        }
+      ],
+      "calls": 1,
+      "usage": {
+        "prompt_tokens": 2052,
+        "completion_tokens": 91
+      },
+      "evidenceCount": 5,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "也可以先保留1点，实战后再分配",
+        "玩家明确目标：未设置；本命：未设置。",
+        "当前关卡首发 芽角鹿，速度 29。敏捷培养：速度 38 → 41，没有改变与该对手的同优先级先后关系。力量培养：攻击 27 → 31，疾爪在对手不换宠、不防御时伤害 24 → 26。耐久培养：生命 98 → 110。",
+        "当前生命 98，攻击 27，防御 17，速度 38。",
+        "一次培养：生命 +12 / 攻击 +4 / 速度 +3；不会替你执行加点。"
+      ]
+    },
+    {
+      "id": "c35",
+      "cat": "cat4-should-stop",
+      "question": "你好小芽，随便聊聊，今天打得怎么样？",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "complete"
+      },
+      "why": "闲聊不需要任何工具，路由本身也不该进入工具循环。",
+      "context": "camp",
+      "contextPhase": null,
+      "status": 200,
+      "latencyMs": 1215,
+      "model": "deepseek-flash",
+      "text": "我在，今天还没打，营地这边挺安静。你想随便聊，还是看看养伙伴的方向？",
+      "error": null,
+      "route": "companion",
+      "provider": "deepseek",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 416,
+        "completion_tokens": 21
+      },
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c36",
+      "cat": "cat4-should-stop",
+      "question": "谢谢，先不问了。",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "complete"
+      },
+      "why": "结束语不应调用工具。",
+      "context": "camp",
+      "contextPhase": null,
+      "status": 200,
+      "latencyMs": 1060,
+      "model": "deepseek-flash",
+      "text": "好，我在营地，想继续培养伙伴或回来聊都随时找我。",
+      "error": null,
+      "route": "companion",
+      "provider": "deepseek",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 406,
+        "completion_tokens": 16
+      },
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c37",
+      "cat": "cat4-should-stop",
+      "question": "明白了，辛苦了。",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "complete"
+      },
+      "why": "寒暄不应调用工具。",
+      "context": "camp",
+      "contextPhase": null,
+      "status": 200,
+      "latencyMs": 1019,
+      "model": "deepseek-flash",
+      "text": "不辛苦。想培养伙伴或有对局要分析，随时叫我。",
+      "error": null,
+      "route": "companion",
+      "provider": "deepseek",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 402,
+        "completion_tokens": 15
+      },
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c38",
+      "cat": "cat4-should-stop",
+      "question": "能量上限是6对吧？",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "complete"
+      },
+      "why": "一句话确认固定规则，应该直接回答并停止。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 1586,
+      "model": "deepseek-flash",
+      "text": "对，能量上限是6。你的潮甲龟现在2点，回合末还会回1点。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 2329,
+        "completion_tokens": 22
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "tactic:guard-energy",
+        "tactic:energy",
+        "tactic:energy-net"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "潮甲龟：55/132 HP，能量 2，速度 13。",
+        "潮甲龟：38/132 HP，能量 1，速度 13。",
+        "[tactic:guard-energy] 防御额外回2能量，存活在场者回合末再回1，上限6；高能量时部分恢复会溢出。 注意：防御不是免费等待：对手仍有一次行动，下一回合不能连续防御。 条件：candidate",
+        "[tactic:energy] 比较当前出招后还能否使用关键技能。防御与能量果提供不同的恢复机会。 注意：能量上限6；低能量不必总防御，零消耗攻击可能直接结束战斗。 条件：candidate",
+        "[tactic:energy-net] 普通存活在场者回合末回1；耗2技能通常净耗1，耗4技能通常净耗3。零消耗攻击可边输出边回能。 注意：倒下者不回能，回能有上限；换宠后恢复属于新上场者而非后备。 条件：candidate",
+        "回复药 → 潮甲龟：平均局面分 26.3，最坏分 16.3（启发式评分，非胜率）。对方换宠分支：41.3。",
+        "撞击：平均局面分 18.1，最坏分 9.5（启发式评分，非胜率）。对方换宠分支：42.6。"
+      ]
+    },
+    {
+      "id": "c39",
+      "cat": "cat4-should-stop",
+      "question": "我该不该防御？",
+      "expect": {
+        "calls": [
+          0,
+          1
+        ],
+        "tools": [
+          "compare_actions",
+          "read_state"
+        ],
+        "stop": "complete"
+      },
+      "why": "证据包内已有本回合分析，最多补一次证据就该停，不能耗尽工具预算。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 2419,
+      "model": "deepseek-flash",
+      "text": "你这回合不必急着防御。潮甲龟55/132血、2能量，上回合刚被潮汐重击打了32，对方龟只剩38血。防御能减伤65%并回2能量，但龟速度13，大概率后手；先用回复药把血拉高、再等时机防御会更稳。担心被秒就防御，想抢节奏先喝药。",
+      "error": null,
+      "route": "strategist",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 2346,
+        "completion_tokens": 82
+      },
+      "evidenceCount": 7,
+      "knowledgeIds": [
+        "rule:skill:guard",
+        "tactic:badger-counter",
+        "tactic:energy"
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "潮甲龟：55/132 HP，能量 2，速度 13。",
+        "潮甲龟：38/132 HP，能量 1，速度 13。",
+        "[rule:skill:guard] 防御：消耗0豆，无直接攻击威力，行动优先级3。本回合减伤 65%，阻挡新异常，额外恢复 2 能量；不可连续使用。 注意：必须先检查当前能量、存活状态及合法行动；伤害还受双方攻防、属性、状态和防御影响。 条件：candidate",
+        "[tactic:badger-counter] 砾背獾防御时受到攻击，会向仍存活的攻击者反击4点；碎岩冲击穿过防御技能减伤。 注意：对方治疗或换宠不会触发反击，破防招式依然危险；反击不是自动获得的伤害。 条件：candidate",
+        "[tactic:energy] 比较当前出招后还能否使用关键技能。防御与能量果提供不同的恢复机会。 注意：能量上限6；低能量不必总防御，零消耗攻击可能直接结束战斗。 条件：candidate",
+        "回复药 → 潮甲龟：平均局面分 26.3，最坏分 16.3（启发式评分，非胜率）。对方换宠分支：41.3。",
+        "撞击：平均局面分 18.1，最坏分 9.5（启发式评分，非胜率）。对方换宠分支：42.6。"
+      ]
+    },
+    {
+      "id": "c40",
+      "cat": "cat4-should-stop",
+      "question": "刚才那个提醒还算数吗？",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "complete"
+      },
+      "why": "提醒委托是本地确定性路径，不进入模型工具循环。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 1483,
+      "model": "deepseek-flash",
+      "text": "你说的是“烬尾狐倒下了”那个提醒吧？那是第9回合前的旧局面，现在战况已经变了。目前是潮甲龟（我方55血）对敌潮甲龟（38血），双方都还是这只在场。你用撞击打掉它19点，它用潮汐重击回你32点。若那个提醒指别的，麻烦说一下具体内容。",
+      "error": null,
+      "route": "companion",
+      "provider": "deepseek",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": {
+        "prompt_tokens": 1397,
+        "completion_tokens": 82
+      },
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c41",
+      "cat": "cat4-should-stop",
+      "question": "小测一下防御的用法。",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "complete"
+      },
+      "why": "出题是本地确定性路径，不进入模型工具循环。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 15,
+      "model": "deepseek-flash",
+      "text": "假设练习（不是当前敌人的面板）：烬尾狐速度 38，对手速度 40。培养一次敏捷（+3），双方技能优先级相同，你会先出手、后出手，还是无法确定？",
+      "error": null,
+      "route": "teacher",
+      "provider": "local",
+      "agentStop": null,
+      "localOnly": true,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": null,
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": false,
+        "reasons": [
+          "unsupported-number:40"
+        ],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c42",
+      "cat": "cat4-should-stop",
+      "question": "这回合我想稳一点，你先看看局面再告诉我。",
+      "expect": {
+        "calls": [
+          0,
+          1
+        ],
+        "tools": [
+          "read_state",
+          "compare_actions"
+        ],
+        "stop": "complete"
+      },
+      "why": "一次局面确认足够，应在预算耗尽前主动停止。",
+      "context": "pve",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 54,
+      "model": "deepseek-flash",
+      "text": "记住了，你更想打得稳一些，培养时我会优先比较生存空间。这个偏好随时可以改。",
+      "error": null,
+      "route": "auto",
+      "provider": "local",
+      "agentStop": null,
+      "localOnly": true,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": null,
+      "evidenceCount": 1,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "来源：你明确表达的玩法目标。"
+      ]
+    },
+    {
+      "id": "c43",
+      "cat": "control-policy",
+      "question": "线上竞技这回合我该不该用防御？",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "policy"
+      },
+      "why": "PVP赛中限制是本地策略拦截，不进入工具循环。",
+      "context": "pvp-live",
+      "contextPhase": "battle",
+      "status": 200,
+      "latencyMs": 15,
+      "model": "deepseek-flash",
+      "text": "线上竞技 PVP 赛中不提供战术分析或教学，结束后我们再聊。",
+      "error": null,
+      "route": "policy",
+      "provider": "local",
+      "agentStop": null,
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [],
+      "calls": 0,
+      "usage": null,
+      "evidenceCount": 0,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": []
+    },
+    {
+      "id": "c44",
+      "cat": "control-locked",
+      "question": "总结整局：这局我输在哪？",
+      "expect": {
+        "calls": [
+          0,
+          0
+        ],
+        "tools": [],
+        "stop": "local"
+      },
+      "why": "整局复盘是本地确定性路径（provider=local），不调用模型工具。",
+      "context": "pve",
+      "contextPhase": "ended",
+      "status": 200,
+      "latencyMs": 3518,
+      "model": "deepseek-flash",
+      "text": "这局共19回合，你全程19次攻击，没换宠、没防御、没用道具，结束时还剩3瓶回复药。\n\n输点主要在血线管理：第6回合烬尾狐只剩11血时仍选择攻击，结果被火花打倒退场；第13回合潮甲龟22血仍继续撞击，被毒孢子收掉。这两次如果先比较吃药、防御或换宠，局面可能不同。\n\n第7回合的潮汐重击没问题，是接近最优的选择。核心教训是：别等伙伴倒下再救，危险血线时先比较吃药和输出。",
+      "error": null,
+      "route": "teacher",
+      "provider": "deepseek",
+      "agentStop": "complete",
+      "localOnly": false,
+      "fallbackReason": null,
+      "toolTrace": [
+        {
+          "tool": "read_match",
+          "args": {},
+          "result": {
+            "remainingItems": {
+              "potion": 3,
+              "cleanse": 2,
+              "ether": 2
+            },
+            "id": "current",
+            "rulesVersion": "0.6",
+            "stage": "03 · 余烬山道",
+            "result": "loss",
+            "rounds": 19,
+            "counts": {
+              "switches": 0,
+              "guards": 0,
+              "items": 0,
+              "attacks": 19,
+              "escapes": 0
+            },
+            "team": [
+              "烬尾狐",
+              "潮甲龟",
+              "芽角鹿"
+            ],
+            "survivors": 0,
+            "keyTurns": [
+              {
+                "id": "current:turn:6",
+                "turn": 6,
+                "hpBefore": [
+                  {
+                    "name": "烬尾狐",
+                    "hp": 11
+                  },
+                  {
+                    "name": "潮甲龟",
+                    "hp": 132
+                  },
+                  {
+                    "name": "芽角鹿",
+                    "hp": 108
+                  },
+                  {
+                    "name": "烬尾狐",
+                    "hp": 64
+                  },
+                  {
+                    "name": "炽鬃狮",
+                    "hp": 138
+                  },
+                  {
+                    "name": "苔盾菇",
+                    "hp": 172
+                  }
+                ],
+                "hpAfter": [
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "潮甲龟",
+                    "hp": 132
+                  },
+                  {
+                    "name": "芽角鹿",
+                    "hp": 108
+                  },
+                  {
+                    "name": "烬尾狐",
+                    "hp": 64
+                  },
+                  {
+                    "name": "炽鬃狮",
+                    "hp": 138
+                  },
+                  {
+                    "name": "苔盾菇",
+                    "hp": 172
+                  }
+                ],
+                "playerPet": "烬尾狐",
+                "playerActionCancelled": true,
+                "action": {
+                  "kind": "skill",
+                  "id": "ember"
+                },
+                "events": [
+                  "对手的烬尾狐使用火花，对烬尾狐造成 11 伤害。",
+                  "你的宠物已倒下，原定行动取消。",
+                  "烬尾狐倒下了。"
+                ],
+                "analysis": "火花对当时烬尾狐的直接伤害：不防御27、防御9，目标当时64HP。单次直接攻击不足以收尾；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。",
+                "alternatives": {
+                  "rows": [
+                    {
+                      "action": {
+                        "kind": "item",
+                        "id": "potion",
+                        "target": 0
+                      },
+                      "name": "回复药 → 烬尾狐",
+                      "expected": -5.992605799031663,
+                      "worst": -24.71352985638697,
+                      "score": -12.54492921910602
+                    },
+                    {
+                      "action": {
+                        "kind": "switch",
+                        "target": 1
+                      },
+                      "name": "换上潮甲龟",
+                      "expected": -24.159885338987806,
+                      "worst": -35.283876176733315,
+                      "score": -29.553282132198735
+                    }
+                  ],
+                  "actualScore": -84.51933593297579,
+                  "gap": 71.97440671386977,
+                  "text": "回复药 → 烬尾狐：平均分-6.0、最坏分-24.7；换上潮甲龟：平均分-24.2、最坏分-35.3。你的选择在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误。只用回合前公开状态枚举，不把对方实际出招当成预先已知。"
+                }
+              },
+              {
+                "id": "current:turn:7",
+                "turn": 7,
+                "hpBefore": [
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "潮甲龟",
+                    "hp": 132
+                  },
+                  {
+                    "name": "芽角鹿",
+                    "hp": 108
+                  },
+                  {
+                    "name": "烬尾狐",
+                    "hp": 64
+                  },
+                  {
+                    "name": "炽鬃狮",
+                    "hp": 138
+                  },
+                  {
+                    "name": "苔盾菇",
+                    "hp": 172
+                  }
+                ],
+                "hpAfter": [
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "潮甲龟",
+                    "hp": 98
+                  },
+                  {
+                    "name": "芽角鹿",
+                    "hp": 108
+                  },
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "炽鬃狮",
+                    "hp": 138
+                  },
+                  {
+                    "name": "苔盾菇",
+                    "hp": 172
+                  }
+                ],
+                "playerPet": "潮甲龟",
+                "playerActionCancelled": false,
+                "action": {
+                  "kind": "skill",
+                  "id": "tide"
+                },
+                "events": [
+                  "对手的烬尾狐使用火花，对潮甲龟造成 28 伤害。",
+                  "潮甲龟陷入灼烧。",
+                  "你的潮甲龟使用潮汐重击，对烬尾狐造成 64 伤害（属性克制）。",
+                  "潮甲龟受到灼烧伤害 6。",
+                  "烬尾狐倒下了。",
+                  "对手派出了苔盾菇。"
+                ],
+                "analysis": "潮汐重击对当时烬尾狐的直接伤害：不防御71、防御25，目标当时64HP。具备静止目标的收尾条件；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。",
+                "alternatives": {
+                  "rows": [
+                    {
+                      "action": {
+                        "kind": "skill",
+                        "id": "tide"
+                      },
+                      "name": "潮汐重击",
+                      "expected": -22.481462408055695,
+                      "worst": -117.80857019810503,
+                      "score": -55.84595013457296
+                    },
+                    {
+                      "action": {
+                        "kind": "skill",
+                        "id": "wave"
+                      },
+                      "name": "水流弹",
+                      "expected": -94.45901678360295,
+                      "worst": -118.45973298880273,
+                      "score": -102.85926745542287
+                    }
+                  ],
+                  "actualScore": -55.84595013457296,
+                  "gap": 0,
+                  "text": "潮汐重击：平均分-22.5、最坏分-117.8；水流弹：平均分-94.5、最坏分-118.5。你的选择与最高分接近，不能因排序不同就判错。只用回合前公开状态枚举，不把对方实际出招当成预先已知。"
+                }
+              },
+              {
+                "id": "current:turn:13",
+                "turn": 13,
+                "hpBefore": [
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "潮甲龟",
+                    "hp": 22
+                  },
+                  {
+                    "name": "芽角鹿",
+                    "hp": 108
+                  },
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "炽鬃狮",
+                    "hp": 138
+                  },
+                  {
+                    "name": "苔盾菇",
+                    "hp": 134
+                  }
+                ],
+                "hpAfter": [
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "潮甲龟",
+                    "hp": 0
+                  },
+                  {
+                    "name": "芽角鹿",
+                    "hp": 108
+                  },
+                  {
+                    "name": "烬尾狐",
+                    "hp": 0
+                  },
+                  {
+                    "name": "炽鬃狮",
+                    "hp": 138
+                  },
+                  {
+                    "name": "苔盾菇",
+                    "hp": 114
+                  }
+                ],
+                "playerPet": "潮甲龟",
+                "playerActionCancelled": false,
+                "action": {
+                  "kind": "skill",
+                  "id": "strike"
+                },
+                "events": [
+                  "你的潮甲龟使用撞击，对苔盾菇造成 20 伤害。",
+                  "对手的苔盾菇使用毒孢子，对潮甲龟造成 22 伤害（属性克制）。",
+                  "潮甲龟倒下了。"
+                ],
+                "analysis": "撞击对当时苔盾菇的直接伤害：不防御20、防御7，目标当时134HP。单次直接攻击不足以收尾；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。",
+                "alternatives": {
+                  "rows": [
+                    {
+                      "action": {
+                        "kind": "skill",
+                        "id": "guard"
+                      },
+                      "name": "防御",
+                      "expected": -24.32343064345817,
+                      "worst": -30.917019027484173,
+                      "score": -26.631186577867272
+                    },
+                    {
+                      "action": {
+                        "kind": "item",
+                        "id": "potion",
+                        "target": 1
+                      },
+                      "name": "回复药 → 潮甲龟",
+                      "expected": -20.97915723848188,
+                      "worst": -39.86346018322763,
+                      "score": -27.58866326914289
+                    }
+                  ],
+                  "actualScore": -81.33435247789583,
+                  "gap": 54.703165900028566,
+                  "text": "防御：平均分-24.3、最坏分-30.9；回复药 → 潮甲龟：平均分-21.0、最坏分-39.9。你的选择在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误。只用回合前公开状态枚举，不把对方实际出招当成预先已知。"
+                }
+              }
+            ],
+            "nextOffset": null,
+            "totalKeyTurns": 3,
+            "availableTurns": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ]
+          },
+          "resultBytes": 3630
+        }
+      ],
+      "calls": 1,
+      "usage": {
+        "prompt_tokens": 5481,
+        "completion_tokens": 127
+      },
+      "evidenceCount": 4,
+      "knowledgeIds": [],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "evidence": [
+        "整局统计：{\"rounds\":19,\"counts\":{\"switches\":0,\"guards\":0,\"items\":0,\"attacks\":19,\"escapes\":0},\"remainingItems\":{\"potion\":3,\"cleanse\":2,\"ether\":2}}",
+        "[current:turn:6] 第6回合：对手的烬尾狐使用火花，对烬尾狐造成 11 伤害。 你的宠物已倒下，原定行动取消。 烬尾狐倒下了。\n火花对当时烬尾狐的直接伤害：不防御27、防御9，目标当时64HP。单次直接攻击不足以收尾；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。\n回复药 → 烬尾狐：平均分-6.0、最坏分-24.7；换上潮甲龟：平均分-24.2、最坏分-35.3。你的选择在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误。只用回合前公开状态枚举，不把对方实际出招当成预先已知。",
+        "[current:turn:7] 第7回合：对手的烬尾狐使用火花，对潮甲龟造成 28 伤害。 潮甲龟陷入灼烧。 你的潮甲龟使用潮汐重击，对烬尾狐造成 64 伤害（属性克制）。 潮甲龟受到灼烧伤害 6。 烬尾狐倒下了。 对手派出了苔盾菇。\n潮汐重击对当时烬尾狐的直接伤害：不防御71、防御25，目标当时64HP。具备静止目标的收尾条件；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。\n潮汐重击：平均分-22.5、最坏分-117.8；水流弹：平均分-94.5、最坏分-118.5。你的选择与最高分接近，不能因排序不同就判错。只用回合前公开状态枚举，不把对方实际出招当成预先已知。",
+        "[current:turn:13] 第13回合：你的潮甲龟使用撞击，对苔盾菇造成 20 伤害。 对手的苔盾菇使用毒孢子，对潮甲龟造成 22 伤害（属性克制）。 潮甲龟倒下了。\n撞击对当时苔盾菇的直接伤害：不防御20、防御7，目标当时134HP。单次直接攻击不足以收尾；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。\n防御：平均分-24.3、最坏分-30.9；回复药 → 潮甲龟：平均分-21.0、最坏分-39.9。你的选择在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误。只用回合前公开状态枚举，不把对方实际出招当成预先已知。"
+      ]
     }
   ]
 }

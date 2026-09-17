@@ -76,9 +76,19 @@ for(const stage of STAGES){
  for(const policy of Object.keys(POLICIES))for(const seed of fastSeeds)rows.push(play({seed,team:['fox','sparrow','falcon'],options:{pets:maxed,mode:'pve',...stageOptions(stage.id)},policy}));
  report.matches['overtrained-fast '+stage.id]={n:rows.length,winRate:rows.filter(r=>r.win).length/rows.length,roundDistribution:dist(rows),window:curve(rows)};
 }
+// Over-trained starter team on every stage: this is the configuration that the main balance
+// study's studyB rows summarised as "mean 10.0 rounds" on stage 1, which needs an exact count.
+const starterMaxed=Object.fromEntries(['fox','turtle','deer'].map(id=>[id,{level:5,points:{hp:5,atk:3,speed:0}}]));
+for(const stage of STAGES){
+ const rows=[];
+ for(const policy of Object.keys(POLICIES))for(const seed of fastSeeds)rows.push(play({seed,team:['fox','turtle','deer'],options:{pets:starterMaxed,mode:'pve',...stageOptions(stage.id)},policy}));
+ report.matches['overtrained-starter '+stage.id]={n:rows.length,winRate:rows.filter(r=>r.win).length/rows.length,roundDistribution:dist(rows),window:curve(rows)};
+}
 report.overall={
  levelMatched:{n:allLevelMatched.length,winRate:allLevelMatched.filter(r=>r.win).length/allLevelMatched.length,roundDistribution:dist(allLevelMatched),window:curve(allLevelMatched)},
  overtrainedFast:(()=>{const rows=[];for(const stage of STAGES)for(const policy of Object.keys(POLICIES))for(const seed of fastSeeds)rows.push(play({seed,team:['fox','sparrow','falcon'],options:{pets:maxed,mode:'pve',...stageOptions(stage.id)},policy}));
+  return {n:rows.length,winRate:rows.filter(r=>r.win).length/rows.length,roundDistribution:dist(rows),window:curve(rows)};})(),
+ overtrainedStarter:(()=>{const rows=[];for(const stage of STAGES)for(const policy of Object.keys(POLICIES))for(const seed of fastSeeds)rows.push(play({seed,team:['fox','turtle','deer'],options:{pets:starterMaxed,mode:'pve',...stageOptions(stage.id)},policy}));
   return {n:rows.length,winRate:rows.filter(r=>r.win).length/rows.length,roundDistribution:dist(rows),window:curve(rows)};})()};
 mkdirSync('reports',{recursive:true});
 writeFileSync('reports/swift-threshold.json',JSON.stringify(report,null,2));

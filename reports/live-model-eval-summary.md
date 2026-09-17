@@ -1,5 +1,7 @@
 # S04 真实 DeepSeek 端到端评测（44 条，已完成）
 
+> **归属说明**：本文件描述的是 **2026-09-17 10:33–10:37 UTC 完成的第一次 44 条运行**（当时工具轮次上限=3，规划器提示词为改版前版本）。该次逐条数据已备份为 `reports/live-model-eval-before.json`；`reports/live-model-eval-raw.json` 会被之后的重跑覆盖，**引用第一次运行请以 before 文件为准**。规划器提示词改版后的重跑与改动前后对比另行给出。
+
 - 汇总 JSON：`reports/live-model-eval.json`（`status: COMPLETE`，含逐条原始字段）
 - 原始逐条记录：`reports/live-model-eval-raw.json`
 - 评测脚本 / 预注册用例集（44 条，每条带 `expect` 与判定依据 `why`）：`scripts/eval-live-s04.js`

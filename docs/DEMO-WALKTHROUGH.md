@@ -8,10 +8,10 @@
 
 | 项 | 值 |
 | --- | --- |
-| 生成时间 | 2026-09-17 18:37:06 |
+| 生成时间 | 2026-09-17 18:41:31 |
 | 应用地址 | http://127.0.0.1:8765/ |
 | 应用版本徽标 | 训练 · PVE · v0.11 |
-| 教练连接 | 未配置密钥，教练走本地规则核验（回答来自本地引擎，不经模型改写） |
+| 教练连接（生成开始时） | 已配置模型（deepseek / deepseek-flash · 已验证）。中途可能被重新连接，逐图以各画面里的教练署名（DeepSeek / 本地规则）为准。 |
 | 浏览器 | Headless Chrome/152.0.7977.65 |
 | 启动参数 | `--headless=new --no-sandbox --disable-gpu --user-data-dir=tmp/demo-profile --remote-debugging-port=9333 --window-size=1440,900` |
 | CDP 端口 | 9333 |

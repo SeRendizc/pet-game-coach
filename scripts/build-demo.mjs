@@ -801,7 +801,7 @@ function buildStoryboard(meta) {
   lines.push(`| 生成时间 | ${meta.time} |`);
   lines.push(`| 应用地址 | ${meta.url} |`);
   lines.push(`| 应用版本徽标 | ${appVersion} |`);
-  lines.push(`| 教练连接 | ${coachStatus} |`);
+  lines.push(`| 教练连接（生成开始时） | ${coachStatus}。中途可能被重新连接，逐图以各画面里的教练署名（DeepSeek / 本地规则）为准。 |`);
   lines.push(`| 浏览器 | Headless ${chromeVersion} |`);
   lines.push(`| 启动参数 | \`${meta.flags}\` |`);
   lines.push(`| CDP 端口 | ${meta.port}${meta.port === CDP_PORT ? '' : `（约定 9333 被另一个 headless Chrome 占用，本次退让到 ${meta.port}）`} |`);

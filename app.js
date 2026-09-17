@@ -35,7 +35,7 @@ function camp(){
  renderTypeFilter('camp-pages',()=>camp());
  $('camp-roster').innerHTML=filteredSpecies().map(base=>{const p=grown(base.id),order=selected.indexOf(p.id);
   return `<article class="pet-option ${order>=0?'chosen':''}">${order>=0?`<span class="order">${order+1}号位</span>`:''}<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div><p><strong>${p.bio}</strong> · ${p.trait}</p><div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div><div class="buttons"><button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:''}</div></article>`;}).join('');
- document.querySelectorAll('#camp-roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();});
+ document.querySelectorAll('#camp-roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();cultivation();});
  document.querySelectorAll('#camp-roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;selected=selected.filter(x=>x!==id);camp();});
  cultivation();
 }
@@ -177,7 +177,7 @@ function pvpPick(side,a){
  if(game.phase==='replace'){if((game.replaceSide||'player')!==side)return;act(a);return;}
  pvpPicks[side]=a;pvpEnemyRevealed=true;
  const theirs=humanOpponent()?pvpPicks.enemy:pvpEnemyLocked;
- if(pvpPicks.player&&theirs){const mine=pvpPicks.player;pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;act(mine,theirs);return;}
+ if(pvpPicks.player&&theirs){const mine=pvpPicks.player;pvpOpponent=$('pvp-opponent').value;tab='skill';enemyTab='skill';pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;act(mine,theirs);return;}
  renderSplitPanels();
 }
 

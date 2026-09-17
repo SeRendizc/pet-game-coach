@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T10:36:29.189Z",
+  "generatedAt": "2026-09-17T10:39:13.960Z",
   "rulesVersion": "0.6",
   "threshold": 10,
   "seedsPerArm": 24,
@@ -794,6 +794,306 @@
           "n": 36
         }
       }
+    },
+    "overtrained-starter meadow": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 10,
+        "p25": 10,
+        "p50": 10,
+        "p75": 12,
+        "max": 12,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0.6666666666666666,
+          "ofAll": 0.6666666666666666,
+          "n": 24
+        },
+        "12": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "14": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "16": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-starter river": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 14,
+        "p25": 14,
+        "p50": 15,
+        "p75": 15,
+        "max": 15,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0.3333333333333333,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        },
+        "16": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-starter embers": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 18,
+        "p25": 18,
+        "p50": 19,
+        "p75": 19,
+        "max": 19,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-starter grove": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 16,
+        "p25": 16,
+        "p50": 18,
+        "p75": 18,
+        "max": 18,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0.3333333333333333,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-starter summit": {
+      "n": 36,
+      "winRate": 0.3333333333333333,
+      "roundDistribution": {
+        "wins": 12,
+        "min": 18,
+        "p25": 18,
+        "p50": 18,
+        "p75": 18,
+        "max": 18,
+        "losses": 24
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        }
+      }
     }
   },
   "overall": {
@@ -914,6 +1214,66 @@
           "ofWins": 1,
           "ofAll": 1,
           "n": 180
+        }
+      }
+    },
+    "overtrainedStarter": {
+      "n": 180,
+      "winRate": 0.8666666666666667,
+      "roundDistribution": {
+        "wins": 156,
+        "min": 10,
+        "p25": 14,
+        "p50": 16,
+        "p75": 18,
+        "max": 19,
+        "losses": 24
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0.15384615384615385,
+          "ofAll": 0.13333333333333333,
+          "n": 24
+        },
+        "12": {
+          "ofWins": 0.23076923076923078,
+          "ofAll": 0.2,
+          "n": 36
+        },
+        "14": {
+          "ofWins": 0.3076923076923077,
+          "ofAll": 0.26666666666666666,
+          "n": 48
+        },
+        "16": {
+          "ofWins": 0.5384615384615384,
+          "ofAll": 0.4666666666666667,
+          "n": 84
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 0.8666666666666667,
+          "n": 156
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 0.8666666666666667,
+          "n": 156
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 0.8666666666666667,
+          "n": 156
         }
       }
     }
