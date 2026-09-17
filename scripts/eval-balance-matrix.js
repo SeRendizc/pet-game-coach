@@ -817,13 +817,33 @@ for(const [k,v] of Object.entries(report.verification.capBehaviour.rows))
  console.log('    '+k+'  应用分数='+v.appliedPenaltyPoints+'(未设上限时 '+v.wouldBeUncapped+')  '
   +'改判次数='+v.capChangesChoice+(v.isShippedRule?'  与线上不一致='+v.mismatchVsShipped:'  [非线上规则]'));
 console.log('  chooseEnemy 在"敌方补位"局面: '+JSON.stringify(report.verification.chooseEnemyDuringEnemyReplace));
-console.log('\n-- S1 阵容 x 难度 x 携带物（玩家胜率 / 平均回合 / 标准差 / 平局率）--');
-for(const name of Object.keys(TEAMS))
- for(const diff of DIFFS)
-  for(const item of ITEMS){
-   const k=['S1',name,diff,item,'greedy-damage','pve'].join(' | ');
-   const a=report.arms[k];if(a)console.log('  '+name+' | '+diff+' | '+item+'  n='+a.n+'  胜率='+p1(a.winRate*100)+'%  回合='+p1(a.meanRounds)+'±'+p1(a.sdRounds)+'  ['+a.minRounds+'-'+a.maxRounds+']  平局='+p1(a.drawRate*100)+'%');
-  }
+console.log('\n-- S1 阵容 x 难度（携带物合并，n=36）--');
+for(const name of Object.keys(TEAMS)){
+ const cellsOf=d=>Object.keys(report.arms).filter(k=>report.arms[k].study==='S1'&&report.arms[k].dims.team===name&&
+  (!d||report.arms[k].dims.difficulty===d));
+ const line=DIFFS.map(d=>{const ks=cellsOf(d);
+  const n=ks.reduce((x,k)=>x+report.arms[k].n,0),w=ks.reduce((x,k)=>x+report.arms[k].wins,0);
+  const mr=ks.reduce((x,k)=>x+report.arms[k].meanRounds*report.arms[k].n,0)/n;
+  const sd=Math.sqrt(ks.reduce((x,k)=>x+Math.pow(report.arms[k].sdRounds,2)*(report.arms[k].n-1),0)/Math.max(1,n-1));
+  return d+' '+p1(w/n*100)+'%/n'+n+'/'+p1(mr)+'±'+p1(sd);});
+ const all=cellsOf(null);const n=all.reduce((x,k)=>x+report.arms[k].n,0),w=all.reduce((x,k)=>x+report.arms[k].wins,0);
+ const dr=all.reduce((x,k)=>x+report.arms[k].draws,0);
+ const mx=Math.max(...all.map(k=>report.arms[k].maxRounds));
+ console.log('  '+name+' | '+line.join(' | ')+'  || 合计 '+p1(w/n*100)+'% 平局'+dr+'/'+n+' 最长'+mx+'回合');
+}
+console.log('\n-- S1 携带物 x 难度 --');
+for(const item of ITEMS){
+ const line=DIFFS.map(d=>{const ks=Object.keys(report.arms).filter(k=>report.arms[k].study==='S1'&&report.arms[k].dims.item===item&&report.arms[k].dims.difficulty===d);
+  const n=ks.reduce((x,k)=>x+report.arms[k].n,0),w=ks.reduce((x,k)=>x+report.arms[k].wins,0);
+  return d+' '+p1(w/n*100)+'%';});
+ console.log('  '+item+' : '+line.join('  '));
+}
+console.log('\n-- S3 配招（default vs alt, normal）--');
+for(const name of Object.keys(TEAMS)){
+ const g=l=>findArm('S3',x=>x.team===name&&x.loadout===l&&x.difficulty==='normal');
+ const a=g('default'),b=g('alt');
+ console.log('  '+name+'  default '+p1(a.winRate*100)+'%/'+p1(a.meanRounds)+'回合  vs  alt '+p1(b.winRate*100)+'%/'+p1(b.meanRounds)+'回合');
+}
 console.log('\n-- S2 策略 x 难度（玩家行动熵）--');
 for(const k of byStudy('S2')){const a=armLine(k);console.log('  '+k+'  n='+a.n+'  胜率='+p1(a.win*100)+'%  回合='+p1(a.mean)+'  玩家换宠率='+p1(a.pSwitch*100)+'%  玩家熵='+p1(a.pEnt)+'  敌方熵='+p1(a.eEnt));}
 console.log('\n-- S4 同属性同位置替换（slot0 宠物）--');

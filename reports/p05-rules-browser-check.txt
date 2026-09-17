@@ -1,0 +1,57 @@
+[rules-check] import 图模块数：16；服务器不提供的模块：（无）
+[rules-check] Chrome：Chrome/152.0.7977.65
+{
+  "base": "http://127.0.0.1:8765",
+  "chrome": "Chrome/152.0.7977.65",
+  "viewport": "1440x900",
+  "rules404": 200,
+  "shim": {
+    "installed": [],
+    "served": []
+  },
+  "page": {
+    "jsRan": true,
+    "rosterCards": 12,
+    "sections": 11,
+    "sectionTitles": [
+      "这一局的目标",
+      "伤害怎么算（有效伤害条件）",
+      "状态与计时",
+      "行动顺序",
+      "能量",
+      "道具与携带物",
+      "伙伴面板",
+      "技能数值",
+      "关卡与难度",
+      "胜负、奖励与培养",
+      "规则版本与存档"
+    ],
+    "totalChars": 4316,
+    "paragraphCount": 77,
+    "missingPhrases": [],
+    "difficultyOptions": [
+      "轻松",
+      "标准",
+      "挑战"
+    ],
+    "difficultyHelp": "优先伤害与治疗，适合日常训练",
+    "skillCardFacts": false,
+    "hasInlineSkillText": false
+  },
+  "dialog": {
+    "open": true,
+    "hidden": false,
+    "visible": true,
+    "rect": {
+      "w": 660,
+      "h": 569
+    },
+    "firstTitle": "这一局的目标"
+  },
+  "consoleErrors": [],
+  "screenshots": [
+    "reports/p05-rules-dialog.png"
+  ],
+  "at": "2026-09-17T11:13:13.997Z"
+}
+[rules-check] Chrome 进程已结束 code=0

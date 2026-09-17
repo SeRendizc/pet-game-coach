@@ -2,12 +2,40 @@ import {fitTokenBudget} from './coach/token-budget-server.js';
 import {createSemanticRetriever} from './coach/semantic-server.js';
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 import {generateKeyPairSync,privateDecrypt,constants,randomBytes,timingSafeEqual} from 'node:crypto';
 import {runCoach,fitModelMessages} from './coach/runtime.js';
 const root=dirname(fileURLToPath(import.meta.url));
 const publicAssets=new Set(['index.html','style.css','app.js','engine.js','progression.js','rules.js','content.js','coach.js','connect.html','connect.js','connect.css','coach/experience.js','coach/client.js','coach/scheduler.js','coach/toolbox.js','coach/policy.js','coach/runtime.js','coach/memory.js','coach/strategist.js','coach/teacher.js','coach/companion.js']);
+
+// 浏览器模块从 app.js 的 import 图**自动推导**，不再手工维护。
+//
+// 起因：rules.js 加进了手写白名单，但运行中的进程启动早于那次修改，内存里拿的
+// 仍是旧集合，于是 /rules.js 404、app.js 的 import 失败、整张模块图崩溃——页面
+// 一行 JS 都不执行，表现为白屏，而 npm test 全绿（测试查磁盘上的白名单，查不了
+// 运行进程的行为）。手工清单的失效模式就是漏改一边，改成从真实文件推导之后，
+// 新增模块不需要再记得改这里；唯一还要记住的是「改完 server.js 要重启」。
+function browserModules(){
+ const seen=new Set(),queue=['app.js'];
+ const dir=fileURLToPath(new URL('./',import.meta.url));
+ while(queue.length){
+  const file=queue.pop();
+  if(seen.has(file))continue;seen.add(file);
+  let src;try{src=readFileSync(dir+file,'utf8');}catch{continue;}
+  const base=file.includes('/')?file.slice(0,file.lastIndexOf('/')+1):'';
+  for(const m of src.matchAll(/(?:^|\n)\s*import\s[^'"]*['"](\.[^'"]+)['"]/g)){
+   const stack=[];
+   for(const seg of (base+m[1]).split('/')){if(seg==='.'||seg==='')continue;if(seg==='..')stack.pop();else stack.push(seg);}
+   const rel=stack.join('/');
+   if(!seen.has(rel))queue.push(rel);
+  }
+ }
+ return seen;
+}
+for(const file of browserModules())publicAssets.add(file);
+
 const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const equal=(a,b)=>typeof a==='string'&&typeof b==='string'&&Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual(Buffer.from(a),Buffer.from(b));

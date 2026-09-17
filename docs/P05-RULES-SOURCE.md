@@ -75,6 +75,24 @@ export const SKILLS = Object.fromEntries(Object.entries({
 - `app.js`：新增 `renderRules()`（把 `rulesSections()` 渲染成 `<h3>+<p>`），启动时执行；难度选项由 `Object.entries(DIFFICULTIES)` 生成；强化层数百分比、能量上限、回合上限、速胜回合数、升级经验基数、每级成长数全部改成 `ruleFacts().*`。
 - `server.js`：新增的 `rules.js` 加入 `publicAssets` 白名单——**这一步是既有测试发现的**：`browser.test.js` 的 `the server allowlist covers every browser module` 直接失败，提示 `rules.js is imported by the browser but not in server.js publicAssets`。不修就会在浏览器里 404，页面直接白屏。
 
+### 3.1 浏览器实测（端到端，无任何补齐）
+
+`scripts/cdp-rules-check.js`（新增）：headless Chrome 152 + CDP 打开 http://127.0.0.1:8765/ ，读真实 DOM。实测结果（原始输出 `reports/p05-rules-browser-check.txt`，截图 `reports/p05-rules-dialog.png`）：
+
+| 检查 | 实测值 |
+|---|---|
+| `/rules.js` HTTP 状态 | **200** |
+| 网络层补齐的模块 | **无**（`shim.installed: []`）——这次是完整端到端，没有绕过任何东西 |
+| 页面 JS 是否执行（营地卡片数） | 执行，`#camp-roster` 有 **12** 张卡片 |
+| 规则弹窗生成的节数 | **11**（标题顺序与 `rulesSections()` 一致） |
+| 规则正文段落数 / 字符数 | **77** 段 / **4316** 字符 |
+| 必须出现的句子缺失数 | **0**（含 `伤害 = 四舍五入`、`克制 ×1.5`、`减伤 65%`、`每回合末扣 6 点，持续 2 回合`、`换到后备时暂停计时与扣血`、`80 回合仍未分出胜负记平局`、`不连接模型`） |
+| 难度下拉选项 | `轻松 / 标准 / 挑战`（由 `DIFFICULTIES` 生成） |
+| 规则弹窗是否真的打开 | `open:true`、`visible:true`、660×569、首个标题「这一局的目标」 |
+| 控制台错误 | **0** |
+
+> 过程记录（保留，因为它暴露了一个真实的部署问题）：本项刚落地时，**正在运行的 8765 进程仍是旧白名单**，`/rules.js` 返回 **404**，页面一行 JS 都不执行（同期的 C17 实测独立撞到同一问题，只能在 CDP 网络层用磁盘真文件补齐，见 `reports/c17-endgame-browser.md` 第 6 节）。该进程随后被重启，上表即为重启后的实测结果。**仓库状态一直是对的（白名单已改、既有测试通过），出问题的只是"运行中的旧进程"**——这也是本项要补一条真浏览器实测、而不只看单测的原因。
+
 ### 4. 版本迁移
 
 - 规则版本仍只有一个常量 `RULES_VERSION`（当前 `0.6`），`createGame().version` 与知识卡 `rulesVersion` 都取自它；`rules.test.js` 断言三者一致，且 `buildKnowledgePacket` 在版本不匹配时 `blocked=true`、`searchKnowledge` 返回 0 张卡（旧数值不会被展示）。
