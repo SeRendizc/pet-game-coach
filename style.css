@@ -352,3 +352,11 @@
 #enemy-coach.blurred #enemy-coach-text{filter:blur(4.5px);user-select:none;pointer-events:none;display:block}
 #enemy-coach.blurred::after{content:"对方的教练 · 看不清";position:absolute;inset:auto 0 0 0;
  display:flex;align-items:center;justify-content:center;height:20px;font-size:11px;color:#9fb4a8}
+
+/* 招式卡等高：不同技能的说明行数不同（「防御」三行、「疾爪」两行），
+   不约束的话同一行里两张卡一高一矮。grid-auto-rows:1fr 让每行等高，
+   行高由该行最高的那张决定；min-height 仍作为地板，避免只有一两个词时太扁。 */
+/* 高度地板取两侧里最长的那种说明（「防御」三行）。用同一个值而不是 1fr，
+   是因为 1fr 只让**各自那一侧**的行等高，两侧行高仍会不同，左右两行就对不齐了。 */
+#actions,#enemy-actions{grid-auto-rows:minmax(96px,auto)}
+#actions .action,#enemy-actions .action{height:100%}
