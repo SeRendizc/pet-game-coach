@@ -203,7 +203,15 @@ test('tool contracts reject unknown parameters and return bounded evidence pages
  const p=executeTool('read_match',{limit:1},context);assert.equal(p.keyTurns.length,1);assert.equal(p.nextOffset,1);
  const e=executeTool('read_evidence',{turn:1},context);assert(e.events.length);assert.equal(e.turn,1);
  assert.equal(executeTool('read_evidence',{turn:999},context).missing,true);
- assert.throws(()=>executeTool('read_state',{}, {...context,mode:'pvp-live'}),/policy/);
+ // A live versus match gets no tools: one side would be reading the other's options.
+ // Both the online mode and the local hot-seat mode share this policy.
+ const live=buildContext(createGame(17),newProfile(),'fox');live.mode='pvp-local';
+ assert.throws(()=>executeTool('read_state',{},live),/policy/);
+ assert.throws(()=>executeTool('read_state',{}, {...live,mode:'pvp-live'}),/policy/);
+ // Once the match has ended the same evidence is available again — the refusal
+ // message promises "结束后我们再聊", so post-match review must not stay blocked.
+ const afterMatch=executeTool('read_state',{}, {...context,mode:'pvp-live'});
+ assert(afterMatch&&typeof afterMatch==='object','post-match review must not be blocked');
 });
 test('branch simulation covers both tie orders without mutation or hidden seed dependence',()=>{
  const g=createGame(12),context=buildContext(g,newProfile(),'fox'),before=JSON.stringify(context);

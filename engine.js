@@ -76,7 +76,7 @@ export function createGame(seed=17,team=['fox','turtle','deer'],options={}) {
     return {...p,hp:p.maxHp,energy:5,status:null,lastGuard:false};
   }),items:Object.fromEntries(Object.entries(ITEMS).map(([k,v])=>[k,v.count]))});
   const enemyTeams=[['shroom','otter','lion'],['lion','turtle','deer'],['otter','fox','shroom']];
-  return {version:RULES_VERSION,environment:options.environment?structuredClone(ENVIRONMENTS[options.environment]):null,stageId:options.stageId||null,stageName:options.stageName||null,preview:!!options.preview,difficulty:DIFFICULTIES[options.difficulty]?options.difficulty:'hard',mode:'pve',seed:seed>>>0,initialSeed:seed>>>0,turn:1,phase:'battle',result:null,player:make(team),enemy:make(options.enemyTeam||enemyTeams[(seed>>>0)%3],true),history:[],log:['PVE 训练开始。双方行动同时决定；火克草，草克水，水克火。']};
+  return {version:RULES_VERSION,environment:options.environment?structuredClone(ENVIRONMENTS[options.environment]):null,stageId:options.stageId||null,stageName:options.stageName||null,preview:!!options.preview,difficulty:DIFFICULTIES[options.difficulty]?options.difficulty:'hard',mode:options.mode||'pve',seed:seed>>>0,initialSeed:seed>>>0,turn:1,phase:'battle',result:null,replaceQueue:null,replaceSide:null,player:make(team),enemy:make(options.enemyTeam||enemyTeams[(seed>>>0)%3],true),history:[],log:[options.mode==='pvp-local'?'本地对战开始。双方各选行动后同时结算；换宠占用整回合。':'PVE 训练开始。双方行动同时决定；火克草，草克水，水克火。']};
 }
 export function active(g,side) {return g[side].pets[g[side].active];}
 function random(g) {g.seed=(Math.imul(g.seed,1664525)+1013904223)>>>0;return g.seed/4294967296;}
@@ -84,7 +84,7 @@ export function legalActions(g,side='player') {
   if(g.result) return [];
   const s=g[side], p=active(g,side), swaps=s.pets.flatMap((p,i)=>p.hp>0&&i!==s.active?[{kind:'switch',target:i}]:[]);
   if(p.hp<=0) return swaps;
-  if(g.phase==='replace' && side==='player') return swaps;
+  if(g.phase==='replace' && side===(g.replaceSide||'player')) return swaps;
   const skills=p.skills.filter(id=>SKILLS[id].cost<=p.energy && !(id==='guard'&&p.lastGuard) && !(SKILLS[id].heal&&p.hp===p.maxHp) && !(SKILLS[id].clearEnvironment&&!g.environment)).map(id=>({kind:'skill',id}));
   const items=Object.keys(ITEMS).flatMap(id=>s.items[id]>0?s.pets.flatMap((p,i)=>p.hp>0&&((id==='potion'&&p.hp<p.maxHp)||(id==='ether'&&p.energy<6)||(id==='cleanse'&&p.status))?[{kind:'item',id,target:i}]:[]):[]);
   return [...skills,...swaps,...items,{kind:'escape'}];
@@ -165,14 +165,21 @@ export function step(original,action) {
 }
 export function resolveTurn(original,action,opponent,options={}) {
   const g=structuredClone(original);
-  if(!legalActions(g).some(a=>same(a,action))) throw Error('当前行动不可用');
+  const actingSide=g.phase==='replace'?(g.replaceSide||'player'):'player';
+  if(!legalActions(g,actingSide).some(a=>same(a,action))) throw Error('当前行动不可用');
   const before=snapshot(g), start=g.log.length;
   g.frames=[];let frameStart=g.log.length;
   const capture=side=>{if(!options.simulation)g.frames.push({side,state:snapshot(g),text:g.log.slice(frameStart).filter(t=>!t.startsWith('──')).join(' ')});frameStart=g.log.length;};
   if(g.phase==='replace') {
-    g.player.active=action.target;
-    g.log.push(`你派出了${active(g,'player').name}。强制补位不消耗回合。`);
-    g.phase='battle';g.history.push({type:'replacement',before,action:structuredClone(action),after:snapshot(g)});return g;
+    const side=g.replaceSide||'player';
+    g[side].active=action.target;
+    g.log.push(`${side==='player'?'你':'对手'}派出了${active(g,side).name}。强制补位不消耗回合。`);
+    if(Array.isArray(g.replaceQueue)&&g.replaceQueue.length){
+      g.replaceQueue=g.replaceQueue.filter(x=>x!==side);
+      if(g.replaceQueue.length)g.replaceSide=g.replaceQueue[0];
+      else {g.replaceQueue=null;g.replaceSide=null;g.phase='battle';}
+    } else {g.replaceSide=null;g.phase='battle';}
+    g.history.push({type:'replacement',before,action:structuredClone(action),after:snapshot(g)});return g;
   }
   g.log.push(`── 第 ${g.turn} 回合 ──`);
   if(action.kind==='escape') {
@@ -226,8 +233,16 @@ export function resolveTurn(original,action,opponent,options={}) {
   const alive=side=>g[side].pets.some(p=>p.hp>0);
   if(!alive('player')||!alive('enemy')) {g.result=!alive('player')&&!alive('enemy')?'draw':alive('player')?'win':'loss';g.phase='ended';g.log.push({draw:'双方宠物全部倒下，本场平局。',win:'训练赛胜利！',loss:'训练赛结束，你的队伍已全部倒下。'}[g.result]);}
   else {
-    if(active(g,'enemy').hp<=0) {g.enemy.active=g.enemy.pets.map((p,i)=>({i,score:p.hp>0?multiplier(p.type,active(g,'player').type)*20-multiplier(active(g,'player').type,p.type)*15+p.hp/p.maxHp*10:-Infinity})).sort((a,b)=>b.score-a.score)[0].i;g.log.push(`对手派出了${active(g,'enemy').name}。`);}
-    if(active(g,'player').hp<=0)g.phase='replace';
+    if(options.manualReplace) {
+      const queue=[];
+      if(active(g,'enemy').hp<=0)queue.push('enemy');
+      if(active(g,'player').hp<=0)queue.push('player');
+      g.replaceQueue=queue.length?queue:null;g.replaceSide=queue[0]||null;
+      if(queue.length)g.phase='replace';
+    } else {
+      if(active(g,'enemy').hp<=0) {g.enemy.active=g.enemy.pets.map((p,i)=>({i,score:p.hp>0?multiplier(p.type,active(g,'player').type)*20-multiplier(active(g,'player').type,p.type)*15+p.hp/p.maxHp*10:-Infinity})).sort((a,b)=>b.score-a.score)[0].i;g.log.push(`对手派出了${active(g,'enemy').name}。`);}
+      if(active(g,'player').hp<=0)g.phase='replace';
+    }
     g.turn++;
     if(g.turn>80){g.result='draw';g.phase='ended';g.log.push('达到 80 回合上限，本场平局。');}
   }

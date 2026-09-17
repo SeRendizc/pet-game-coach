@@ -1,3 +1,4 @@
+import {isLiveMatch} from './policy.js';
 import {legalActions,resolveTurn,evaluate,actionName} from '../engine.js';
 import {strategist,searchKnowledge,RULES_VERSION} from './strategist.js';
 import {teacher} from './teacher.js';
@@ -22,7 +23,7 @@ export function validToolArgs(name,args){
  return true;
 }
 export function executeTool(name,args,context,message=''){
- if(context.mode==='pvp-live'||context.battle&&context.battle.mode!=='pve')throw Error('policy');
+ if(isLiveMatch(context))throw Error('policy');
  if(!validToolArgs(name,args))throw Error('invalid-arguments');
  const g=context.battle;
  if(name==='read_state')return {screen:context.mode,focus:context.focus,turn:g?.turn??null,player:g?.player??null,enemy:g?.enemy??null,legalPlayer:g&&!g.result?legalActions(g):[],legalEnemy:g&&!g.result?legalActions(g,'enemy'):[]};

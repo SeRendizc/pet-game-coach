@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test engine.test.js mechanics.test.js features.test.js coach.test.js server.test.js knowledge.test.js evals/agent.test.js",
+    "test": "node --test engine.test.js mechanics.test.js pvp.test.js features.test.js coach.test.js server.test.js knowledge.test.js evals/agent.test.js",
     "start": "node server.js",
     "test:knowledge": "node --test knowledge.test.js",
+    "test:pvp": "node --test pvp.test.js",
     "build:knowledge": "node scripts/build-knowledge.js",
+    "build:report": ".venv-agent/bin/python scripts/build-report.py",
     "eval:retrieval": "node scripts/eval-retrieval.js",
     "train:intervention": "node scripts/train-intervention.js"
   }
