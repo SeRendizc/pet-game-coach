@@ -85,7 +85,7 @@ function renderTypeFilter(navId,rerender,which='rosterType'){
 function petCard(base,{order=-1,level=1,action=''}={}){
  const p={...base,level};
  return `<article class="pet-option ${order>=0?'chosen':''}">`
-  +`${order>=0?`<span class="order">${order+1}号位</span>`:''}`
+  +`<span class="order">${order>=0?`${order+1}号位`:''}</span>`
   +`<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div>`
   +`<p><strong>${p.bio}</strong> · ${p.trait}</p>`
   +`<div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div>`
@@ -94,8 +94,10 @@ function petCard(base,{order=-1,level=1,action=''}={}){
 function deployView(){
  wallet();$('deploy-record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
  renderStages();renderTypeFilter('roster-pages',()=>deployView());
- $('roster').innerHTML=filteredSpecies().map(base=>{const p=grown(base.id),order=selected.indexOf(p.id);
-  return `<article class="pet-option ${order>=0?'chosen':''}">${order>=0?`<span class="order">${order+1}号位</span>`:''}<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div><p><strong>${p.bio}</strong> · ${p.trait}</p><div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div><div class="buttons"><button data-pet="${p.id}" ${preview||(order<0&&selected.length>=3)?'disabled':''}>${order>=0?'移出队伍':'加入队伍'}</button><button data-focus="${p.id}">培养</button></div></article>`;}).join('');
+ $('roster').innerHTML=filteredSpecies().map(base=>{
+  const p=grown(base.id),order=selected.indexOf(p.id);
+  const act=`<button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}">加入队伍</button>`}`;
+  return petCard(base,{order,level:p.level,action:act});}).join('');
  $('selection').innerHTML=selected.length?selected.map((id,i)=>`<span class="slot"><em>${i+1}</em>${SPECIES.find(p=>p.id===id).name}</span>`).join(''):'<span class="muted">按 1 → 2 → 3 的出场顺序选择三只伙伴</span>';
  const advice=selected.length?rosterAdvice(selected.map(grown)):null;
  if(advice){const head=advice.lines[0]+' '+advice.lines[2];
@@ -208,6 +210,8 @@ const forceSwitch=game.phase==='replace';
   b.classList.toggle('selected',b.dataset.tab===mine);
   b.disabled=busy||!!game.result||(forceSwitch&&b.dataset.tab!=='switch')||(side==='enemy'&&!splitMode());});
 if(game.result)$('actions').innerHTML=`<p class="muted">${game.preview?'预制场景结束，不影响正式成长。':'本场结束，成长已自动保存。返回营地可培养或重新组队。'}</p>`;
+ // 一局打完就换编号：回到营地再出征时对手是新的一批，不会每局都撞同一队。
+ if(game.result&&!game.preview)rerollSeed();
 else $('actions').innerHTML=actionPanelHtml('player',tab);
 if(splitMode()&&!game.result)$('enemy-actions').innerHTML=actionPanelHtml('enemy',enemyTab);
 $('log').replaceChildren(...reverseRounds(game.log).map(line=>{const p=document.createElement('p');p.textContent=line;if(line.startsWith('──'))p.className='round';return p;}));$('log').scrollTop=0;document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=JSON.parse(b.dataset.action),side=b.dataset.side||'player';if(splitMode())pvpPick(side,a);else act(a);});renderSplitPanels();}
@@ -576,6 +580,16 @@ async function ask(text){
  $('coach-status').textContent=answer.fallbackReason?answer.fallbackReason:answer.provider==='deepseek'?'DeepSeek 已回答 · 依据可展开查看':answer.verified?(answer.scope==='match'?'整局记录已读取 · 可展开关键回合':answer.memory.lastTopic==='review'?'原始回合已读取 · 计算条件可核对':'本地规则核验 · 不经模型自由改写'):'本地教练 · 依据可展开查看';
  }catch(e){hideThinking();if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{hideThinking();asking=false;$('chat-send').disabled=false;$('chat-input').disabled=false;}
 }
+// 每局开始换一个新编号。
+//
+// 原先编号固定从 17 起步且不会自己变，于是每次刷新看到的对手都是同一批——
+// 用户直接问「为什么我刷新重进 AI 宠物不变」。对复现来说固定是对的，
+// 对玩来说是不对的。现在每局换一个，编号仍显示在界面上，
+// 想复现同一场对手把它填回去即可。
+function rerollSeed(){
+ const el=$('seed');
+ el.value=Math.floor(Math.random()*4294967295);
+}
 function startMatch(){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
 game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv,team:pvpOpponent==='human'&&enemySelected.length===3?enemySelected:null})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';attention=attentionState(Date.now());coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
 $('start').onclick=()=>startMatch();
@@ -891,3 +905,5 @@ document.querySelectorAll('[data-style]').forEach(button=>button.onclick=()=>{
  $('coach-welcome').close();if(voiceEnabled)playVoice('好，就按你喜欢的方式来。',{test:true});cultivation();
 });
 try{if(!localStorage.getItem('xiaoya-style-chosen'))$('coach-welcome').showModal();}catch{}
+// 首次打开也换一个新编号：固定 17 会让每次刷新看到同一批对手。
+rerollSeed();

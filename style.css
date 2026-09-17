@@ -466,6 +466,11 @@
 
 /* 两侧卡片必须一样高：AI 那侧的卡没有按钮（不可点），会比可点的那侧矮 34px，
    四行下来就差出一大截。给卡片一个固定高度，按钮缺席时由空白占位。 */
-.pick-split.split .pet-option{height:144px;grid-template-rows:auto 1fr auto;align-content:start}
+/* 卡片高度与内部行位置恒定。badge 那个 span 现在恒常渲染（未选中时为空），
+   但行轨道也写死，两道保险：否则有 badge 的卡片比没 badge 的多占一行，按钮跟着下移。 */
+.pick-split.split .pet-option{height:144px;grid-template-rows:16px 1fr 30px;align-content:start;gap:0}
+.pick-split.split .pet-option>.order{height:16px;line-height:16px}
+.pick-split.split .pet-option>.buttons{height:30px;align-items:center}
+.pick-split.split .pet-option>.buttons button{height:24px;line-height:1;padding:0 8px}
 /* 两侧的筛选条对齐：边框与内边距在左右两侧写法不同，差 2px，用同高的行轨道吸收掉。 */
 .pick-split.split .pick-side>nav{height:30px;box-sizing:border-box}
