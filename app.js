@@ -11,6 +11,12 @@ import {newProfile,loadProfile,TRAINING,trainingCapacity,MAX_STAT_TRAINING,train
 import {coachEvent,coachContext} from './coach.js';
 import {rulesSections,ruleFacts} from './rules.js';
 const $=id=>document.getElementById(id),storageKey='pet-coach-growth-v1';
+// 等级上限。真人同机对战默认双方都按这个等级打。
+const LEVEL_CAP=5;
+// PVP 的等级口径。两种模式各有一套选项，共用同一个存储键：
+//   AI 对局   cap 双方满级 / adapt 对手随我方等级（原来的行为）
+//   真人同机  cap 双方满级 / grown 各按自己培养的等级
+let pvpLevel='cap';try{const v=localStorage.getItem('xiaoya-pvp-level');if(['cap','adapt','grown'].includes(v))pvpLevel=v;}catch{}
 let profile=newProfile();try{profile=loadProfile(localStorage.getItem(storageKey));}catch{$('save-message').textContent='浏览器存储不可用，本次成长只能保留到页面关闭。';}
 let companionShownCue=null,companionShownAt=0,companionHoldUntil=0,liveCoachKey='',liveCoachShownAt=0,liveCoachTimer=null;
 // 顶部条是给「刚发生的这一手」用的：同一条内容停留太久就自己收起来（和 #attention-cue 的 12 秒同一思路）。
@@ -55,7 +61,13 @@ const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const badge=p=>`<span class="type ${p.type}">${TYPES[p.type]}</span>`;
 function save(){try{localStorage.setItem(storageKey,JSON.stringify(profile));}catch{$('save-message').textContent='保存失败：当前成长仍可使用，刷新后可能丢失。';}wallet();}
 function wallet(){$('wallet').textContent=`训练点 ${profile.tokens}`;$('record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;$('coach-mode').value=profile.coach.mode;}
-function grown(id){return createGame(17,[id,...SPECIES.filter(p=>p.id!==id).slice(0,2).map(p=>p.id)],{pets:profile.pets}).player.pets[0];}
+function grown(id){return grownAt(id,(profile.pets[id]?.level)||1);}
+// 按**指定等级**算面板。PVP 的「双方满级」口径下，界面要显示满级的面板与等级，
+ // 而不是存档里的等级——否则会出现「对手 Lv.5、我方 Lv.1」这种自相矛盾的界面。
+function grownAt(id,level){
+ const pets={...profile.pets,[id]:{...(profile.pets[id]||{level:1,xp:0,points:{hp:0,atk:0,speed:0}}),level}};
+ return createGame(17,[id,...SPECIES.filter(p=>p.id!==id).slice(0,2).map(p=>p.id)],{pets}).player.pets[0];
+}
 // 营地 = 养成。只负责看伙伴和培养，出征相关的选择全部挪到出征页。
 function camp(){
  wallet();$('record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
@@ -98,7 +110,8 @@ function deployView(){
  wallet();$('deploy-record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
  renderStages();renderTypeFilter('roster-pages',()=>deployView());
  $('roster').innerHTML=filteredSpecies().map(base=>{
-  const p=grown(base.id),order=selected.indexOf(p.id);
+  const capped=matchMode==='pvp'&&pvpLevel==='cap';
+  const p=capped?grownAt(base.id,LEVEL_CAP):grown(base.id),order=selected.indexOf(p.id);
   const act=`<button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}">加入队伍</button>`}`;
   return petCard(base,{order,level:p.level,action:act,stats:p});}).join('');
  $('selection').innerHTML=selected.length?selected.map((id,i)=>`<span class="slot"><em>${i+1}</em>${SPECIES.find(p=>p.id===id).name}</span>`).join(''):'<span class="muted">按 1 → 2 → 3 的出场顺序选择三只伙伴</span>';
@@ -115,8 +128,14 @@ function deployView(){
   +`<div class="side-row"><span>${pvp?'对手':'关卡'}</span><b>${pvp?(pvpOpponent==='human'?'真人同机 · 分屏':'AI 模拟真人 · Lv.'+avg):(stage?stage.name:'—')}</b></div>`
   +`<div class="side-row"><span>难度</span><b>${DIFFICULTIES[$('difficulty').value].name}</b></div>`
   +`<div class="side-row"><span>队伍</span><b>${selected.length} / 3</b></div>`
+  +(pvp?`<div class="side-row"><span>等级</span><select id="pvp-level" title="满级：双方都按满级打，比的是操作。${pvpOpponent==='human'?'按各自培养：用你们实际的等级。':'对手随我方：对手按你队伍的平均等级适配。'}">
+     <option value="cap"${pvpLevel==='cap'?' selected':''}>双方满级</option>
+     ${pvpOpponent==='human'
+       ?`<option value="grown"${pvpLevel==='grown'?' selected':''}>按各自培养</option>`
+       :`<option value="adapt"${pvpLevel==='adapt'?' selected':''}>对手随我方</option>`}
+   </select></div>`:'')
   +`<p class="muted" style="margin-top:12px">${pvp?`对局不选关卡：对手从全部 ${SPECIES.length} 只里自动配队，等级按你的队伍适配。`:'训练按关卡挑战固定对手，胜利记录通关。'}</p>`;
- $('deploy-side').querySelectorAll; 
+ const lv=$('pvp-level');if(lv)lv.onchange=()=>{pvpLevel=lv.value;try{localStorage.setItem('xiaoya-pvp-level',pvpLevel);}catch{}deployView();};
 }
 // PVP 选宠分屏：与战斗页一致——左边我方，右边对方。
 //   · 对手是 AI：右栏显示它自动配好的三只（只读），让你知道要面对什么。
@@ -134,11 +153,15 @@ function renderPickSplit(){
  // 两侧用**同一套网格**：都是 14 张卡、都能筛、都能点。区别只在于
  // 对方那列的三只是谁选的——真人自己点，AI 由引擎先选好并标出来。
  // 之前把 AI 那侧做成了「只显示 3 张」的特殊视图，那是两套界面，不是同一件事。
- const enemyTeam=ai?buildVersusOpponent(Number.isInteger(seed)?seed:17,{level:avg}).enemyTeam:enemySelected;
+ const capped=matchMode==='pvp'&&pvpLevel==='cap';
+ const lvOf=id=>capped?LEVEL_CAP:(profile.pets[id]?.level||1);
+ // 对手等级：满级口径下就是满级；AI 否则随我方平均；真人同机则各自按培养。
+ const oppLv=capped?LEVEL_CAP:(ai?avg:null);
+ const enemyTeam=ai?buildVersusOpponent(Number.isInteger(seed)?seed:17,{level:matchMode==='pvp'&&pvpLevel==='cap'?LEVEL_CAP:avg}).enemyTeam:enemySelected;
  renderTypeFilter('enemy-pages',()=>deployView(),'enemyRosterType');
  const markOf=id=>enemyTeam.indexOf(id);
  $('roster-enemy').innerHTML=filteredSpecies('enemyRosterType').map(base=>{
-  const at=markOf(base.id),lv=ai?avg:(profile.pets[base.id]?.level||1);
+  const at=markOf(base.id),lv=ai?oppLv:lvOf(base.id);
   // AI 那侧不可点，但卡片本身与左侧完全一致；用一个不可用的按钮占位，保持高度相同。
   const act=ai?`<button disabled>${at>=0?'AI 已选':'—'}</button>`
    :`<button data-enemy-pet="${base.id}" ${at<0&&enemySelected.length>=3?'disabled':''}>${at>=0?'移出队伍':'加入队伍'}</button>`;
@@ -594,7 +617,11 @@ function rerollSeed(){
  el.value=Math.floor(Math.random()*4294967295);
 }
 function startMatch(){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
-game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv,team:pvpOpponent==='human'&&enemySelected.length===3?enemySelected:null})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';attention=attentionState(Date.now());coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
+// 真人同机（分屏）默认双方都按满级打：那是一场对等较量，不该由谁练得多决定胜负。
+ // 对手是 AI 时仍按玩家队伍的平均等级适配，那是闯关性质的对手。
+ const capped=matchMode==='pvp'&&pvpLevel==='cap';
+ const battlePets=capped?Object.fromEntries(Object.entries(profile.pets).map(([id,v])=>[id,{...v,level:LEVEL_CAP}])):profile.pets;
+ game=createGame(seed,selected,versus?{pets:battlePets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:capped?LEVEL_CAP:avgLv,team:pvpOpponent==='human'&&enemySelected.length===3?enemySelected:null})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';attention=attentionState(Date.now());coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
 $('start').onclick=()=>startMatch();
 function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':matchMode==='pve'?'训练 · PVE · v0.11':'营地 · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;companionPending=null;hideCompanionCue();$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
 function syncMode(){
