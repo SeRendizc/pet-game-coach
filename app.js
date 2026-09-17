@@ -18,7 +18,7 @@ let attention=attentionState(Date.now()),hoverAction=null,nudgeTimer=null,tactic
 let rosterType='all',loadoutDraft=null,loadoutOpen=false;
 // 本地对战：真人对手走分屏同屏（双方各选一招，都锁定后一起结算）；
 // 电脑对手单人玩，由引擎 chooseEnemy 出招。pvpPicks 由分屏逻辑维护。
-let matchMode='pve',pvpOpponent='ai';
+let matchMode='pve',pvpOpponent='ai',enemyTab='skill',enemySelected=null;
 let bubbleTimer,stageId='meadow',preview=null,suspended=null;
 let selected=['fox','turtle','deer'],focus='fox',game=null,tab='skill',busy=false,matchId='',reward=null,coachSession={count:0,lastTurn:null,dismissed:false},faintShown=false;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -69,16 +69,30 @@ function renderSides(state){$('player').innerHTML=sideView(state,'player');$('en
 // 只有线上竞技（pvp-live）才闭麦，由 coach/policy.js 决定。
 function coachAllowedInMatch(){return true;}
 function matchContext(message){const c=buildContext(game,profile,focus,roundArchive,stageId,message);c.coachAllowed=coachAllowedInMatch();return c;}
+
+// 双方的行动面板用同一个渲染器，保证 UI 完全一致；只是数据取各自那一侧。
+function actionPanelHtml(side,whichTab){
+ const g=game,s=g[side],p=active(g,side),legal=legalActions(g,side);
+ const ok=a=>!busy&&!g.result&&legal.some(b=>a.kind===b.kind&&a.id===b.id&&a.target===b.target);
+ const btn=(a,title,desc,extra='')=>`<button class="action" data-side="${side}" data-action='${JSON.stringify(a)}' ${ok(a)?'':'disabled'}><div class="action-heading"><span>${escape(title)}</span>${extra?`<em>${escape(extra)}</em>`:''}</div><small>${escape(desc)}</small></button>`;
+ if(whichTab==='skill')return p.skills.map(id=>{const sk=SKILLS[id];return btn({kind:'skill',id},sk.name,sk.desc,`${sk.power?'威力 '+sk.power+' · ':''}${sk.priority===1?'先制 · ':''}消耗 ${sk.cost} 豆`);}).join('');
+ if(whichTab==='switch')return s.pets.map((q,target)=>btn({kind:'switch',target},q.name,`${TYPES[q.type]}系 · ${q.hp}/${q.maxHp} HP · ${q.energy} 能量`,target===s.active?'正在场上':q.hp<=0?'已倒下':g.phase==='replace'?'免费补位':'换宠占用整回合')).join('');
+ if(whichTab==='item')return Object.entries(ITEMS).map(([id,item])=>`<div class="item-group"><p>${item.name} ×${s.items[id]}<br><span class="muted">${escape(item.desc)}</span></p><div class="targets">${s.pets.map((q,target)=>`<button data-side="${side}" data-action='${JSON.stringify({kind:'item',id,target})}' ${ok({kind:'item',id,target})?'':'disabled'}>${escape(q.name)}</button>`).join('')}</div></div>`).join('');
+ // 认输只对本地玩家开放：对手认输会走另一条结算（引擎的 escape 语义属于我方撤退）。
+ return `<div class="item-group"><p>撤退立即结束本场，不获得经验与训练点。</p><button data-side="${side}" data-action='{"kind":"escape"}' ${side==='player'&&ok({kind:'escape'})?'':'disabled'}>确认撤退</button></div>`;
+}
 function render(){$('round-coach').textContent=game.result?'✦ 整局复盘':'✦ 回合回顾';renderSides(game);$('environment-info').textContent=game.environment?`${game.environment.name} · 剩${game.environment.turns}回合：${game.environment.desc}`:'无场地环境';$('enemy-difficulty').textContent=game.mode==='pvp-local'?('本地对战 · '+(game.pvpOpponent==='human'?'真人同机':'电脑对手')+' · 对手 Lv.'+game.enemy.pets[0].level):DIFFICULTIES[game.difficulty]?.name+(game.stageName?' · '+game.stageName:' · 预制场景');const roundLabel=game.phase==='replace'?'免费补位':`第 ${Math.min(game.turn,80)} 回合`;
 if($('turn').textContent!==roundLabel){$('turn').textContent=roundLabel;$('turn').classList.remove('round-pulse');void $('turn').offsetWidth;$('turn').classList.add('round-pulse');} $('phase').textContent=busy?'正在出招…':game.result?'本场结束':game.phase==='replace'?'请选择补位伙伴':'等待行动';$('restart').disabled=busy;$('camp-tab').disabled=busy;$('preview-exit').disabled=busy;$('preview-again').disabled=busy;$('export').disabled=busy;
 $('result').hidden=!game.result;if(game.result)$('result').innerHTML=`<strong>${{win:'训练胜利',loss:'本场失利',draw:'本场平局',escaped:'已撤退'}[game.result]}</strong>${reward?`全队经验 +${reward.xp} · 训练点 +${reward.tokens}${reward.swift?' · 首次10回合内速胜 +1点（已计入）':''}${reward.levels.length?' · '+reward.levels.join('，'):''}`:game.preview?'预制体验，不计入成长':'本场无成长奖励'} · ${game.preview?'退出体验可恢复原对战':'返回营地继续培养'}`;
-if(game.phase==='replace')tab='switch';document.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('selected',b.dataset.tab===tab);b.disabled=busy||!!game.result||(game.phase==='replace'&&b.dataset.tab!=='switch');});
+const forceSwitch=game.phase==='replace';
+ if(forceSwitch){tab='switch';enemyTab='switch';}
+ document.querySelectorAll('[data-tab]').forEach(b=>{const side=b.dataset.side||'player',mine=side==='enemy'?enemyTab:tab;
+  b.classList.toggle('selected',b.dataset.tab===mine);
+  b.disabled=busy||!!game.result||(forceSwitch&&b.dataset.tab!=='switch')||(side==='enemy'&&!splitMode());});
 if(game.result)$('actions').innerHTML=`<p class="muted">${game.preview?'预制场景结束，不影响正式成长。':'本场结束，成长已自动保存。返回营地可培养或重新组队。'}</p>`;
-else if(tab==='skill')$('actions').innerHTML=active(game,'player').skills.map(id=>{const sk=SKILLS[id];return button({kind:'skill',id},sk.name,sk.desc,`${sk.power?'威力 '+sk.power+' · ':''}${sk.priority===1?'先制 · ':''}消耗 ${sk.cost} 豆${sk.cost?' · 存活回合末回1':''}`);}).join('');
-else if(tab==='switch')$('actions').innerHTML=game.player.pets.map((p,target)=>button({kind:'switch',target},p.name,`${TYPES[p.type]}系 · ${p.hp}/${p.maxHp} HP · ${p.energy} 能量`,target===game.player.active?'正在场上':p.hp<=0?'已倒下':game.phase==='replace'?'免费补位':'本回合只换宠 · 不能再攻击/吃药')).join('');
-else if(tab==='item')$('actions').innerHTML=Object.entries(ITEMS).map(([id,item])=>`<div class="item-group"><p>${item.name} ×${game.player.items[id]}<br><span class="muted">${item.desc}</span></p><div class="targets">${game.player.pets.map((p,target)=>`<button data-action='${JSON.stringify({kind:'item',id,target})}' ${available({kind:'item',id,target})?'':'disabled'}>${p.name}</button>`).join('')}</div></div>`).join('');
-else $('actions').innerHTML=`<div class="item-group"><p>撤退立即结束本场，不获得经验与训练点。</p><button data-action='{"kind":"escape"}' ${busy?'disabled':''}>确认撤退</button></div>`;
-$('log').replaceChildren(...reverseRounds(game.log).map(line=>{const p=document.createElement('p');p.textContent=line;if(line.startsWith('──'))p.className='round';return p;}));$('log').scrollTop=0;document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=JSON.parse(b.dataset.action);if(splitMode())pvpPick('player',a);else act(a);});renderSplitPanels();}
+else $('actions').innerHTML=actionPanelHtml('player',tab);
+if(splitMode()&&!game.result)$('enemy-actions').innerHTML=actionPanelHtml('enemy',enemyTab);
+$('log').replaceChildren(...reverseRounds(game.log).map(line=>{const p=document.createElement('p');p.textContent=line;if(line.startsWith('──'))p.className='round';return p;}));$('log').scrollTop=0;document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>{const a=JSON.parse(b.dataset.action),side=b.dataset.side||'player';if(splitMode())pvpPick(side,a);else act(a);});renderSplitPanels();}
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 // ---------- 本地对战：分屏同屏，双方各选一招后一起结算 ----------
@@ -110,10 +124,8 @@ function renderSplitPanels(){
  const replacing=game.phase==='replace';
  const rs=replacing?(game.replaceSide||'player'):null;
  $('enemy-side-note').textContent=replacing?(rs==='enemy'?'轮到你补位':'等待对方补位'):(pvpPicks.enemy?'已锁定':'选择行动');
- const acts=legalActions(game,'enemy');
  const locked=!!pvpPicks.enemy||busy||!!game.result||(replacing&&rs!=='enemy');
- $('enemy-actions').innerHTML=acts.map(a=>`<button class="action" data-enemy-action='${JSON.stringify(a)}' ${locked?'disabled':''}><div class="action-heading"><span>${escape(actionLabel(a,'enemy'))}</span></div><small>${escape(actionDetail(a))}</small></button>`).join('');
- document.querySelectorAll('[data-enemy-action]').forEach(b=>b.onclick=()=>pvpPick('enemy',JSON.parse(b.dataset.enemyAction)));
+ if(locked)document.querySelectorAll('#enemy-actions [data-action]').forEach(b=>b.disabled=true);
  const mineLocked=!!pvpPicks.player||busy||!!game.result||(replacing&&rs!=='player');
  if(mineLocked)document.querySelectorAll('#actions [data-action]').forEach(b=>b.disabled=true);
  $('message').textContent=pvpPicks.player?'已锁定，等对方选择…':'';
@@ -146,6 +158,23 @@ function updateSideCoaches(){
   }catch{$(box).hidden=true;}
  }
 }
+
+// 真人分屏时，对手也在同一台设备上选三只——放在二级页面里，避免和营地的主流程挤在一起。
+function openEnemyPicker(){
+ enemySelected=[];
+ renderEnemyPicker();
+ $('pick-overlay').hidden=false;
+ $('pick-start').onclick=()=>{if(enemySelected.length!==3)return;const team=[...enemySelected];$('pick-overlay').hidden=true;startMatch(team);};
+}
+function renderEnemyPicker(){
+ $('pick-roster').innerHTML=SPECIES.map(base=>{const at=enemySelected.indexOf(base.id);
+  return `<button type="button" class="pick-pet${at>=0?' on':''}" data-pick="${base.id}"><span class="pet-icon">${base.icon}</span><strong>${escape(base.name)}</strong><small>${TYPES[base.type]}系 · 生命 ${base.maxHp} · 速度 ${base.speed}</small>${at>=0?`<em>${at+1}号位</em>`:''}</button>`;}).join('');
+ document.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{const id=b.dataset.pick;
+  enemySelected=enemySelected.includes(id)?enemySelected.filter(x=>x!==id):(enemySelected.length>=3?enemySelected:[...enemySelected,id]);
+  renderEnemyPicker();});
+ $('pick-count').textContent=`已选 ${enemySelected.length} / 3${enemySelected.length<3?'（还差 '+(3-enemySelected.length)+' 只）':''}`;
+ $('pick-start').disabled=enemySelected.length!==3;
+}
 async function act(action,enemyAction){if(busy)return;
  cancelVoice();advanceContext();hintEpoch++;busy=true;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;const old=game;const shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');const decision={...assessDecision(old,action,rankEnemyActions({...old,player:old.enemy,enemy:old.player})),caseKey:active(old,'player').id+':'+active(old,'enemy').id};render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);const next=pvpMode()?resolveTurn(old,action,enemyAction!==undefined?enemyAction:chooseEnemy(old),{manualReplace:pvpOpponent==='human'}):step(old,action);let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
 for(const frame of next.frames||[]){if(!frame.text)continue;renderSides(frame.state);$('action-banner').textContent=frame.text;for(const side of ['player','enemy']){const card=$(side+'-card'),floating=$(side+'-float'),p=active(frame.state,side),prev=previous[side].pets.find(x=>x.id===p.id),delta=p.hp-prev.hp;card.classList.remove('hit','act','guarding');floating.className='float-number';void card.offsetWidth;if(delta<0)card.classList.add('hit');else if(frame.side===side)card.classList.add('act');if(frame.text.includes('防御：')&&frame.side===side)card.classList.add('guarding');if(delta){floating.textContent=(delta>0?'+':'')+delta;floating.className='float-number show'+(delta>0?' heal':'');}}previous=frame.state;if(ms)await pause(ms);}
@@ -168,8 +197,11 @@ async function ask(text){
  $('coach-status').textContent=answer.fallbackReason?answer.fallbackReason:answer.provider==='deepseek'?'DeepSeek 已回答 · 依据可展开查看':answer.verified?(answer.scope==='match'?'整局记录已读取 · 可展开关键回合':answer.memory.lastTopic==='review'?'原始回合已读取 · 计算条件可核对':'本地规则核验 · 不经模型自由改写'):'本地教练 · 依据可展开查看';
  }catch(e){hideThinking();if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{hideThinking();asking=false;$('chat-send').disabled=false;$('chat-input').disabled=false;}
 }
-$('start').onclick=()=>{advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}matchMode=$('match-mode').value==='pvp'?'pvp':'pve';pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
-game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});game.pvpOpponent=pvpOpponent;$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};$('coach-bubble').hidden=true;$('setup').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?(pvpOpponent==='human'?'本地对战：双方各自选招后同时结算。请轮流操作，先由我方选择。':'本地对战（电脑对手）：双方各自选招后同时结算。电脑由引擎本地出招，不走模型。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;updateSideCoaches();updateCoach();};
+function startMatch(pickedEnemy=null){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}matchMode=$('match-mode').value==='pvp'?'pvp':'pve';pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
+game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv,team:pickedEnemy})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});game.pvpOpponent=pvpOpponent;$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};$('coach-bubble').hidden=true;$('setup').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?(pvpOpponent==='human'?'本地对战：双方各自选招后同时结算。请轮流操作，先由我方选择。':'本地对战（电脑对手）：双方各自选招后同时结算。电脑由引擎本地出招，不走模型。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;updateSideCoaches();updateCoach();}
+// 开局前 game 还不存在，splitMode() 不能用，这里看营地里的选择。
+const versusChosen=()=>$('match-mode').value==='pvp'&&$('pvp-opponent').value==='human';
+$('start').onclick=()=>{if(versusChosen()){openEnemyPicker();return;}startMatch();};
 function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('setup').hidden=false;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');camp();}
 function syncMode(){
  const pvp=$('match-mode').value==='pvp';
@@ -180,7 +212,7 @@ function syncMode(){
 }
 $('match-mode').onchange=syncMode;syncMode();
 $('restart').onclick=toCamp;$('camp-tab').onclick=toCamp;$('rules-toggle').onclick=()=>$('rules').showModal();
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{if((b.dataset.side||'player')==='enemy')enemyTab=b.dataset.tab;else tab=b.dataset.tab;render();});
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify(game,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`pet-battle-${game.initialSeed}-turn-${game.turn}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 $('coach-open').onclick=openCoach;$('coach-close').onclick=()=>$('coach-panel').hidden=true;$('bubble-chat').onclick=()=>{openCoach();addChat('小芽',$('bubble-text').textContent);};$('bubble-close').onclick=()=>{coachSession.dismissed=true;attention.dismissed=true;coachMuted=true;hintEpoch++;$('live-coach').hidden=true;$('attention-cue').hidden=true;$('coach-bubble').hidden=true;};$('coach-mode').onchange=()=>{cancelVoice();profile.coach.mode=$('coach-mode').value;advanceContext();hintEpoch++;$('attention-cue').hidden=true;attention.since=Date.now();if(profile.coach.mode==='quiet')$('coach-bubble').hidden=true;save();if(game)updateCoach();else cultivation();};
 $('chat-form').onsubmit=e=>{e.preventDefault();ask($('chat-input').value);$('chat-input').value='';};document.querySelectorAll('[data-question]').forEach(b=>b.onclick=()=>ask(b.dataset.question));

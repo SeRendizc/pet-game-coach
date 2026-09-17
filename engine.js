@@ -252,12 +252,18 @@ export function resolveTurn(original,action,opponent,options={}) {
 
 // 本地对战的对手阵容：12 只里随机选 3 只，各自从可学技能里选 4 个、带一件携带物，
 // 等级由调用方按玩家队伍适配传入。用同一个 seed 可复现，不读取玩家选择。
-export function buildVersusOpponent(seed=17,{level=1}={}){
+export function buildVersusOpponent(seed=17,{level=1,team:chosen=null}={}){
  let state=seed>>>0;
  const rnd=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
  const takeOne=arr=>arr.splice(Math.floor(rnd()*arr.length),1)[0];
- const pool=[...SPECIES],team=[];
- while(team.length<3&&pool.length)team.push(takeOne(pool));
+ let team;
+ if(Array.isArray(chosen)&&chosen.length===3&&new Set(chosen).size===3&&chosen.every(id=>SPECIES.some(p=>p.id===id))){
+  // 对手自己选的三只：技能、携带物与等级仍由这里补齐，保证合法且与玩家适配。
+  team=chosen.map(id=>SPECIES.find(p=>p.id===id));
+ } else {
+  const pool=[...SPECIES];team=[];
+  while(team.length<3&&pool.length)team.push(takeOne(pool));
+ }
  const itemPool=Object.keys(HELD_ITEMS).filter(k=>k!=='none');
  const enemyPets={};
  for(const base of team){

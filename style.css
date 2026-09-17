@@ -288,3 +288,24 @@
 #panel-enemy #enemy-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .side-coach{margin-top:8px;padding:7px 9px;border:1px solid #3c5a48;background:#1a2b26;border-radius:8px;font-size:12px;line-height:1.5;color:#bcd9c6}
 .side-coach strong{display:block;font-size:11px;color:#8fd6a5;margin-bottom:3px}
+
+/* 分屏：两侧面板完全对称，中间加一道隔断 */
+.bottom-grid.versus{column-gap:0}
+.bottom-grid.versus #panel-player{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
+.bottom-grid.versus #panel-enemy{border-top-left-radius:0;border-bottom-left-radius:0;border-left:2px solid #4a6a86}
+.bottom-grid.versus #panel-enemy .section-title h2{color:#cfe0d4}
+#enemy-tabs{margin-top:-2px}
+
+/* 二级页面：对手选三只伙伴 */
+#pick-overlay{position:fixed;inset:0;background:#0b111aee;z-index:40;display:grid;place-items:center;padding:22px}
+.pick-card{width:min(880px,100%);max-height:88vh;overflow:auto;background:var(--panel);border:1px solid #586e85;border-radius:15px;padding:22px;box-shadow:0 18px 70px #000a}
+.pick-card h2{font-size:19px;margin:0 0 6px}
+.pick-roster{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}
+.pick-pet{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border-radius:10px;background:#16222e;border:1px solid #2f4256}
+.pick-pet.on{background:#1d3435;border-color:#8dd49c}
+.pick-pet .pet-icon{font-size:26px}
+.pick-pet strong{font-size:13px}
+.pick-pet small{font-size:10px;color:var(--muted);text-align:center;line-height:1.4}
+.pick-pet em{position:absolute;top:6px;right:6px;font-style:normal;font-size:10px;color:#152c24;background:var(--accent);border-radius:5px;padding:1px 5px;font-weight:700}
+.pick-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:700px){.pick-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}
