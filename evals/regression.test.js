@@ -38,7 +38,16 @@ const checks={
  // 移到了依据里，供「查看原因」展开时看。所以这里断言依据里仍然说清楚。
  'tied-boundary-caveat':()=>{const r=strategist({...ctx(game(2,35)),query:'这回合怎么打'});
   return r.evidence.some(x=>/不是胜率|不保证后续最优|启发式比较/.test(x));},
- 'goal-reweights':()=>{const g=game(2,35);const top=x=>{const a=rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:x})[0].action;return a.kind+(a.id||'');};return top('稳健')!==top('速攻');},
+ // 同样不绑死局面：在若干阵容与种子里找一个真实分歧。
+ 'goal-reweights':()=>{const key=a=>a.kind+(a.id||'');
+  // 固定一套阵容可能根本没有分歧，所以跨几套阵容找。
+  const teams=[['fox','turtle','deer'],['lion','otter','shroom'],['ram','cat','moth']];
+  for(const team of teams)for(let seed=1;seed<=60;seed++)for(const hp of [15,25,35,50,70]){
+   const g=createGame(seed,team,{mode:'pve',difficulty:'normal',...buildVersusOpponent(seed,{level:2})});
+   g.player.pets[0].hp=hp;
+   const top=x=>key(rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:x})[0].action);
+   if(top('稳健')!==top('速攻'))return true;}
+  return false;},
  'goal-default-stable':()=>{const g=game(2,35);const top=x=>{const a=rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:x})[0].action;return a.kind+(a.id||'');};return top(null)===top(undefined);},
 };
 

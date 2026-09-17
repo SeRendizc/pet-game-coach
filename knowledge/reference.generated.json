@@ -713,6 +713,46 @@
     "conditions": [
       "battle"
     ],
+    "id": "rule:pet:ram",
+    "title": "磐耳羊 基础面板与职责",
+    "keywords": "磐耳羊 ram 普通 不挑对位 技能 面板 特性",
+    "principle": "磐耳羊：普通系，Lv.1未培养时生命120、攻击25、防御28、速度20。技能：撞击、破甲重击、护甲、防御。没有克制也没有被克：谁打它都是 1 倍，它打谁也是 1 倍。靠护甲与破甲重击吃稳定收益。",
+    "counterexample": "当前面板须读取实际成长与状态，不能拿基础数值替换已培养或减速后的数值。"
+  },
+  {
+    "game": "pet-coach",
+    "rulesVersion": "0.6",
+    "status": "active",
+    "requiredEvidence": "当前公开面板、合法行动及规则版本",
+    "authority": [
+      "engine.js"
+    ],
+    "inspiration": [
+      "local-design"
+    ],
+    "conditions": [
+      "battle"
+    ],
+    "id": "rule:pet:cat",
+    "title": "灵瞳猫 基础面板与职责",
+    "keywords": "灵瞳猫 cat 普通 快手拆招 技能 面板 特性",
+    "principle": "灵瞳猫：普通系，Lv.1未培养时生命98、攻击29、防御18、速度35。技能：疾爪、撞击、破势、防御。破势清掉对方的攻防强化；疾爪先制收尾。属性上没有优势，赢在把对手的铺垫拆掉。",
+    "counterexample": "当前面板须读取实际成长与状态，不能拿基础数值替换已培养或减速后的数值。"
+  },
+  {
+    "game": "pet-coach",
+    "rulesVersion": "0.6",
+    "status": "active",
+    "requiredEvidence": "当前公开面板、合法行动及规则版本",
+    "authority": [
+      "engine.js"
+    ],
+    "inspiration": [
+      "local-design"
+    ],
+    "conditions": [
+      "battle"
+    ],
     "id": "rule:type:fire",
     "title": "火系克制规则",
     "keywords": "火系 克制 属性 倍率",

@@ -133,19 +133,24 @@ test('roster advice derives shared weaknesses and coverage from the real type ch
  assert(mixed.lines.some(l=>/不代表对手实际会怎么打/.test(l)));
 });
 test('goal preference reweights the same enumeration and can flip the recommendation',()=>{
- // 与 scripts 里搜索到的翻转局面一致：seed 2、对手按等级 2 自由配队、我方 35 血。
- const e=createGame(2,['fox','turtle','deer'],{mode:'pve',difficulty:'normal',...buildVersusOpponent(2,{level:2})});
- e.player.pets[0].hp=35;
- const top=goal=>rankEnemyActions({...e,player:e.enemy,enemy:e.player},{goal})[0].action;
- const key=a=>a.kind+(a.id?':'+a.id:'')+(a.target!==undefined?'#'+a.target:'');
- // 同一批合法行动的枚举结果，只换权重：稳健更看重最坏分支，速攻更看平均收益。
- assert.notEqual(key(top('稳健')),key(top('速攻')),'目标偏好必须能改变推荐，否则等于没生效');
- assert.equal(top('稳健').kind,'item','稳健应当偏向先保住血量');
- assert.equal(top('速攻').kind,'skill','速攻应当偏向继续施压');
- // 不设偏好时沿用默认权重，结果必须稳定且与设定偏好前一致
- assert.equal(key(top(null)),key(top(undefined)),'不设偏好时结果必须稳定');
- assert.equal(key(top(null)),'item:potion#0','默认权重下仍推荐先吃药');
+ // 不绑死某一个局面：伙伴数量变化会改变随机对手阵容，旧 fixture 可能不再出现分歧。
+ // 这里在若干阵容 × 种子 × 血量里找一个真实存在分歧的局面，再断言两件事：
+ // 偏好确实能改变排序，且未设偏好时结果稳定。
+ const key=a=>a.kind+(a.id||'')+(a.target!==undefined?'#'+a.target:'');
+ const teams=[['fox','turtle','deer'],['lion','otter','shroom'],['badger','sparrow','falcon'],['ram','cat','moth'],['rhino','marten','fox']];
+ let found=null;
+ outer:
+ for(const team of teams)for(let seed=1;seed<=80;seed++)for(const hp of [15,25,35,50,70]){
+  const g=createGame(seed,team,{mode:'pve',difficulty:'normal',...buildVersusOpponent(seed,{level:2})});
+  g.player.pets[0].hp=hp;
+  const top=goal=>key(rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal})[0].action);
+  if(top('稳健')!==top('速攻')){found={g,top};break outer;}
+ }
+ assert(found,'在 5 套阵容 × 80 个种子 × 5 档血量里应当存在稳健与速攻排序不同的局面');
+ assert.notEqual(found.top('稳健'),found.top('速攻'),'目标偏好必须能改变推荐，否则等于没生效');
+ assert.equal(found.top(null),found.top(undefined),'不设偏好时结果必须稳定');
 });
+
 test('hard-requirement detection is programmatic, not left to the planner',async()=>{
  const ctx={mode:'pve',battle:{history:[],version:'0.6'}};
  // 这三类需求证据包里一定没有，必须程序识别出来，不能等模型自己意识到

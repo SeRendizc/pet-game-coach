@@ -7,7 +7,8 @@ const attack=skill('strike');
 function arena(options={}){return createGame(17,['turtle','fox','deer'],{enemyTeam:['turtle','fox','deer'],...options});}
 test('old six-pet saves preserve progress and unlock new loadouts without spending points',()=>{
  const old=newProfile();for(const id of Object.keys(old.pets))if(!['fox','turtle','deer','lion','otter','shroom'].includes(id))delete old.pets[id];old.tokens=11;old.pets.fox.level=3;
- const migrated=loadProfile(JSON.stringify(old));assert.equal(Object.keys(migrated.pets).length,12);assert.equal(migrated.pets.fox.level,3);
+ // 伙伴从 12 增到 14（补了两只普通系），迁移会把新伙伴的初始记录补齐。
+ const migrated=loadProfile(JSON.stringify(old));assert.equal(Object.keys(migrated.pets).length,14);assert.equal(migrated.pets.fox.level,3);
  const edited=configurePet(migrated,'turtle',['strike','wave','shell','dispel'],'shellCharm');assert.equal(edited.tokens,11);assert(!migrated.pets.turtle.loadout);
  assert.deepEqual(active(arena({pets:edited.pets}),'player').skills,['strike','wave','shell','dispel']);
  assert.throws(()=>configurePet(edited,'turtle',['strike','strike','shell','dispel']));assert.throws(()=>configurePet(edited,'turtle',['strike','wave','ember','guard']));

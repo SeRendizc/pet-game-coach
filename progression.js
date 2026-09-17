@@ -6,7 +6,11 @@ export function newProfile(){return {version:1,tokens:6,battles:0,wins:0,lossStr
 export function loadProfile(raw){
   const fallback=newProfile();
   try{const p=JSON.parse(raw);if(p?.version!==1||!Number.isInteger(p.tokens)||p.tokens<0)return fallback;
-    for(const id of Object.keys(fallback.pets)){if(!p.pets?.[id]&&['badger','sparrow','falcon','moth','rhino','marten'].includes(id)){p.pets[id]=structuredClone(fallback.pets[id]);}const v=p.pets?.[id];if(!v||!Number.isInteger(v.level)||v.level<1||v.level>5||!Number.isInteger(v.xp)||v.xp<0) return fallback;let sum=0;for(const k of Object.keys(TRAINING)){if(!Number.isInteger(v.points?.[k])||v.points[k]<0||v.points[k]>MAX_STAT_TRAINING)return fallback;sum+=v.points[k];}if(sum>trainingCapacity(v.level))return fallback;}
+    for(const id of Object.keys(fallback.pets)){// 存档里缺哪只伙伴就补哪只，不再维护一份写死的白名单。
+     // 原来这里写死 ['badger',...,'marten']（上一批新增的六只），加新伙伴时忘了改它，
+     // 后果不是少一只，而是下面 const v=p.pets?.[id] 取到 undefined、直接 return fallback——
+     // **整个存档被丢弃、全部进度清零**。这次补两只普通系时踩到了，测试抓到。
+     if(!p.pets?.[id]){p.pets[id]=structuredClone(fallback.pets[id]);}const v=p.pets?.[id];if(!v||!Number.isInteger(v.level)||v.level<1||v.level>5||!Number.isInteger(v.xp)||v.xp<0) return fallback;let sum=0;for(const k of Object.keys(TRAINING)){if(!Number.isInteger(v.points?.[k])||v.points[k]<0||v.points[k]>MAX_STAT_TRAINING)return fallback;sum+=v.points[k];}if(sum>trainingCapacity(v.level))return fallback;}
     return {...fallback,...p,clearedStages:Array.isArray(p.clearedStages)?p.clearedStages.filter(x=>typeof x==='string'):[],claimed:Array.isArray(p.claimed)?p.claimed.slice(-100):[],coach:{mode:['gentle','mentor','critical','quiet'].includes(p.coach?.mode)?p.coach.mode:'gentle'}};
   }catch{return fallback;}
 }

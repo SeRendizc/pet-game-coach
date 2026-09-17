@@ -65,8 +65,15 @@ export const SPECIES = [
   {id:'moth',name:'云绒蛾',icon:'🦋',type:'wind',maxHp:110,atk:21,def:24,speed:25,skills:['gust','shell','clearwind','guard'],bio:'防守支援',trait:'护甲与清风改变对局条件；直接输出偏低'},
   {id:'rhino',name:'晶角犀',icon:'🦏',type:'rock',maxHp:128,atk:27,def:31,speed:10,skills:['gravel','focus','stonebreak','guard'],bio:'慢速蓄势',trait:'蓄势后进攻，怕驱散和水草克制'},
   {id:'marten',name:'伏光貂',icon:'🐾',type:'electric',maxHp:90,atk:32,def:16,speed:35,skills:['dash','discharge','focus','guard'],bio:'爆发抢攻',trait:'输出高但脆，蓄势时需要承受攻击'},
+  // 普通系补两只：此前七个属性里只有它没有伙伴。
+  // 普通系的机制特征是**双向中性**——打出去永远 1 倍，挨打也永远 1 倍（见 multiplier）。
+  // 所以它的优势是可预测、没有坏对位，劣势是永远拿不到克制。
+  // 补偿方式因此不是更高的爆发，而是**均衡面板 + 工具箱**：护甲/蓄势自己造条件，
+  // 破势拆掉对方的强化。两只分别偏承接与偏拆招。
+  {id:'ram',name:'磐耳羊',icon:'🐏',type:'normal',maxHp:120,atk:25,def:28,speed:20,skills:['strike','crush','shell','guard'],bio:'不挑对位',trait:'没有克制也没有被克：谁打它都是 1 倍，它打谁也是 1 倍。靠护甲与破甲重击吃稳定收益',},
+  {id:'cat',name:'灵瞳猫',icon:'🐈',type:'normal',maxHp:98,atk:29,def:18,speed:35,skills:['dash','strike','dispel','guard'],bio:'快手拆招',trait:'破势清掉对方的攻防强化；疾爪先制收尾。属性上没有优势，赢在把对手的铺垫拆掉'},
 ];
-const extraSkills={fox:['focus','dispel'],turtle:['shell','dispel'],deer:['focus','shell'],lion:['focus','dispel'],otter:['focus','dispel'],shroom:['shell','dispel'],badger:['shell','dispel'],sparrow:['focus','dispel'],falcon:['clearwind','dispel'],moth:['dispel','tempest'],rhino:['shell','dispel'],marten:['staticbolt','dispel']};
+const extraSkills={fox:['focus','dispel'],turtle:['shell','dispel'],deer:['focus','shell'],lion:['focus','dispel'],otter:['focus','dispel'],shroom:['shell','dispel'],badger:['shell','dispel'],sparrow:['focus','dispel'],falcon:['clearwind','dispel'],moth:['dispel','tempest'],rhino:['shell','dispel'],marten:['staticbolt','dispel'],ram:['focus','dispel'],cat:['focus','shell']};
 for(const p of SPECIES)p.learnset=[...p.skills,...extraSkills[p.id]];
 export const HELD_ITEMS={
   none:withDesc({name:'不携带',desc:'没有被动效果'}),
