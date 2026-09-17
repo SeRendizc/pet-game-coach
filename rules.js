@@ -121,7 +121,7 @@ export function rulesSections(){
     ]},
     {title:'伤害怎么算（有效伤害条件）',lines:[
       `伤害 = 四舍五入( 威力 + 条件增伤 + 攻击×${d.atkCoefficient} − 防御×${d.defCoefficient} ) × 属性 × 防御 × 环境 × 携带物，最低 ${d.min} 点。`,
-      `属性：${typeChartLine()}。克制 ×${RULES.typeAdvantage}，同系或被反克 ×${RULES.typeResist}，普通系与被抵抗时 ×1；没有属性免疫，也没有同系加成。按技能属性算，不按宠物属性算。`,
+      `属性：${typeChartLine()}。克制 ×${RULES.typeAdvantage}，打向克制你的属性 ×${RULES.typeResist}，其余（含同系）一律 ×1；没有属性免疫，也没有本系加成。按技能属性算，不按宠物属性算。`,
       `防御技能：本回合减伤 ${percent(guard.reduction)}（上面公式里的「防御」乘 ${1-guard.reduction}）、阻挡新异常、额外回 ${guard.energy} 能量，不能连续两回合使用。${piercingSkills().join('、')} 会穿过这个减伤（此时「防御」乘数为 1），但并不无视防御属性本身。`,
       `强化：蓄势提高攻击、护甲提高防御，每层 ±${percent(buff.perStack)}，最多 ${buff.maxStacks} 层，都在公式的攻防项里生效。`,
       `条件增伤：余烬追猎对已经灼烧的目标 +${SKILLS.pursuit.burnBonus} 威力；对方没有灼烧时没有这一项。`,

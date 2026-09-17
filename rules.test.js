@@ -284,7 +284,8 @@ test('the tactics knowledge base states the same numbers as the engine',async()=
     `力量加${RULES.training.atk}攻击`,
     `耐久加${RULES.training.hp}生命`,
     `克制${RULES.typeAdvantage}倍`,
-    `抵抗${RULES.typeResist}倍`,
+    // 同系已改为 ×1，所以「抵抗」这个词不再单独出现；这里验的是那个倍率本身。
+    `${RULES.typeResist}倍`,
     `先回复${ITEMS.potion.heal}生命`,
     `${ITEMS.potion.name}优先级${RULES.priority.item}`,
     `${ITEMS.ether.name}恢复${ITEMS.ether.restore}`,
