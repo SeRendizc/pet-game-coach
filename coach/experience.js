@@ -44,7 +44,7 @@ export function lessonFor(h){
 //   犹豫   = hovers 里出现过 ≥2 个不同选项（在选项之间来回换）
 //   长停留 = dwell 的 since 起没有被别的选项打断（持续停在这一个选项上不动）
 export const HOVER_WINDOW_MS=15000;
-export const DWELL={minHoldMs:10000};
+export const DWELL={minHoldMs:10000};   // 使用者反馈偏短，待调；改动会牵动测试基准，单独一轮做
 // 行动标识：app.js 现在存解析后的对象，早期记录里存的是 data-action 的 JSON 字符串。
 // 对象必须按值比较——直接比引用会把同一个选项算成两个，dwell 游标会永远重开。
 export function actionKey(a){return typeof a==='string'?a:JSON.stringify(a??null);}
@@ -64,8 +64,17 @@ export function trackAttention(state,turn,action,now){
 }
 // 指针离开选项区（app.js 的 pointerout / focusout 调用）：长停留到此结束。
 // 没有这一步，「鼠标移开后一直没动」会被当成盯着某个技能看。
+// 指针离开选项区：结束的不只是长停留游标，还有「犹豫」的窗口。
+//
+// 起因是使用者实测到的一次误报：他在「火花」上停了一下，然后移去对方面板操作了 13 秒，
+// 回来又碰了「防御」，界面就弹出「你在火花和防御之间停留了 13 秒」。
+// 那 13 秒里他根本没在看这两个选项——犹豫判定原先用的是「距第一次悬停的墙钟时间」，
+// 人离开后计时照跑。信号要量的是**花在这上面的时间**，不是**经过了多少时间**。
 export function releaseAttention(state){
- if(state)state.dwell=null;
+ if(!state)return state;
+ state.dwell=null;
+ state.hovers=[];                 // 重新进入选项区时从零开始累计
+ state.since=null;                // 墙钟计时的起点一并作废
  return state;
 }
 export function shouldNudge(state,{now,turn,mode='gentle',active=true,risk=false,holdMs=0}){

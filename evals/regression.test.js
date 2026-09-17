@@ -34,7 +34,10 @@ const checks={
   const m=/(最佳|最优|一定|必然)/.exec(t);
   if(!m)return true;
   return /(不能|不会|无法|不保证|未必|不一定)/.test(t.slice(Math.max(0,m.index-8),m.index));},
- 'tied-boundary-caveat':()=>{const t=strategist({...ctx(game(2,35)),query:'这回合怎么打'}).text;return /不能保证|不保证|一回合风险|无法保证/.test(t);},
+ // 边界说明不再挂在短句后面（使用者反馈那是废话，每次都一样却不提供信息），
+ // 移到了依据里，供「查看原因」展开时看。所以这里断言依据里仍然说清楚。
+ 'tied-boundary-caveat':()=>{const r=strategist({...ctx(game(2,35)),query:'这回合怎么打'});
+  return r.evidence.some(x=>/不是胜率|不保证后续最优|启发式比较/.test(x));},
  'goal-reweights':()=>{const g=game(2,35);const top=x=>{const a=rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:x})[0].action;return a.kind+(a.id||'');};return top('稳健')!==top('速攻');},
  'goal-default-stable':()=>{const g=game(2,35);const top=x=>{const a=rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:x})[0].action;return a.kind+(a.id||'');};return top(null)===top(undefined);},
 };

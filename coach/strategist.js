@@ -24,9 +24,13 @@ export function strategist(context){
  const p=active(g,'player'),q=active(g,'enemy');
  const evidence=[`${p.name}：${p.hp}/${p.maxHp} HP，能量 ${p.energy}，速度 ${effectiveSpeed(p)}。`,`${q.name}：${q.hp}/${q.maxHp} HP，能量 ${q.energy}，速度 ${effectiveSpeed(q)}。`];
  if(best.kind==='skill'&&SKILLS[best.id].power)evidence.push(`若对手不换宠、不防御，${SKILLS[best.id].name}对当前目标计算伤害为 ${damage(p,q,SKILLS[best.id])}；实际结算受对手行动影响。`);
- const text=`这一回合优先考虑「${actionName(g,'player',best)}」。${ranked[1]?'可比较的备选是「'+actionName(g,'player',ranked[1].action)+'」。':''}这是结合双方合法行动的一回合风险比较，不能保证后续最优或获胜。`;
+ // 短句只给结论与备选。那句「这是结合双方合法行动的一回合风险比较，不能保证后续最优或获胜」
+ // 曾经挂在每一条建议后面，使用者反馈是废话——它每次都一样，却不提供任何新信息。
+ // 边界说明保留在 evidence 与「查看原因」里，那里才是想深究的人会看的地方。
+ const text=`这一回合优先考虑「${actionName(g,'player',best)}」。${ranked[1]?'可比较的备选是「'+actionName(g,'player',ranked[1].action)+'」。':''}`;
  const knowledge=searchKnowledge(context.query||'换宠 预判 能量 '+(q.status?'灼烧 追猎':'先手'),{limit:3,game:g,rulesVersion:g.version});
  evidence.push(...knowledge.cards.map(c=>`[${c.id}] ${c.principle} 注意：${c.counterexample} 条件：${c.applicability.status}`));
+ evidence.push('这是一回合的启发式比较，用于排序，不是胜率，也不保证后续最优。');
  evidence.push(...ranked.slice(0,2).map(x=>`${actionName(g,'player',x.action)}：平均局面分 ${x.expected.toFixed(1)}，最坏分 ${x.worst.toFixed(1)}（启发式评分，非胜率）。对方换宠分支：${x.switchScore===null?'无合法换宠':x.switchScore.toFixed(1)}。`));
  return {text,evidence,knowledge:knowledge.cards,actions:ranked.slice(0,2).map(x=>x.action),method:'合法行动枚举 → 共用结算器 → 平均收益与最坏情况比较'};
 }
