@@ -44,7 +44,10 @@ test('switch mind games retrieve counterexamples rather than a certain predictio
 test('live strategist supplies retrieved sources and simulated switch branches',async()=>{
  const {strategist}=await import('./coach/strategist.js');
  const packet=strategist({mode:'pve',battle:createGame(),query:'一直换宠 预判'});
- assert.ok(packet.knowledge.length);assert.ok(packet.evidence.some(e=>e.includes('对方换宠分支')));
+ assert.ok(packet.knowledge.length);
+ // 断言依据里确实带了对手换人的那一支；用词已改成玩家语言（不再说「分支」），
+ // 这条测的是「有没有算这一支」，不是「用哪个词」，所以按新措辞改。
+ assert.ok(packet.evidence.some(e=>e.includes('对手换人的话')));
 });
 test('generated browser knowledge stays identical to source',async()=>{
  const {readFileSync}=await import('node:fs');const {cards}=await import('./coach/retrieval.js');

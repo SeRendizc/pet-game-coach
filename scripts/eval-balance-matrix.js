@@ -852,9 +852,15 @@ report.caveats=[
  'PVE 敌方来自固定 1 级小队、默认配招、无携带物（与 content.js STAGES 一致：关卡敌人不携带道具）。玩家携带物优势因此是真实存在的 PVE 事实，而非对称对照；S9 提供对称对照。',
  'pvp-local 的对手由 buildVersusOpponent(seed) 随机配队/配招/携带物，不同种子的对手阵容不同，因此该组的方差包含对手阵容差异。',
  'mode 在引擎里几乎不改变规则：PVE 与 pvp-local 的差异来自 manualReplace（双方手动补位）与对手配装来源。pvp-local 的敌方补位用 enemyReplaceChoice（先试 chooseEnemy，抛错时回退到 engine.js:248 的补位评分），因为 chooseEnemy 在"敌方补位"局面下会抛异常（见 verification.chooseEnemyDuringEnemyReplace）；每臂的 enemyReplaceFallbacks 就是命中该缺陷的次数。',
- '回合数按 history 中 type==="turn" 计数；80 回合上限对应"第 80 回合结算后 g.turn 变为 81"，即 rounds>=80 必定为平局。',
+ '回合数按 history 中 type==="turn" 计数。80 回合上限对应"第 80 回合结算后 g.turn 变为 81"，'
+  +'但**rounds>=80 不一定是平局**：结算里先判全灭（engine.js 的 alive 检查）再判上限，'
+  +'所以恰好在第 80 回合打死对方会记胜负。本轮就有 1 场 80 回合的败局证伪了旧口径。',
  '同一格样本量为 12（S4 为 20）个种子；单个宠物之间小于约 12–15 个百分点的胜率差在本样本量下不显著。',
- '本次未运行 npm test、未改动 engine.js/app.js/content.js，也没有真实玩家或浏览器试玩数据。',
+ // 这条原先写死说"本次未运行 npm test、未改动 engine.js"——那是写下时的实情，
+ // 之后规则改动与新测试都让这句话变成假话，而脚本每次运行都会照样打印它。
+ // 脚本无法知道本轮开发过程做了什么，所以只声明它确实能负责的那部分。
+ '本报告只覆盖引擎仿真：玩家侧是脚本策略而非真人，没有真人试玩与浏览器验收数据。'
+  +'本轮是否改过引擎、测试是否通过，以 git 记录与 npm test 输出为准，不由此脚本声称。',
 ];
 save(false);
 

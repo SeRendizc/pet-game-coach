@@ -17,7 +17,7 @@ export function strategist(context){
   const best=candidates[0],fallen=active(g,'player'),q=active(g,'enemy');
   if(!best)return {text:'目前没有可补位的存活伙伴。',evidence:[]};
   return {text:`${fallen.name}倒下了，先让${best.pet.name}补位。它还剩${best.pet.hp}HP、${best.pet.energy}豆；补位免费，选好后再决定出招。这是把下一回合双方可能的选择都算过一遍，对手仍可能换宠。`,
-   actions:candidates.map(c=>c.action),evidence:[`当前对手${q.name}：${q.hp}HP、${q.energy}豆。倒下后的补位不占回合，也不会触发一次额外攻击。`,...candidates.map(c=>`${c.pet.name}：${c.pet.hp}HP、${c.pet.energy}豆${c.pet.status?'，'+c.pet.status.kind:''}；补位后下一回合最佳分支评分${c.score.toFixed(1)}（非胜率，不计免费补位为承伤回合）。`)]};
+   actions:candidates.map(c=>c.action),evidence:[`当前对手${q.name}：${q.hp}HP、${q.energy}豆。倒下后的补位不占回合，也不会触发一次额外攻击。`,...candidates.map(c=>`${c.pet.name}：${c.pet.hp}HP、${c.pet.energy}豆${c.pet.status?'，'+c.pet.status.kind:''}；补位后下一回合按双方可能的选择算下来是 ${c.score.toFixed(1)} 分（只用来排序，不是胜率）。`)]};
  }
  const ranked=rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:context.goal});
  const best=ranked[0]?.action;if(!best)return {text:'当前没有可分析的合法行动。',evidence:[]};
@@ -31,7 +31,7 @@ export function strategist(context){
  const knowledge=searchKnowledge(context.query||'换宠 预判 能量 '+(q.status?'灼烧 追猎':'先手'),{limit:3,game:g,rulesVersion:g.version});
  evidence.push(...knowledge.cards.map(c=>`[${c.id}] ${c.principle} 注意：${c.counterexample} 条件：${c.applicability.status}`));
  evidence.push('这里是按双方下一步各自可能的选择算过一遍，用来看哪个更划算；不是胜率，也管不了更后面的回合。');
- evidence.push(...ranked.slice(0,2).map(x=>`${actionName(g,'player',x.action)}：把对手各种应对都算一遍，多数情况下是 ${x.expected.toFixed(1)} 分，最糟的一种是 ${x.worst.toFixed(1)} 分（分数只用来排序，不是胜率）。对方换宠分支：${x.switchScore===null?'无合法换宠':x.switchScore.toFixed(1)}。`));
+ evidence.push(...ranked.slice(0,2).map(x=>`${actionName(g,'player',x.action)}：把对手各种应对都算一遍，多数情况下是 ${x.expected.toFixed(1)} 分，最糟的一种是 ${x.worst.toFixed(1)} 分（分数只用来排序，不是胜率）。对手换人的话：${x.switchScore===null?'对方没有可换的伙伴':x.switchScore.toFixed(1)+' 分'}。`));
  return {text,evidence,knowledge:knowledge.cards,actions:ranked.slice(0,2).map(x=>x.action),// method 是给日志和证据包用的内部字段，不是玩家可见文案；保留术语是为了排查问题。
  method:'合法行动枚举 → 共用结算器 → 平均收益与最坏情况比较'};
 }

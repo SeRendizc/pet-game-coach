@@ -1,11 +1,11 @@
-[31.3s] S0 verification {"walks":60,"statesChecked":1416,"mismatch":0,"shippedSwitchDecisions":97,"statesWithSwitchStreakAtLeast1":97,"switchWasTopPickWithStreak":1}
-[53.6s] S1 core matrix done
-[88.2s] S2 tactics done
-[94.8s] S3 loadouts done
-[114.5s] S4 same-type substitution done
-[131.5s] S5 roster sweep done
-[138.1s] S6 mode comparison done
-[141.4s] S7 stall arms done
-[141.5s] S8 stage arms done
-[147.4s] S9 item mirror done
-[180.6s] S10 replication done
+[32.7s] S0 verification {"walks":60,"statesChecked":1345,"mismatch":0,"shippedSwitchDecisions":96,"statesWithSwitchStreakAtLeast1":96,"switchWasTopPickWithStreak":2}
+[56.2s] S1 core matrix done
+[91.1s] S2 tactics done
+[97.8s] S3 loadouts done
+[118.0s] S4 same-type substitution done
+[135.1s] S5 roster sweep done
+[141.8s] S6 mode comparison done
+[145.4s] S7 stall arms done
+[145.6s] S8 stage arms done
+[152.7s] S9 item mirror done
+[185.3s] S10 replication done

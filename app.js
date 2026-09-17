@@ -173,7 +173,7 @@ function renderSplitPanels(){
  if(!split)return;
  const replacing=game.phase==='replace';
  const rs=replacing?(game.replaceSide||'player'):null;
- $('enemy-side-note').textContent=humanOpponent()?(replacing&&rs!=='enemy'?'等待对方补位':(pvpPicks.enemy?'已锁定':'对手选择行动')):(replacing?(rs==='enemy'?'轮到你补位':'对手正在补位'):'已独立出招（看不到你的选择）');
+ $('enemy-side-note').textContent=humanOpponent()?(replacing&&rs!=='enemy'?'等待对方补位':(pvpPicks.enemy?'已锁定':'对手选择行动')):(replacing?(rs==='enemy'?'轮到你补位':'对手正在补位'):enemyThinking()?'对手正在思考…':'已独立出招（看不到你的选择）');
  const locked=!!pvpPicks.enemy||busy||!!game.result||(replacing&&rs!=='enemy');
  if(locked)document.querySelectorAll('#enemy-actions [data-action]').forEach(b=>b.disabled=true);
  const mineLocked=!!pvpPicks.player||busy||!!game.result||(replacing&&rs!=='player');
@@ -238,8 +238,7 @@ function enemyThinking(){return !!enemyPlan&&enemyPlan.match===game&&!pvpEnemyLo
 // 整块重绘会让他的点击落空（render() 会重建所有 [data-action] 节点）。
 function updateEnemyNote(){
  if(!game)return;
- const note=humanOpponent()?'对手选择行动':enemyThinking()?'对手正在思考…':'已独立出招（看不到你的选择）';
- const enemyNote=$('enemy-side-note');if(enemyNote&&splitMode())enemyNote.textContent=note;
+ const enemyNote=$('enemy-side-note');if(enemyNote&&splitMode())renderSplitPanels();
  const phase=$('phase');if(phase&&!busy&&!game.result)phase.textContent=game.phase==='replace'?'请选择补位伙伴':enemyThinking()?'对手正在思考…':'等待行动';
 }
 // act() 里等对手答案的地方：只等到"预算用完"为止，到点立刻用引擎兜底，
@@ -266,9 +265,12 @@ async function enemyActionFor(old,explicit){
 // 让"到底等了多久、是 agent 还是引擎兜底"变成可核对的数据而不是感觉。
 function recordOpponentTurn(old,plan,action,engineFallback){
  const rows=window.__opponentTelemetry||(window.__opponentTelemetry=[]);
- rows.push({turn:old.turn,phase:old.phase,difficulty:old.difficulty,mode:old.mode,source:plan?.source||'engine',
-  decisionMs:plan?.latencyMs??null,waitedMs:plan?.waitedMs??0,action:action?action.kind+(action.id?':'+action.id:action.target!==undefined?':'+action.target:''):null,
-  engineFallback:!!engineFallback,advice:plan?.advice?plan.advice.slice(0,60):null});
+ // 玩家补位那一回合对手本来就不出招（resolveTurn 不看对方行动），
+ // 记成 engine 会让统计看起来像"兜底了很多次"，所以单独标出来。
+ const passive=old.phase==='replace'&&(old.replaceSide||'player')!=='enemy';
+ rows.push({turn:old.turn,phase:old.phase,difficulty:old.difficulty,mode:old.mode,source:passive?'no-action-needed':plan?.source||'engine',
+  decisionMs:plan?.latencyMs??null,waitedMs:plan?.waitedMs??0,action:passive?null:action?action.kind+(action.id?':'+action.id:action.target!==undefined?':'+action.target:''):null,
+  engineFallback:passive?false:!!engineFallback,advice:plan?.advice?plan.advice.slice(0,60):null});
  return rows;
 }
 function pvpPick(side,a){
