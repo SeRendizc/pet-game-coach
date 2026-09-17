@@ -74,10 +74,10 @@ export async function runCoach({message,role='auto',context,memory,conversation=
 
 // Bounded tool loop: planner may choose a different tool after inspecting receipts.
 // No game mutations and no arbitrary code/URL tools are exposed.
-export async function gatherAgentEvidence({message,context,plan,limit=2,retrieve=null}){
+export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve=null}){
  if(isLiveMatch(context))return {trace:[],stopped:'policy'};
  const trace=[];const seen=new Set();
- for(let i=0;i<Math.min(3,limit);i++){
+ for(let i=0;i<Math.min(4,limit);i++){
   let choice;try{choice=await plan({message,screen:context.mode,tools:Object.keys(TOOL_CONTRACTS),contracts:TOOL_CONTRACTS,receipts:trace,remaining:limit-i});}catch{return {trace,stopped:'planner-failed'};}
   if(choice?.stop===true)return {trace,stopped:'complete'};
   const name=choice?.tool,args=choice?.args||{};
@@ -85,9 +85,17 @@ export async function gatherAgentEvidence({message,context,plan,limit=2,retrieve
   if(!validToolArgs(name,args))return {trace,stopped:'invalid-arguments'};
   const key=JSON.stringify([name,args]);if(seen.has(key))return {trace,stopped:'repeated-tool'};seen.add(key);
   let result;try{result=name==='search_rules'&&retrieve?await retrieve(args.query,{game:context.battle,rulesVersion:context.battle?.version||RULES_VERSION}):executeTool(name,args,context,message);}catch(error){return {trace,stopped:error.message==='policy'?'policy':'invalid-arguments'};}
+  // 适用条件执行校验：检索回来的卡片里，条件不满足的不能作为「适用证据」进入回执。
+  // 这一步是程序执行，不是写在提示里让模型自觉——A10 缺的就是这个。
+  let enforced=result;
+  if(name==='search_rules'&&result&&Array.isArray(result.cards)){
+   const applicable=result.cards.filter(c=>c.applicability?.status!=='conditions-not-met');
+   const blocked=result.cards.filter(c=>c.applicability?.status==='conditions-not-met').map(c=>c.id);
+   enforced={...result,cards:applicable,...(blocked.length?{notApplicableHere:blocked}:{})};
+  }
   // Reject oversized receipts rather than cutting JSON or losing evidence identifiers.
-  if(JSON.stringify(result).length>10000)return {trace,stopped:'receipt-budget'};
-  trace.push({id:`tool:${i+1}`,tool:name,args,result});
+  if(JSON.stringify(enforced).length>10000)return {trace,stopped:'receipt-budget'};
+  trace.push({id:`tool:${i+1}`,tool:name,args,result:enforced});
  }
  return {trace,stopped:'tool-budget'};
 }

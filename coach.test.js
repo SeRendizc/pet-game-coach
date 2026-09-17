@@ -51,8 +51,14 @@ test('attention is bounded, respects silence and cannot fire in background',()=>
 });
 test('agent planner can adapt to tool receipts and invalid tools never execute',async()=>{
  const context=buildContext(createGame(),newProfile(),'fox');
- const result=await gatherAgentEvidence({message:'换宠能再攻击吗',context,plan:async t=>t.receipts.length?{tool:'compare_actions',args:{}}:{tool:'search_rules',args:{query:'换宠 回合'}}});
- assert.deepEqual(result.trace.map(x=>x.tool),['search_rules','compare_actions']);assert.equal(result.stopped,'tool-budget');
+ // 多回合：规划器按已有回执逐步换手，直到用满预算（默认 3 次）。
+ const result=await gatherAgentEvidence({message:'换宠能再攻击吗',context,plan:async t=>{
+  const used=t.receipts.map(r=>r.tool);
+  if(!used.includes('search_rules'))return {tool:'search_rules',args:{query:'换宠 回合'}};
+  if(!used.includes('compare_actions'))return {tool:'compare_actions',args:{}};
+  return {tool:'read_state',args:{}};
+ }});
+ assert.deepEqual(result.trace.map(x=>x.tool),['search_rules','compare_actions','read_state']);assert.equal(result.stopped,'tool-budget');
  const invalid=await gatherAgentEvidence({message:'x',context,plan:async()=>({tool:'execute_code'})});assert.equal(invalid.stopped,'invalid-tool');assert.equal(invalid.trace.length,0);
  let count=0;await gatherAgentEvidence({message:'x',context:{...context,mode:'pvp-live'},plan:async()=>{count++;}});assert.equal(count,0);
 });
