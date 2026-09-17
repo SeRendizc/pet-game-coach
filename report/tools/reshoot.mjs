@@ -24,6 +24,10 @@
 //   node report/tools/reshoot.mjs bubble 14    # 打到有温度的那句为止，命中就截
 //   node report/tools/reshoot.mjs coach        # 军师条：短提示 + 展开的计算依据
 //   node report/tools/reshoot.mjs review       # 老师的整局复盘
+//   node report/tools/reshoot.mjs chat         # 陪练的聊天面板：闲聊那一轮（报告引的就是这一句）
+//   node report/tools/reshoot.mjs greet        # 只核对：问候那一轮实际回什么，不拍
+//   node report/tools/reshoot.mjs lesson       # 老师的单回合讲解：长停留那一支
+//   node report/tools/reshoot.mjs quiz         # 老师的小测：第三道才对得上报告里那组数
 //   node report/tools/reshoot.mjs static       # 其余没被引用/待核对的那几张
 //   node report/tools/reshoot.mjs measure      # 只量不拍：每个元素多大、最小的字印出来几 pt
 // 环境变量：SHOT_WIDTH / SHOT_HEIGHT 换视口，SHOT_OUT 换输出目录（自检时写到 tmp/，
