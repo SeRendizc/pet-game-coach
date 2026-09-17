@@ -119,6 +119,11 @@ export function checkGroundedAnswer(answer){
  const reasons=[],text=answer.text||'',facts=JSON.stringify({evidence:answer.evidence||[],tools:answer.toolTrace||[],state:answer.publicState,events:answer.latestEvents,summary:answer.textFacts});
  if(/先看.{0,8}(?:对手|它).{0,6}出招|看(?:到|完)对手.{0,5}(?:出招|行动)再/.test(text))reasons.push('simultaneous-action-order');
  if(/必胜|稳赢|保证获胜|一定能赢|百分之百|100%/.test(text))reasons.push('unsupported-certainty');
+ // 道具名称漂移：本作只有回复药 / 净化药 / 能量果。实测模型会把净化药叫成「解药」、
+ // 能量果叫成「以太」，而数字校验拦不住这种替换——它没有数字。命中即判不合格，
+ // 由客户端降级为本地规则结论，而不是把错误名称展示给玩家。
+ const drift=text.match(/解药|解毒药|以太|回血药|血瓶|蓝瓶|复活药|清醒药/g);
+ if(drift)reasons.push('item-name-drift:'+[...new Set(drift)].join('/'));
  if(answer.scope!=='match'&&answer.publicState){for(const side of ['player','enemy'])for(const pet of answer.publicState[side]?.pets||[]){const start=text.lastIndexOf(pet.name);if(start<0)continue;const clause=text.slice(start+pet.name.length).split(/[。；，]/)[0];if(/满豆|满能量/.test(clause)&&pet.energy<6)reasons.push('energy-not-full:'+pet.id);}}
  // Bind explicit remaining-HP claims to that turn's after snapshot, not any number in the packet.
  for(const k of answer.textFacts?.keyTurns||[]){

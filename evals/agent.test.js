@@ -244,3 +244,30 @@ test('guard binds remaining HP to after snapshot and rejects observing simultane
  assert(!checkGroundedAnswer({...base,text:'第15回合芽角鹿撞22，苔盾菇还剩102血。'}).reasons.some(x=>x.startsWith('after-hp-mismatch')));
  assert(checkGroundedAnswer({text:'上场后先看它出招，再决定守或吸。'}).reasons.includes('simultaneous-action-order'));
 });
+test('item-name drift is rejected even when every number is grounded',()=>{
+ // 实测模型会把净化药说成「解药」、能量果说成「以太」。数字全对也拦不住这种替换。
+ const bad=checkGroundedAnswer({text:'先用解药清掉灼烧，再吃一个以太回能。',evidence:['灼烧2回合','能量5']});
+ assert.equal(bad.valid,false);
+ assert(bad.reasons.some(r=>r.startsWith('item-name-drift')),'名称漂移必须被记录');
+ const good=checkGroundedAnswer({text:'先用净化药清掉灼烧，再吃能量果回能。',evidence:['灼烧2回合','能量5']});
+ assert.equal(good.valid,true,'使用本作道具名应通过');
+});
+test('evidence trimmed out of the prompt is still retrievable from the archive',()=>{
+ // C05 缺的那一半：上下文裁剪之后，早期回合的证据必须还能按 ID 取回，
+ // 而不是随着 prompt 一起消失。裁的是送进模型的副本，原始归档不动。
+ const g=lossFixture();
+ const context=buildContext(g,newProfile(),'fox');
+ const memory=freshMemory();memory.preference='brief';
+ memory.dialogue=Array.from({length:800},()=>({role:'user',content:'历史'.repeat(900)}));
+ const out=assembleContext({message:'回顾第1回合',role:'auto',context,memory,conversation:memory.dialogue});
+ assert(out.audit.estimatedInput<=32768-512-4096-2048,'必须裁到预算内');
+ assert.equal(out.payload.memory.preference,'brief','裁剪后硬偏好仍在');
+ // 归档本身未被改动：回合数不变
+ const turnsBefore=g.history.filter(h=>h.type==='turn').length;
+ assert.equal(g.history.filter(h=>h.type==='turn').length,turnsBefore,'归档不得被裁剪改写');
+ // 裁剪之后仍能取回早期回合的原始证据
+ const early=executeTool('read_evidence',{turn:1},context);
+ assert.equal(early.missing,undefined,'第1回合证据必须可取回');
+ assert(Array.isArray(early.events)&&early.events.length>0);
+ assert.equal(early.turn,1);
+});
