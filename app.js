@@ -23,7 +23,8 @@ let strategistHint=strategistSession(),turnIncident=null,strategistPanel=null,cu
 let rosterType='all',loadoutDraft=null,loadoutOpen=false;
 // 本地对战：真人对手走分屏同屏（双方各选一招，都锁定后一起结算）；
 // 电脑对手单人玩，由引擎 chooseEnemy 出招。pvpPicks 由分屏逻辑维护。
-let matchMode='pve',pvpOpponent='ai',enemyTab='skill';
+// null = 还没出征，营地不替玩家宣称他选了哪种模式。
+let matchMode=null,pvpOpponent='ai',enemyTab='skill';
 // 对局的对手有两种：AI 扮演真人（单人演示，自动配队、先手独立决定），
 // 或真人同机（分屏，两侧面板都可操作）。界面两者一致。
 let pvpEnemyLocked=null,pvpEnemyRevealed=false;
@@ -192,6 +193,8 @@ function decideEnemyFirst(){
   if(pick)act(pick);
   return;
  }
+ // 难度就是对手「教练」的水平：easy/normal 刻意做弱，hard 用完整枚举。
+ // 详情见 updateSideCoaches 上方的说明。
  pvpEnemyLocked=chooseEnemy(game);
 }
 function pvpPick(side,a){
@@ -323,14 +326,14 @@ async function ask(text){
 function startMatch(){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
 game=createGame(seed,selected,versus?{pets:profile.pets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:avgLv})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('coach-bubble').hidden=true;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
 $('start').onclick=()=>startMatch();
-function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
+function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':matchMode==='pve'?'训练 · PVE · v0.11':'营地 · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
 function syncMode(){
  const pvp=matchMode==='pvp';
  $('stage-step').hidden=pvp;$('stage-picker').hidden=pvp;$('stage-detail').hidden=pvp;
  const row=$('opponent-row');if(row)row.hidden=!pvp;
  if(!pvp)pvpOpponent='ai';
  $('start').textContent=pvp?'开始对战':'开始训练';
- $('mode-badge').textContent=pvp?'对局 · PVP · v0.11':'训练 · PVE · v0.11';
+ $('mode-badge').textContent=matchMode===null?'营地 · v0.11':pvp?'对局 · PVP · v0.11':'训练 · PVE · v0.11';
  if($('deploy-mode'))$('deploy-mode').textContent=pvp?'对局 · PVP':'训练 · PVE';
  $('mode-note').textContent=pvp?(pvpOpponent==='human'?'对局 · 真人同机：分屏同屏，两侧面板都可操作，各自选招后一起结算；双方各有一条教练。':'对局 · AI 模拟真人：对手从全部 12 只里自动配队并适配你的等级，先独立出招再看不到你的选择；界面与真人对战一致。')
   :'训练 · PVE：按关卡挑战固定对手，教练会主动提示，也可随时提问。';
