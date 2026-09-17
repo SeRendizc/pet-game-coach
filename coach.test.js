@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,legalActions,SPECIES} from './engine.js';
+import {createGame,legalActions,SPECIES,rankEnemyActions,buildVersusOpponent} from './engine.js';
 import {newProfile} from './progression.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {rosterAdvice} from './coach/strategist.js';
@@ -123,4 +123,18 @@ test('roster advice derives shared weaknesses and coverage from the real type ch
  assert.equal(mixed.fastest.speed>=mixed.slowest.speed,true);
  // 每条结论都必须带边界说明
  assert(mixed.lines.some(l=>/不代表对手实际会怎么打/.test(l)));
+});
+test('goal preference reweights the same enumeration and can flip the recommendation',()=>{
+ // 与 scripts 里搜索到的翻转局面一致：seed 2、对手按等级 2 自由配队、我方 35 血。
+ const e=createGame(2,['fox','turtle','deer'],{mode:'pve',difficulty:'normal',...buildVersusOpponent(2,{level:2})});
+ e.player.pets[0].hp=35;
+ const top=goal=>rankEnemyActions({...e,player:e.enemy,enemy:e.player},{goal})[0].action;
+ const key=a=>a.kind+(a.id?':'+a.id:'')+(a.target!==undefined?'#'+a.target:'');
+ // 同一批合法行动的枚举结果，只换权重：稳健更看重最坏分支，速攻更看平均收益。
+ assert.notEqual(key(top('稳健')),key(top('速攻')),'目标偏好必须能改变推荐，否则等于没生效');
+ assert.equal(top('稳健').kind,'item','稳健应当偏向先保住血量');
+ assert.equal(top('速攻').kind,'skill','速攻应当偏向继续施压');
+ // 不设偏好时沿用默认权重，结果必须稳定且与设定偏好前一致
+ assert.equal(key(top(null)),key(top(undefined)),'不设偏好时结果必须稳定');
+ assert.equal(key(top(null)),'item:potion#0','默认权重下仍推荐先吃药');
 });

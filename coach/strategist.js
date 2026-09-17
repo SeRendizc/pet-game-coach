@@ -11,7 +11,7 @@ export function strategist(context){
  if(g.phase==='replace'){
   const candidates=legalActions(g).filter(a=>a.kind==='switch').map(action=>{
    const next=structuredClone(g);next.player.active=action.target;next.phase='battle';
-   const ranked=rankEnemyActions({...next,player:next.enemy,enemy:next.player});
+   const ranked=rankEnemyActions({...next,player:next.enemy,enemy:next.player},{goal:context.goal});
    return {action,pet:g.player.pets[action.target],score:ranked[0]?.score??-Infinity,nextAction:ranked[0]?.action};
   }).sort((a,b)=>b.score-a.score);
   const best=candidates[0],fallen=active(g,'player'),q=active(g,'enemy');
@@ -19,7 +19,7 @@ export function strategist(context){
   return {text:`${fallen.name}倒下了，先让${best.pet.name}补位。它还剩${best.pet.hp}HP、${best.pet.energy}豆；补位免费，选好后再决定出招。这是按下一回合的攻守分支比较，对手仍可能换宠。`,
    actions:candidates.map(c=>c.action),evidence:[`当前对手${q.name}：${q.hp}HP、${q.energy}豆。倒下后的补位不占回合，也不会触发一次额外攻击。`,...candidates.map(c=>`${c.pet.name}：${c.pet.hp}HP、${c.pet.energy}豆${c.pet.status?'，'+c.pet.status.kind:''}；补位后下一回合最佳分支评分${c.score.toFixed(1)}（非胜率，不计免费补位为承伤回合）。`)]};
  }
- const ranked=rankEnemyActions({...g,player:g.enemy,enemy:g.player});
+ const ranked=rankEnemyActions({...g,player:g.enemy,enemy:g.player},{goal:context.goal});
  const best=ranked[0]?.action;if(!best)return {text:'当前没有可分析的合法行动。',evidence:[]};
  const p=active(g,'player'),q=active(g,'enemy');
  const evidence=[`${p.name}：${p.hp}/${p.maxHp} HP，能量 ${p.energy}，速度 ${effectiveSpeed(p)}。`,`${q.name}：${q.hp}/${q.maxHp} HP，能量 ${q.energy}，速度 ${effectiveSpeed(q)}。`];

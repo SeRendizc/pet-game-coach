@@ -110,7 +110,7 @@ export function evaluate(g,side='enemy') {
   if(p.hp>0&&q.hp>0)value+=(multiplier(p.type,q.type)-multiplier(q.type,p.type))*9+(effectiveSpeed(p)>effectiveSpeed(q)?2:-2);
   return value;
 }
-export function rankEnemyActions(g) {
+export function rankEnemyActions(g,{goal=null}={}) {
   const actions=legalActions(g,'enemy').filter(a=>a.kind!=='escape');
   const replies=legalActions(g,'player').filter(a=>a.kind!=='escape');
   if(!replies.length)return actions.map(action=>({action,score:0}));
@@ -122,6 +122,11 @@ export function rankEnemyActions(g) {
     return 1;
   });
   const total=rawWeights.reduce((a,b)=>a+b,0);
+  // 目标偏好只改「平均收益」与「最坏分支」的权重，不改任何规则、不伪造胜率：
+  // 稳健把最坏情况看重一些，速攻更看平均收益并更不愿意浪费回合换宠。
+  // 三种权重用的都是同一批枚举结果，所以换偏好只会改变排序，不会改变可比的事实。
+  const w=goal==='稳健'?{expected:.45,worst:.55}:goal==='速攻'?{expected:.82,worst:.18}:{expected:.65,worst:.35};
+  const switchPenalty=goal==='速攻'?2.5:goal==='稳健'?1:1.5;
   return actions.map(action=>{
     const scores=replies.map(reply=>{
       // Both tie orders are evaluated, so search cannot exploit a hidden RNG outcome.
@@ -129,7 +134,7 @@ export function rankEnemyActions(g) {
       return (evaluate(resolveTurn(state,reply,action,{simulation:true,tieFirst:'player'}))+evaluate(resolveTurn(state,reply,action,{simulation:true,tieFirst:'enemy'})))/2;
     });
     const expected=scores.reduce((v,n,i)=>v+n*rawWeights[i]/total,0);
-    const score=expected*.65+Math.min(...scores)*.35-(action.kind==='switch'?1.5:0);
+    const score=expected*w.expected+Math.min(...scores)*w.worst-(action.kind==='switch'?switchPenalty:0);
     return {action,score,expected,worst:Math.min(...scores),switchScore:replies.some(a=>a.kind==='switch')?Math.min(...scores.filter((_,i)=>replies[i].kind==='switch')):null};
   }).sort((a,b)=>b.score-a.score);
 }
