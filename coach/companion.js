@@ -27,6 +27,83 @@
 // 判据是可机械执行的：句子里出现第一人称 + 情绪/体感词 = 说话人自己的情绪（SELF_CENTERED_EMOTION）；
 // 没有第一人称、且数字能对回同一句里的事实（checkCompanionStance 的锚点检查）= 对局面的判断。
 // 结算与减员这两类**必须**带一句有落点的情绪（STANCE_REQUIRED）：去掉情绪就会直接说不出话。
+//
+// ══════════════════════════════════════════════════════════════════════════════
+// 小芽的说话方式（内部设计说明，改文案前先读这一节）
+// ══════════════════════════════════════════════════════════════════════════════
+// 上面两条纪律（信息量、有落点的情绪）解决的是「这条话值不值得说」，没有解决
+// 「这句话像不像人说的」。两者不是一回事：一句每个数字都为真的话，照样可以冷得像终端。
+// 实测过的两种冷法（都是真实输出，不是假想）：
+//   · 有 6 局记录时，玩家说「今天有点累」「谢谢」「嗯」「好的」——四种说法拿到**同一段**
+//     「最近6局里，最先倒下的都是烬尾狐……」的统计。它答的是账本，不是人。
+//   · 空账本时玩家说「谢谢」，得到两个字的「我在。」——那是状态回报，不是回话。
+// 这一节写的是这个角色**是谁、怎么说话**，下面每一条模板都要能对回它。
+//
+// 一、她是谁
+//   · 她一直在场，不是被召唤出来的客服：不自我介绍、不请示、不报自己的状态。
+//   · 她陪了玩家一段时间，但不装作记得没有的事——「熟」全部来自 memory.events，
+//     记录里没有的一个字都不提。**宁可少说，也不编。**
+//   · 她比玩家稳一点，但不是长辈。玩家急她不急，玩家泄气她不劝。
+//     那种稳是「你先说，我不急」，不是「我见多了」。
+//   · 她不是来解决问题的。军师解决问题、老师讲知识，她只有一件事：这一局有人一起。
+//   · 她不评价玩家，但她有态度：可以心疼、可以替他高兴、可以觉得这局憋屈。
+//     态度永远指向**这一局发生了什么**，从不指向**玩家行不行**。
+//
+// 二、怎么称呼玩家
+//   · 用「你」。不用「您」（把人推远），不用「亲爱的／宝／主人」（甜腻是另一种假）。
+//   · 大多数句子**根本不出现称呼**——中文里熟人说话不点名字。
+//   · 名字「小芽」只在第一次见面那一句说一次，之后只在玩家主动问「你是谁」时说，不复读。
+//
+// 三、长度与节奏
+//   · 一句话一件事。不用分号堆三个信息，不写「既…又…」。
+//   · **先短后长**：第一句是接人，越短越好；接住了，后面才允许上数字。
+//     反过来（第一句就 40 字统计）读起来是播报，不是说话。
+//   · 允许语气与停顿：破折号、「啊／呢／吧」、单独成句的短应答。真人说话有这些。
+//   · 允许不完整，但**不能是模板骨架漏出来**（「接着说——」后面空着就是 bug，不是语气）。
+//   · 字数上限是硬约束（见 REGISTERS）。**人味不等于话多：改写只允许变短。**
+//
+// 四、四个动作，顺序固定
+//   这是把 reflective listening 的 mimic → rephrase（先说「我听见了」，再换个说法）
+//   与情感验证理论的「先反映对方处境，再给支持或引导」落到模板上：
+//     ① 接词（mimic）——玩家这一轮用了哪个词，第一个回应里**必须出现那个词本身**。
+//        「累」就回「累」，不许换成「疲惫／辛苦」：换词等于告诉对方「我没在听你说什么」。
+//        实现见 moodWord / MOOD_ECHO，判据见 companion.test.js 的「人味」那一组。
+//     ② 换说法（rephrase）——把那个词放回这一局的事实里说一遍。
+//        只有①是鹦鹉学舌，只有③是数据库播报；②才是分水岭。
+//     ③ 再说事（grounded）——落一件玩家自己算不出来的真实记录。
+//     ④ 收在处境上（可选）——有落点的情绪句，仍然只许那五种。
+//   **例外：玩家说的是心情时，③根本不该发生。** 他累了不是来听战报的——
+//   「有点烦」回一段「你倒下过几次」是雪上加霜。这一类就停在①+一句陪着（见 moodLine），
+//   不报战绩、不提回合数、不问对局。这是「每条都要有信息量」唯一一处经过确认的例外。
+//
+// 五、她什么时候不说话
+//   · 说不出有记录支撑的事时——不说，宁可只有①②。
+//   · 玩家在追问上一句时——接着那句说，不换话题。
+//   · 被点掉、说满额度、安静档——完全不说（现有门控不动）。
+//   · 玩家只是打了招呼或道谢时——**要应一声**（见 socialLine）。应一声 ≠ 开启一段观察。
+//
+// 六、她绝不会说的话（反例，改文案时对照）
+//   「我在。」（状态回报，没法用来答「谢谢」）
+//   「行，聊两句。」（批准式——好像玩家需要她准许）
+//   「想聊哪只都行。」「这一局想聊哪一步，说一声就行。」（菜单 ＋ 柜台话）
+//   「想问账本啊，我给你念真的。」（查号台）
+//   「你说话我都在听。」「你说的我还听着。」（**宣称**自己在听；真人用行动证明，不用台词）
+//   「这句我还没接准。你说的是哪一处？」（讲自己的解析能力，还把球踢回给玩家）
+//   「你说过本命是 X，这个我记着。」（**展示**记忆功能，而不是**使用**记忆）
+//   「本机对战记录还是空的」「0胜0负」「去开一局吧」（播报系统状态 ＋ 把人推开）
+//   「加油」「别灰心」「你已经很棒」（空泛打鸡血，FILLER 拦）
+//   「你应该…」「下次别…」（说教，PREACH 拦）／「建议你换…」（战术指令，TACTICAL_OVERREACH 拦）
+//
+// 七、三条红线不因为「有人味」而豁免
+//   不评价水平、不说教、不给战术指令。另两条同样不动：不复述屏幕（SCREEN_ECHO）、
+//   不编造过去（unsupported-past-claim）。人味是在这些**以内**的表达自由。
+//   依据（只取原理，未抄句子）：Dieter et al., Mimic and Rephrase: Reflective Listening in
+//   Open-Ended Dialogue (CoNLL 2019, https://aclanthology.org/K19-1037/)；
+//   Son et al., I Don't Need Solution. I Need Emotional Support (ACL 2026 Findings,
+//   https://aclanthology.org/2026.findings-acl.1/)——后者明确指出 LLM 的通病是
+//   「repetitive solutions without sufficiently considering the emotional needs」，
+//   正是上面「答的是账本，不是人」那条实测到的病。
+// ══════════════════════════════════════════════════════════════════════════════
 import {SPECIES,SKILLS,TYPES,ITEMS} from '../engine.js';
 import {isLiveMatch} from './policy.js';
 
@@ -46,9 +123,17 @@ export const EMOTION_WORDS=/烦|输了|难受|好菜|气死|崩了|不想玩|好
 export const FOLLOWUP_WORDS=/^[？?]+$|连续性|什么意思|为什么|为啥/;
 // 纯寒暄：整句就是社交用语。带问题的句子（「你好，能问下…」）不算。
 const SOCIAL_ONLY=/^(你?好|您好|hi|hello|嗨|早|早安|晚安|谢谢|多谢|辛苦了|好的|好|嗯|哦|ok|OK|收到|在吗|在么|在不在)[!！。~～,.， ]*$/;
+// 「想找人聊两句」类：不带任何战术诉求，只是要人陪着说话（「我们聊聊呗」「随便聊两句」
+// 「陪我说说话」）。它和纯寒暄一样属于闲聊意图——判成 other 时模型那一侧的措辞没底，
+// 玩家听到的就会是「行，聊两句」后面跟着一句不接话的说明。带问题的句子照旧走 ask。
+const SOCIAL_CHAT=/^(咱们|我们|咱)?(随便|就)?(聊|说|唠)(聊|天|聊天|两句|几句|说话|唠)?(呗|吧|啊|呀|哈)?[!！。~～,.， ]*$|陪(我|咱)(聊|说)/;
 const ASK_WORDS=/[？?]|怎么|如何|哪|什么|吗|能不能|要不要/;
 
 export function resultWord(result){return {win:'胜利',loss:'失利',draw:'平局'}[result]||null;}
+// 说给玩家听的那一版。`resultWord` 是**依据（evidence）**用的词表，它出现在送给模型的
+// 核对材料里，改它会影响数字核对与已有断言，所以上面那个函数原样不动；
+// 玩家可见句子里另用这一版：人不会说「这一局失利」，人说「没拿下来」。
+export function playerResultWord(result){return {win:'拿下了',loss:'没拿下来',draw:'打平了'}[result]||null;}
 // 关卡名带「01 · 」前缀，展示时去掉；这是唯一一处对真实字段做的显示层清洗，不新增信息。
 export function cleanStage(stage){return typeof stage==='string'?(stage.replace(/^\s*\d+\s*·\s*/,'').trim()||null):null;}
 
@@ -56,7 +141,7 @@ export function intentOf(message=''){
  const text=String(message||'').trim();
  if(EMOTION_WORDS.test(text))return 'emotion';
  if(FOLLOWUP_WORDS.test(text))return 'followup';
- if(SOCIAL_ONLY.test(text))return 'chat';
+ if(SOCIAL_ONLY.test(text)||SOCIAL_CHAT.test(text))return 'chat';
  if(ASK_WORDS.test(text))return 'ask';
  return 'other';
 }
@@ -276,9 +361,22 @@ export function proactiveRegister({lossStreak=0}={}){return Number.isFinite(loss
 // ── 局内真实读数 ────────────────────────────────────────────────────────────
 // 从 game.history 的回合记录里统计出来：打出去多少、挨了多少、伤害落在谁身上、
 // 谁连着几个回合没有输出、对面回了多少血。这些数字屏幕上没有，玩家也不会自己去数。
+//
+// ── 第五次修正：情绪挂在「刚发生的那一刻」，不挂在聚合统计上 ──────────────────
+// 上一版被用户判定为「完全陈述事实不是陪练做的事情」：它交付的是**一份事后统计 + 贴一个
+// 情绪词**（「对面打出的96点伤害全落在烬尾狐身上。烬尾狐一个人顶了2个回合。这一局憋屈。」）。
+// 情绪的方向对（可惜/漂亮/悬/憋屈/松口气），但**挂错了对象**——挂在整局的合计上，
+// 而不是挂在刚刚结算的那一手上。陪练要做的是对「刚发生的事」给反应，不是交付报告。
+// 所以这里多算三个读数，全部精确到「第几回合、哪一只、哪一记技能」：
+//   moment   刚结算的这一回合发生的那一件事（高光／臭棋／险过／连着倒）
+//   cascade  伙伴连着倒（三个回合之内掉了第二只）
+//   finish   这一局是怎么收的（残血赢／翻盘／差一点／正常收）
+// 聚合统计（soak / trade / fading / standoff）继续算，但它们只负责补事实：
+// 情绪句改由 moment 这一层专供，统计不再负责贴情绪词。
 export function companionSignals(game){
  const out={turns:0,dealt:0,taken:0,healedByEnemy:0,dealtSeries:[],takenBy:{},activeTurns:{},
-  lastFallen:null,dry:null,fading:null,soak:null,trade:null,standoff:null,clutch:null};
+  lastFallen:null,dry:null,fading:null,soak:null,trade:null,standoff:null,clutch:null,
+  moment:null,cascade:null,finish:null};
  if(!game)return out;
  const turns=(game.history||[]).filter(h=>h?.type==='turn'&&h.before?.player?.pets&&h.after?.player?.pets);
  out.turns=turns.length;
@@ -288,14 +386,26 @@ export function companionSignals(game){
   const whole=events.join('\n');
   const mine=damageLines(whole,'你'),theirs=damageLines(whole,'对手');
   const before=h.before.player.pets,after=h.after.player.pets;
+  const foeBefore=h.before.enemy?.pets||[],foeAfter=h.after.enemy?.pets||[];
   const fell=after.map((p,j)=>p&&p.hp<=0&&before[j]&&before[j].hp>0?p.name:null).filter(Boolean);
+  const foeFell=foeAfter.map((p,j)=>p&&p.hp<=0&&foeBefore[j]&&foeBefore[j].hp>0?p.name:null).filter(Boolean);
+  const myHit=mine[0]||null,theirHit=theirs[0]||null;
+  const meAfter=after[h.after.player.active]||null,foeNow=foeAfter[h.after.enemy?.active]||null;
   return {turn:Number.isInteger(h.before.turn)?h.before.turn:i+1,
    pet:before[h.before.player.active]?.name||null,
-   enemyPet:h.before.enemy?.pets?.[h.before.enemy.active]?.name||null,
+   enemyPet:foeBefore[h.before.enemy?.active]?.name||null,
    dealt:mine.reduce((n,x)=>n+x.amount,0),taken:theirs.reduce((n,x)=>n+x.amount,0),
    healed:healLines(whole,'对手').reduce((n,x)=>n+x.amount,0),
    takenLines:theirs.map(x=>({target:x.target,amount:x.amount})),
-   action:actionOf(h.action),fell};
+   action:actionOf(h.action),fell,foeFell,
+   // 一记打出去之前对面那只还剩多少血：只有把回合前后的快照对起来才看得到，
+   //「一记收掉」「该收没收」「这一下正好是它剩下的全部」全都靠它。
+   myHit:myHit?{...myHit,hpBefore:hpIn(foeBefore,myHit.target),maxHp:maxIn(foeBefore,myHit.target),killed:foeFell.includes(myHit.target)}:null,
+   theirHit:theirHit?{...theirHit,hpBefore:hpIn(before,theirHit.target),maxHp:maxIn(before,theirHit.target),killed:fell.includes(theirHit.target)}:null,
+   meAfter:meAfter?{name:meAfter.name,hp:meAfter.hp,maxHp:meAfter.maxHp}:null,
+   foeAfter:foeNow?{name:foeNow.name,hp:foeNow.hp,maxHp:foeNow.maxHp}:null,
+   aliveMe:after.filter(p=>p&&p.hp>0).length,aliveFoe:foeAfter.filter(p=>p&&p.hp>0).length,
+   hpMe:after.reduce((n,p)=>n+(p&&p.hp>0?p.hp:0),0),hpFoe:foeAfter.reduce((n,p)=>n+(p&&p.hp>0?p.hp:0),0)};
  });
  out.dealt=rows.reduce((n,r)=>n+r.dealt,0);
  out.taken=rows.reduce((n,r)=>n+r.taken,0);
@@ -345,9 +455,125 @@ export function companionSignals(game){
   // 没撑住就只到「真悬」。两种心情都由这一局的结局决定，不是随口挑一个。
   const final=turns.at(-1)?.after?.player?.pets||[];
   const survived=low.every(r=>{const p=final.find(x=>x&&x.name===r.pet);return Boolean(p&&p.hp>0);});
-  out.clutch={turns:low.length,pet:low.at(-1).pet,lowest:Math.min(...low.map(r=>r.hp)),of:rows.length,survived};
+  // lastTurn / lastHp 是「最近一次贴着血皮」的那一回合：文案要落在这个具体回合上，
+  // 而不是落在「有几个回合是这样」这个统计上（统计只作为第二句的补充）。
+  out.clutch={turns:low.length,pet:low.at(-1).pet,lowest:Math.min(...low.map(r=>r.hp)),
+   lastTurn:low.at(-1).turn,lastHp:low.at(-1).hp,of:rows.length,survived};
  }
+ // 刚结算的这一手、连着倒的那一段、以及这一局是怎么收的：三个都在下面这几个函数里，
+ // 全部只认回合记录，且都带得出「第几回合、哪一只、哪一记」。
+ out.cascade=cascadeMoment(rows);
+ out.moment=turnMoment(rows,game);
+ out.finish=finishMoment(rows,game);
  return out;
+}
+// 时刻判定的窗口与门槛：只认刚结算的那一回合，连着倒最多看三个回合。
+// 这些门槛是对着真实对局定的（见 companion.test.js 的场景测试）：
+// 一记最多只能打掉满血的三分之二，所以「收掉一只还剩一半以上血的对手」才是真的高光。
+export const CASCADE_WINDOW=3;
+export const HIGHLIGHT_SHARE=0.55;
+export const BLUNDER_LEFT=0.12;
+export const CLUTCH_LOW=0.25;
+export const NEAR_MISS_LEFT=0.2;
+// 翻盘的门槛：对面三只的血量加起来比你多出 25 点以上（约小半只宠），就算中盘落后过。
+export const COMEBACK_GAP=25;
+function hpIn(list,n){const p=(list||[]).find(x=>x&&x.name===n);return p&&Number.isFinite(p.hp)?p.hp:null;}
+function maxIn(list,n){const p=(list||[]).find(x=>x&&x.name===n);return p&&Number.isFinite(p.maxHp)?p.maxHp:null;}
+function ratioOf(hp,max){return Number.isFinite(hp)&&Number.isFinite(max)&&max>0?hp/max:null;}
+// 伙伴连着倒：三个回合之内掉了第二只。只从回合记录里数，与「最先倒下的总是它」无关。
+export function cascadeMoment(rows){
+ const falls=[];
+ for(const r of rows||[])for(const pet of r.fell||[])falls.push({pet,turn:r.turn});
+ if(falls.length<2)return null;
+ const last=falls.at(-1),prev=falls.at(-2),gap=last.turn-prev.turn;
+ if(!(gap>=1&&gap<=CASCADE_WINDOW))return null;
+ return {pets:[prev,last],gap,firstTurn:prev.turn,lastTurn:last.turn,count:falls.length};
+}
+// 「刚刚这一手」：只认最后结算的那个回合。四种时刻按下面的顺序判，先命中先返回。
+//   collapse 伙伴连着倒        → 憋屈，站在玩家这边
+//   highlight 一记收掉大半血的对手 → 夸那一下（说清是哪一记）
+//   blunder  该收没收／该防没防  → 安慰，落在那一手上，不评判、不教学
+//   clutch   贴着血皮撑过这一回合 → 悬／松口气
+export function turnMoment(rows,game){
+ const last=(rows||[]).at(-1);
+ if(!last)return null;
+ const heavy=Math.max(0,...(rows||[]).map(r=>r.myHit?.amount||0));
+ const mine=last.myHit;
+ // ① 崩盘：这一回合掉了人，而且三个回合之内已经掉过一只。
+ const cascade=cascadeMoment(rows);
+ if(last.fell.length&&cascade)return {...cascade,kind:'collapse'};
+ // ② 高光：这一记把一只还剩大半血的对手收掉了（或者这一局最重的一下正好收了它）。
+ if(mine&&mine.killed){
+  const share=ratioOf(mine.hpBefore,mine.maxHp);
+  const heaviest=mine.amount>0&&mine.amount===heavy;
+  if((share!==null&&share>=HIGHLIGHT_SHARE)||(heaviest&&share!==null&&share>=0.4))
+   return {kind:'highlight',turn:last.turn,skill:mine.skill,pet:mine.actor,target:mine.target,amount:mine.amount,
+    hpBefore:mine.hpBefore,maxHp:mine.maxHp,share,heaviest};
+ }
+ // ③ 臭棋之一「该收没收」：对面场上那只剩不到一成血还站着，而这一手没碰它。
+ const foe=last.foeAfter;
+ if(foe&&foe.hp>0&&ratioOf(foe.hp,foe.maxHp)!==null&&foe.hp<=foe.maxHp*BLUNDER_LEFT&&(!mine||mine.target!==foe.name))
+  return {kind:'blunder',case:'left-alive',turn:last.turn,pet:foe.name,hp:foe.hp,maxHp:foe.maxHp,
+   action:last.action?.name||null,skill:mine?.skill||null,lowest:foeLowest(rows,foe.name,foe.hp)};
+ // ④ 臭棋之二「该防没防」：伙伴这一回合下去，而对面那一记打出的正好是它当时剩下的全部。
+ if(last.fell.length&&last.theirHit&&last.theirHit.killed&&last.theirHit.hpBefore!==null
+  &&last.theirHit.amount>=last.theirHit.hpBefore&&last.myHit)
+  return {kind:'blunder',case:'no-cover',turn:last.turn,pet:last.theirHit.target,hp:last.theirHit.hpBefore,
+   amount:last.theirHit.amount,counter:last.theirHit.skill,skill:last.myHit.skill,actor:last.myHit.actor};
+ // ⑤ 贴着血皮撑过这一回合。
+ const me=last.meAfter;
+ if(me&&me.hp>0&&ratioOf(me.hp,me.maxHp)!==null&&me.hp<=me.maxHp*CLUTCH_LOW){
+  // 这一局场上出现过的最低血量：用来把「就差这么点」说成一件可核对的事。
+  const lows=(rows||[]).map(r=>r.meAfter&&r.meAfter.hp>0?r.meAfter.hp:null).filter(v=>v!==null);
+  return {kind:'clutch',turn:last.turn,pet:me.name,hp:me.hp,maxHp:me.maxHp,lowest:lows.length?Math.min(...lows):me.hp};
+ }
+ return null;
+}
+// 这一只在这一局里被压到过的最低血量：用来验证「那是它血最少的时候」这句话是不是真的。
+function foeLowest(rows,name,current){
+ const seen=[];
+ for(const r of rows||[]){
+  if(r.foeAfter&&r.foeAfter.name===name)seen.push(r.foeAfter.hp);
+  if(r.myHit&&r.myHit.target===name&&Number.isFinite(r.myHit.hpBefore))seen.push(Math.max(0,r.myHit.hpBefore-r.myHit.amount));
+ }
+ return seen.length?Math.min(...seen,current):current;
+}
+// 这一局是怎么收的：结算那一句要回看的是**最后一手**，不是这一局的合计。
+export function finishMoment(rows,game){
+ const result=game?.result;
+ if(result!=='win'&&result!=='loss')return null;
+ const list=rows||[],last=list.at(-1);
+ if(!last)return null;
+ const blows=list.filter(r=>r.myHit).map(r=>r.myHit),blow=blows.at(-1)||null;
+ const heavy=Math.max(0,...blows.map(b=>b.amount));
+ // 「中盘落后过」：人少一只，或者对面三只的血量加起来领先一截。两条门槛都是对着真实对局定的
+ //（181 个胜局里，最大的血量缺口只有 31 点，「少一只」只出现过 1 次），所以：
+ //   · 从第 2 回合起才算——第 1 回合两边的血量差是双方队伍上限的差，不是打出来的劣势；
+ //   · 血量缺口 25 点约等于小半只宠，是这批对局里真的会出现的落后。
+ const behind=list.find(r=>r.turn>=2&&(r.aliveMe<r.aliveFoe||r.hpFoe>r.hpMe+COMEBACK_GAP))||null;
+ const base={result,turn:last.turn,blow,heaviest:Boolean(blow&&blow.amount===heavy),aliveMe:last.aliveMe,
+  aliveFoe:last.aliveFoe,me:last.meAfter,foe:last.foeAfter,hpMe:last.hpMe,hpFoe:last.hpFoe};
+ if(result==='win'){
+  // 翻盘先判：中盘确实落后过（人少一只，或者血量差过一截）又打回来，这是比「赢得惊险」更该说的事。
+  if(behind)return {...base,kind:'comeback',behindTurn:behind.turn,behindMe:behind.aliveMe,behindFoe:behind.aliveFoe,
+   behindHpMe:behind.hpMe,behindHpFoe:behind.hpFoe,pets:behind.aliveMe<behind.aliveFoe,
+   lostAfter:list.filter(r=>r.turn>behind.turn).reduce((n,r)=>n+r.fell.length,0)};
+  // 赢得惊险：最后场上只剩一个（或者站着的这只已经贴着血皮）。
+  const meLow=last.meAfter&&last.meAfter.hp>0&&ratioOf(last.meAfter.hp,last.meAfter.maxHp)<=CLUTCH_LOW;
+  if(last.aliveMe===1||meLow)return {...base,kind:'narrow-win'};
+  const share=blow?ratioOf(blow.hpBefore,blow.maxHp):null;
+  if(blow&&blow.killed&&share!==null&&share>=HIGHLIGHT_SHARE)return {...base,kind:'highlight',share};
+  return {...base,kind:'plain'};
+ }
+ // 惜败：对面最后站在场上的那只只剩一点血。
+ const foe=last.foeAfter;
+ if(foe&&foe.hp>0&&ratioOf(foe.hp,foe.maxHp)<=NEAR_MISS_LEFT)
+  return {...base,kind:'near-miss',foePet:foe.name,foeHp:foe.hp,foeMax:foe.maxHp};
+ const cascade=cascadeMoment(list);
+ if(cascade)return {...base,...cascade,kind:'collapse'};
+ const share=blow?ratioOf(blow.hpBefore,blow.maxHp):null;
+ if(blow&&blow.killed&&share!==null&&share>=HIGHLIGHT_SHARE)return {...base,kind:'highlight',share};
+ return {...base,kind:'plain'};
 }
 function actionOf(a){
  if(a?.kind==='skill'&&SKILLS[a.id])return {kind:'skill',name:SKILLS[a.id].name};
@@ -376,7 +602,11 @@ export const AFFECTS={pity:'可惜',praise:'漂亮',tense:'悬',grind:'憋屈',r
 export const AFFECT_WORDS=/可惜|漂亮|悬|憋屈|松口气|喘口气/;
 // 结算与减员是「情绪必须落地」的两类：这两类永远说得出一句有落点的话，
 // 缺了它就不许开口（去掉情绪 → fitReading 返回 null → 这两类直接沉默，测试会红）。
-export const STANCE_REQUIRED=['result','faint'];
+// 时刻那几类（高光／臭棋／崩盘／险胜／翻盘／惜败／里程碑）与「贴着血皮」同类：
+// 它们的**全部意义**就是那一刻的情绪反应，剥掉情绪句就只剩一句没人要的播报，
+// 所以它们也进这张表——这正是「把情绪改回挂聚合统计上就变红」所依赖的那条线。
+export const STANCE_REQUIRED=['result','faint','highlight','blunder','collapse','clutch',
+ 'narrow-win','comeback','near-miss','milestone'];
 
 // 优先级高者先开口；goal（稳健/速攻）只做 +12 的加权，用来换观察角度，不改任何事实。
 export function companionReadings({cross=null,signals=null,context={},now=Date.now()}={},used=null){
@@ -392,17 +622,134 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
  const add=r=>{if(!r)return;const sentences=orderSentences(r.sentences);
   if(sentences.length>=2&&sentences.some(s=>s.kind==='memory'||s.kind==='derived'))out.push({...r,sentences});};
 
+ // ⓪ 刚发生的那一刻。这一组排在所有聚合观察前面：陪练的第一件事是对眼前这一手有反应，
+ // 不是交付一份这一局的报告。每一条都精确到「第几回合、哪一只、哪一记技能」——
+ // 情绪句里的那个回合号就是它回应的瞬间，句子里那一句事实是玩家自己算不出来的对比
+ //（这一记收掉的是还剩多少血的谁、它是连着第几只下去的）。
+ // 这些对比只有把回合前后的快照对起来才看得到，所以它们仍然是「玩家不知道的事」，
+ // 而不是把屏幕上刚滚过去的战斗记录换个说法念一遍。
+ //
+ // 收尾档（R3）的正文字数只装得下一句事实 + 情绪 + 收尾那句陪坐，所以：
+ //   · 时刻那一句尽量短（长句会被整句丢掉，丢掉锚点这一条就说不出口了）；
+ //   · 这一局若刚刚结束，跨局那一笔账（连着几局没赢／今天第几次）并进情绪句里
+ //     （「连着2局没赢，第13回合这一下太憋屈了。」）——它不占第三句的位置，
+ //     又让同一个瞬间在两局里不会一字不差。
+ // 没结束的局内时刻则留一句位置给下面的借句机制：接一件跨局记得的事。
+ const moment=sg.moment||null,finish=sg.finish||null;
+ const closing=finish&&(finish.result==='win'||finish.result==='loss')?finish.result:null;
+ const streak=closing==='win'?(Number(context.winStreak)||0):(Number(context.lossStreak)||0);
+ const account=closing?ledgerClause(l,closing,streak):null;
+ const withAccount=base=>AFFECT(base.affect,account?`${account}，${base.text}`:base.text,base.source);
+ if(moment&&moment.kind==='collapse'){
+  const [a,b]=moment.pets;
+  add({id:`collapse:${b.turn}:${b.pet}`,topic:null,klass:'collapse',priority:93,tags:['稳健'],sentences:[
+   SENT(`第${a.turn}回合${a.pet}下去，第${b.turn}回合${b.pet}也跟着倒了。`,'derived','game.history.fell'),
+   withAccount(AFFECT('grind',`第${b.turn}回合这一下太憋屈了。`,'game.history.fell'))],evidence:[
+   `本局回合记录：第 ${a.turn} 回合 ${a.pet} 倒下，第 ${b.turn} 回合 ${b.pet} 也倒下，两只相隔 ${moment.gap} 个回合（来源：game.history 的回合前后快照）。`]});
+ }
+ if((moment&&moment.kind==='highlight')||(finish&&finish.kind==='highlight')){
+  const m=moment&&moment.kind==='highlight'?moment:{turn:finish.turn,heaviest:finish.heaviest,
+   skill:finish.blow?.skill,target:finish.blow?.target,pet:finish.blow?.actor,amount:finish.blow?.amount,
+   hpBefore:finish.blow?.hpBefore,maxHp:finish.blow?.maxHp};
+  if(m.skill&&m.target)add({id:`highlight:${m.turn}:${m.target}`,topic:null,klass:'highlight',priority:97,tags:['速攻'],sentences:[
+   SENT(`第${m.turn}回合那记${m.skill}，把还剩${m.hpBefore}点血的${m.target}一记收掉了。`,'derived','game.history.myHit'),
+   m.heaviest&&!account?SENT('整局你都没打出过这么重的一下。','derived','game.history.myHit'):null,
+   withAccount(AFFECT('praise',`第${m.turn}回合这一下，漂亮。`,'game.history.myHit'))],evidence:[
+   `本局回合记录：第 ${m.turn} 回合${m.pet||''}用 ${m.skill} 对 ${m.target} 造成 ${m.amount} 点伤害，${m.target} 在此之前还有 ${m.hpBefore} 点血（上限 ${m.maxHp}），这一记把它收掉了（来源：game.history 的回合前后快照）。`,
+   m.heaviest?'这一记是本局单次出手的最大伤害（来源：game.history）。':'']});
+ }
+ if(moment&&moment.kind==='blunder'){
+  const m=moment;
+  if(m.case==='left-alive'){
+   const act=m.action==='防御'?'这一手你按的是防御':m.action==='换人'?'这一手你换的是人':m.action==='道具'?'这一手你用的是道具':m.skill?`这一手你出的是${m.skill}`:'这一手没碰到它';
+   add({id:`blunder:${m.turn}:${m.pet}`,topic:null,klass:'blunder',priority:95,tags:[],sentences:[
+    SENT(`第${m.turn}回合${m.pet}站在那儿只剩${m.hp}点，${act}。`,'derived','game.history.foe'),
+    withAccount(AFFECT('pity',`第${m.turn}回合就差这一下没补上，可惜。`,'game.history.foe'))],evidence:[
+    `本局回合记录：第 ${m.turn} 回合结束后 ${m.pet} 还剩 ${m.hp} 点血（上限 ${m.maxHp}）仍站在场上，这一回合你的动作是 ${m.action||'未知'}（来源：game.history 的回合前后快照）。`]});
+  }else if(m.case==='no-cover'){
+   add({id:`blunder:${m.turn}:${m.pet}`,topic:null,klass:'blunder',priority:95,tags:[],sentences:[
+    SENT(`第${m.turn}回合${m.pet}只剩${m.hp}点，对面那记${m.counter}正好打出${m.amount}点，两边撞在了一起。`,'derived','game.history.theirHit'),
+    withAccount(AFFECT('pity',`第${m.turn}回合这一下没接住，可惜。`,'game.history.theirHit'))],evidence:[
+    `本局回合记录：第 ${m.turn} 回合对手的 ${m.counter} 对 ${m.pet} 造成 ${m.amount} 点伤害，而 ${m.pet} 在此之前只剩 ${m.hp} 点；同一回合你出的是 ${m.skill}（来源：game.history 的回合前后快照）。`]});
+  }
+ }
+ // 贴着血皮撑过这一回合：单个回合的血条屏幕上有，所以这里给的是「这是它这一局最低的时候」
+ // 与「这一局有几个回合是这么过来的」——两件都要把整局翻一遍才知道。
+ if(sg.clutch||(moment&&moment.kind==='clutch')){
+  const justNow=Boolean(moment&&moment.kind==='clutch');
+  const c=justNow?moment:sg.clutch;
+  const at=c.turn||c.lastTurn||turn;
+  const low=justNow?c.hp:(c.lastHp??c.lowest);
+  const many=justNow&&sg.clutch?Math.max(sg.clutch.turns||1,1):(c.turns||1);
+  const survived=justNow?true:Boolean(sg.clutch&&sg.clutch.survived);
+  const lowest=justNow&&c.hp===c.lowest;
+  add({id:`clutch:${at}:${c.pet}`,topic:'clutch',klass:'clutch',priority:justNow?89:88,tags:['稳健'],sentences:[
+   SENT(`第${at}回合${c.pet}只剩${low}点${justNow?'，还站在场上':''}${justNow?(lowest?'，是这一局场上最低的一次':''):(many>=2?`——这一局有${many}个回合是这么过来的`:'')}。`,'derived','game.history.clutch'),
+   withAccount(survived?AFFECT('relief',`第${at}回合这一下撑住了，能喘口气。`,'game.history.clutch')
+    :AFFECT('tense',`第${at}回合这一下真悬。`,'game.history.clutch'))],evidence:[
+   `本局回合记录：第 ${at} 回合结束时 ${c.pet} 只剩 ${low} 点血（不到上限的四分之一），这一局这样贴着血皮过来的回合有 ${many} 个（来源：game.history 的回合前后快照）。`]});
+ }
+ // 结算那一刻：先说这一局是**怎么收的**（最后一手），再说跨局的那笔账。
+ if(finish&&(finish.result==='win'||finish.result==='loss')){
+  const f=finish,blow=f.blow;
+  if(f.kind==='narrow-win'){
+   add({id:`narrow-win:${f.turn}`,topic:null,klass:'narrow-win',priority:96,tags:['稳健'],sentences:[
+    SENT(f.aliveMe===1&&f.me
+     ?`赢下这一局的时候你场上只剩${f.me.name}一个了${blow?`——最后那记${blow.skill}打出去${blow.amount}点才收掉`:''}。`
+     :`这一局收掉的时候你只剩${f.me?.hp}点血${blow?`——最后那记${blow.skill}打出去${blow.amount}点`:''}。`,'derived','game.history'),
+    ledgerLine(l,f.result,streak),
+    AFFECT('relief',`这一下先松口气，第${f.turn}回合收得漂亮。`,'game.history.lastBlow')].filter(Boolean),evidence:[
+    `本局回合记录：结束时我方还剩 ${f.aliveMe} 只、血量合计 ${f.hpMe}，对手还剩 ${f.aliveFoe} 只、血量合计 ${f.hpFoe}（来源：game.history 的回合前后快照）。`,
+    blow?`最后一记 ${blow.skill} 造成 ${blow.amount} 点伤害（来源：game.history）。`:'']});
+  }
+  if(f.kind==='comeback'){
+   add({id:`comeback:${f.behindTurn}`,topic:null,klass:'comeback',priority:95,tags:['速攻'],sentences:[
+    SENT(f.pets
+     ?`第${f.behindTurn}回合的时候对面还剩${f.behindFoe}只、你只剩${f.behindMe}只，${f.lostAfter===0?'从那以后你一只都没再掉':'从那儿一点一点往回打'}。`
+     :`第${f.behindTurn}回合的时候对面三只加起来还领先${f.behindHpFoe-f.behindHpMe}点血，${f.lostAfter===0?'从那以后你一只都没再掉':'从那儿一点一点往回打'}。`,'derived','game.history'),
+    ledgerLine(l,f.result,streak),
+    AFFECT('praise',`第${f.behindTurn}回合那会儿你还在后面，这一局是真的打回来了，漂亮。`,'game.history')].filter(Boolean),evidence:[
+    `本局回合记录：第 ${f.behindTurn} 回合结束时我方剩 ${f.behindMe} 只、对手剩 ${f.behindFoe} 只（或血量差 60 以上），这一局最后是胜利（来源：game.history 的回合前后快照）。`]});
+  }
+  if(f.kind==='near-miss'){
+   add({id:`near-miss:${f.turn}:${f.foePet}`,topic:null,klass:'near-miss',priority:96,tags:[],sentences:[
+    SENT(`第${f.turn}回合收尾，${f.foePet}站在场上只剩${f.foeHp}点。`,'derived','game.history.foe'),
+    blow?SENT(`你最后一记${blow.skill}打出去${blow.amount}点。`,'derived','game.history.lastBlow'):null,
+    withAccount(AFFECT('pity',`第${f.turn}回合就差这${f.foeHp}点，可惜。`,'game.history.foe'))].filter(Boolean),evidence:[
+    `本局回合记录：结束时对手场上还剩 ${f.foePet}，血量 ${f.foeHp}/${f.foeMax}（来源：game.history 的回合前后快照）。`,
+    blow?`最后一记 ${blow.skill} 造成 ${blow.amount} 点伤害（来源：game.history）。`:'']});
+  }
+  if(f.kind==='collapse'&&f.pets){
+   const [a,b]=f.pets;
+   add({id:`collapse-end:${b.turn}:${b.pet}`,topic:null,klass:'collapse',priority:93,tags:['稳健'],sentences:[
+    SENT(`第${a.turn}回合${a.pet}下去，第${b.turn}回合${b.pet}也跟着倒了。`,'derived','game.history.fell'),
+    withAccount(AFFECT('grind',`第${b.turn}回合起就一直被压着。`,'game.history.fell'))],evidence:[
+    `本局回合记录：第 ${a.turn} 回合 ${a.pet} 倒下，第 ${b.turn} 回合 ${b.pet} 也倒下（来源：game.history 的回合前后快照）。`]});
+  }
+  // 里程碑：第一次在这张图拿下、或者连着拿下好几局。跨局账本，只有陪练记着。
+  // 分数排在窄胜／翻盘之后：那些是这一局的时刻，里程碑是接在后面的那笔账。
+  if(f.result==='win'&&(l.stageFirst||streak>=2)){
+   const first=l.stageFirst;
+   add({id:`milestone:${first||streak}`,topic:'milestone',klass:'milestone',priority:94,tags:[],sentences:[
+    first?SENT(`这是你在${first}拿下的第一局。`,'memory','memory.events.stage'):SENT(`连着${streak}局拿下了。`,'memory','memory.events.result'),
+    AFFECT('praise',first?`第一局就拿下，第${f.turn}回合这一下漂亮。`:`连着${streak}局拿下，这几下漂亮。`,'memory.events.result')].filter(Boolean),evidence:[
+    first?`跨局账本：memory.events 里没有 ${first} 的任何记录，这是第一局（来源：memory.events.stage）。`
+     :`跨局账本：最近已经连着 ${streak} 局拿下（来源：memory.events.result）。`,
+    blow?`最后一记 ${blow.skill} 造成 ${blow.amount} 点伤害（来源：game.history）。`:'']});
+  }
+ }
+
  // ① 老对手：这套阵容打过几次、赢过没有。
  if(l.rematch){
   const m=l.rematch,sentences=[],named=m.firstFallens.length===1?m.firstFallens[0]:null;
   const who=usedTopics.has('first-fallen')?null:named;   // 这件事本局已经说过就不再说第二遍
   if(m.isPrevious){
    sentences.push(SENT('上一局你碰的就是这套阵容。','memory','memory.events.enemy'));
-   const bits=[m.lastTurns?`打到第${m.lastTurns}回合${resultWord(m.lastResult)||''}`:null,who?`你先倒下的是${who}`:null].filter(Boolean);
+   const bits=[m.lastTurns?`打到第${m.lastTurns}回合，${playerResultWord(m.lastResult)||''}`:null,who?`你先倒下的是${who}`:null].filter(Boolean);
    if(bits.length)sentences.push(SENT(`那局${bits.join('，')}。`,'memory','memory.events.turns'));
   }else{
    sentences.push(SENT(m.meetings>=2?`对面这套阵容你打过${m.meetings}次，${m.wins===0?'一次都没拿下来':`拿下过${m.wins}次`}。`:'你之前碰过一次这套阵容。','memory','memory.events.enemy'));
-   if(m.lastTurns)sentences.push(SENT(`最近一次是${ago(m.lastDaysAgo)}，打到第${m.lastTurns}回合${resultWord(m.lastResult)||''}。`,'memory','memory.events.turns'));
+   if(m.lastTurns)sentences.push(SENT(`最近一次是${ago(m.lastDaysAgo)}，打到第${m.lastTurns}回合，${playerResultWord(m.lastResult)||''}。`,'memory','memory.events.turns'));
    if(who)sentences.push(SENT(m.meetings>=2?`那几次你先倒下的都是${who}。`:`那局你先倒下的是${who}。`,'memory','memory.events.firstFallen'));
    // 这一条不再补情绪句：它已经说了「一次都没拿下来」和「最近一次打到第 N 回合」，
    // 再补一句可惜就是把同一件事说第二遍（复述自己的上一句也是复述）。
@@ -453,12 +800,17 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
    `跨局账本：输给带${f.label}系阵容的记录有 ${f.total} 局，最近 ${f.losses} 局失利的对手阵容里都有${f.label}系（来源：memory.events.enemy 与 engine.js 的 SPECIES.type）。`,
    `这一局的对手阵容里有 ${f.current} 只${f.label}系（来源：context.battle）。`]});
  }
- // ⑤ 同一张地图：来过几次、拿下过几次。
+ // ⑤ 又回到同一张地图：来过几次、上次停在哪儿。「又翻同一关」这一场景的写法是
+ // 温和点出上一次停下的那一刻（第几回合），不指责、不夸奖、不给建议。
  if(l.stage){
-  const s=l.stage,sentences=[SENT(`${s.name}你打过${s.played}次，${s.wins===0?'一次都没拿下来':`拿下过${s.wins}次`}。`,'memory','memory.events.stage')];
-  if(s.lastTurns)sentences.push(SENT(`${ago(s.lastDaysAgo)}在这里打到第${s.lastTurns}回合${resultWord(s.lastResult)||''}。`,'memory','memory.events.turns'));
-  add({id:`stage:${s.name}`,topic:'stage',klass:'stage',priority:80,tags:[],sentences,evidence:[
-   `跨局账本：${s.name} 在 memory.events 里出现过 ${s.played} 次，${s.wins}胜${s.played-s.wins}负（来源：memory.events.stage / result）。`]});
+  const s=l.stage,named=s.name;
+  const sentences=[SENT(`又回到${named}了——你打过${s.played}次，${s.wins===0?'一次都没拿下来':`拿下过${s.wins}次`}。`,'memory','memory.events.stage')];
+  if(s.lastTurns)sentences.push(SENT(`上一次在这儿打到第${s.lastTurns}回合，${playerResultWord(s.lastResult)||''}。`,'memory','memory.events.turns'));
+  else sentences.push(SENT(`${ago(s.lastDaysAgo)}在这儿打过一局。`,'memory','memory.events.time'));
+  // 一次都没拿下来过：情绪落在「上一次停在第几回合」这个具体位置上，不是一句「加油」。
+  if(s.wins===0)sentences.push(AFFECT('pity',`这一张图第${s.played+1}次了，还没过去，可惜。`,'memory.events.stage'));
+  add({id:`stage:${named}`,topic:'stage',klass:'stage',priority:80,tags:[],sentences,evidence:[
+   `跨局账本：${named} 在 memory.events 里出现过 ${s.played} 次，${s.wins}胜${s.played-s.wins}负（来源：memory.events.stage / result）。`]});
  }
  // ⑥ 今天打了多少局、这几局的回合数在往哪边走。
  if(l.todayCount>=3&&l.trend){
@@ -479,7 +831,8 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
  }
  // ⑧ 上一局：被动通道与结算的最小真实素材（没有别的可核对的事实时才用）。
  if(l.lastMatch){
-  const m=l.lastMatch,sentences=[SENT(`你上一局在${m.stage||'训练场'}打到第${m.turns||'?'}回合，${resultWord(m.result)||'结束'}。`,'memory','memory.events')];
+  // 「第?回合」是程序的口径，不是人话：回合数缺失时整段不说，别把问号念给玩家听。
+  const m=l.lastMatch,sentences=[SENT(`你上一局在${m.stage||'训练场'}${m.turns?`打到第${m.turns}回合`:''}，${playerResultWord(m.result)||'结束'}。`,'memory','memory.events')];
   if(m.firstFallen&&m.firstLossTurn)sentences.push(SENT(`最先倒下的是${m.firstFallen}，第${m.firstLossTurn}回合。`,'memory','memory.events.firstFallen'));
   else sentences.push(SENT(`那局你${m.enemy.length?`对上的是${list(m.enemy)}`:'没留下对手记录'}。`,'memory','memory.events.enemy'));
   add({id:'last-match',topic:'last',klass:'last',priority:40,tags:[],sentences,evidence:[
@@ -507,8 +860,9 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
   if(d.actions.length)sentences.push(SENT(`这${d.turns}个回合它用的是${list(d.actions)}。`,'derived','game.history.action'));
   const alsoFalls=l.hazard&&l.hazard.name===d.pet&&l.hazard.times>=2;
   if(alsoFalls)sentences.push(SENT(`最近${l.hazard.total}局里最先倒下的也是它。`,'memory','memory.events.firstFallen'));
-  // 憋屈落在「连着几个回合耗在这儿」这件真实发生过的事上，不落在玩家水平上。
-  sentences.push(AFFECT('grind',`连着${d.turns}个回合耗在这儿，打得憋屈。`,'game.history'));
+  // 这里**不再补情绪词**：情绪句只由 ⓪ 那一层（刚发生的那一刻）产出，统计只负责补事实。
+  //「连着三个回合耗在这儿，打得憋屈」正是用户点名的那种「统计 + 贴一个情绪词」——
+  // 它是这一局的情况，不是刚刚发生的哪一下。
   add({id:`dry:${d.pet}`,topic:'output',extraTopics:alsoFalls?['first-fallen']:[],klass:'live',priority:86,tags:['速攻'],sentences,evidence:[
    `本局回合记录：${d.pet} 连续 ${d.turns} 个回合造成的伤害合计 ${d.sum} 点，其中 ${d.zeros} 个回合为 0（来源：game.history 的回合事件），这几回合的动作是 ${list(d.actions)||'无'}。`]});
  }
@@ -516,7 +870,7 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
  if(sg.fading){
   const f=sg.fading,sentences=[SENT(`你这几个回合打出的伤害是${list(f.values)}，一路往下掉。`,'derived','game.history')];
   if(f.healed>=1&&f.healed>f.to)sentences.push(SENT(`同一段时间里对面回了${f.healed}点血，比你最后那回合打出去的还多。`,'derived','game.history'));
-  sentences.push(AFFECT('pity',`最后那${f.to}点没打穿，可惜。`,'game.history'));
+  else sentences.push(SENT(`最后那${f.to}点是这几个回合里打得最低的一次。`,'derived','game.history'));
   add({id:`fading:${f.to}`,topic:'output',klass:'live',priority:84,tags:['速攻'],sentences,evidence:[
    `本局回合记录：最近几个回合我方造成的伤害依次为 ${f.values.join('、')}（来源：game.history 的回合事件）。`,
    `同一段记录里对手回复了 ${f.healed} 点生命。`]});
@@ -530,8 +884,7 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
   sentences.push(SENT(`${s.pet}一个人顶了${s.turns}个回合${all?'':`，挨的比另外两只${s.taken>rest?'加起来还多':'都多'}`}。`,'derived','game.history'));
   const alsoFalls=l.hazard&&l.hazard.name===s.pet&&l.hazard.times>=2;
   if(alsoFalls)sentences.push(SENT(`你最近${l.hazard.total}局最先倒下的也是它。`,'memory','memory.events.firstFallen'));
-  // 「憋屈」说的是这个局面（同一只被按着打了 N 个回合），不是玩家的水平。
-  sentences.push(AFFECT('grind',`${s.turns}个回合都这么挨着，这一局憋屈。`,'game.history'));
+  // 这里同样不再贴「憋屈」：挨打集中在谁身上是一个局面，情绪留给刚发生的那一手。
   add({id:`soak:${s.pet}`,topic:'damage-focus',extraTopics:alsoFalls?['first-fallen']:[],klass:'live',priority:80,tags:['稳健'],sentences,evidence:[
    `本局回合记录：对手共造成 ${s.total} 点伤害，其中 ${s.taken} 点打在 ${s.pet} 身上，它在场 ${s.turns} 个回合（来源：game.history 的回合事件）。`]});
  }
@@ -539,7 +892,6 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
  if(sg.trade){
   const t=sg.trade,sentences=[SENT(`这一局你打出去${t.dealt}点伤害，自己挨了${t.taken}点。`,'derived','game.history')];
   sentences.push(SENT(`差了${t.gap}点，你一直在挨打。`,'situation','game.history'));
-  sentences.push(AFFECT('grind',`差着${t.gap}点一直挨着打，憋屈。`,'game.history'));
   add({id:`trade:${t.gap}`,topic:'damage-trade',klass:'live',priority:78,tags:['速攻'],sentences,evidence:[
    `本局回合记录：我方共造成 ${t.dealt} 点伤害，承受 ${t.taken} 点，差 ${t.gap} 点（来源：game.history 的回合事件）。`]});
  }
@@ -548,39 +900,35 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
   const s=sg.standoff,sentences=[SENT(`${s.turns}个回合过去，两边一只都没倒下。`,'derived','game.history')];
   if(s.healed>=1)sentences.push(SENT(`对面在这段时间里回了${s.healed}点血，你打出去${s.dealt}点。`,'derived','game.history'));
   else sentences.push(SENT(`你把伤害摊在对面三只身上，一直没打穿一只。`,'situation','game.history'));
-  sentences.push(AFFECT('grind',`${s.turns}个回合谁都没倒，就这么僵着，憋屈。`,'game.history'));
   add({id:`standoff:${s.turns}`,topic:'standoff',klass:'live',priority:70,tags:['稳健'],sentences,evidence:[
    `本局回合记录：已经打了 ${s.turns} 个回合，双方都还没有伙伴倒下；对手回复 ${s.healed} 点，我方造成 ${s.dealt} 点（来源：game.history）。`]});
  }
- // ⑭b 贴着血皮撑过来：「悬」与「松口气」都必须落在真实发生过的事上——
- // 这一局有几个回合是这样过来的。单个回合的血条屏幕上就有（那是复述），
- // 「有几个回合」要把整局翻一遍才知道。撑住了说松口气，没撑住只说悬。
- if(sg.clutch){
-  const c=sg.clutch,sentences=[
-   SENT(`这一局有${c.turns}个回合你是贴着血皮撑过去的。`,'derived','game.history'),
-   SENT(`${c.pet}最低的时候只剩${c.lowest}点。`,'derived','game.history'),
-   c.survived?AFFECT('relief',`那${c.turns}下都撑住了，这一下能喘口气。`,'game.history')
-    :AFFECT('tense',`那${c.turns}下都是贴着血皮过来的，真悬。`,'game.history')];
-  add({id:`clutch:${c.turns}`,topic:'clutch',klass:'clutch',priority:88,tags:['稳健'],sentences,evidence:[
-   `本局回合记录：共有 ${c.turns} 个回合结束时场上伙伴的血量不到两成（最低 ${c.lowest} 点），这一局一共 ${c.of} 个回合（来源：game.history 的回合前后快照）。`,
-   `这些回合之后伙伴${c.survived?'都还站着':'后来有人倒下'}（来源：game.history 的回合前后快照）。`]});
- }
+ // ⑭b 贴着血皮撑过来这一条已经并到 ⓪ 那一层：情绪落在**最近那一回合**上
+ //（「第12回合潮甲龟只剩6点，还站在场上」），「这一局有几个回合是这样」只作为第二句的补充。
+ // 原来那一版说的是「这一局有2个回合你是贴着血皮撑过去的」配一句「那2下都撑住了」——
+ // 一个统计配一个情绪词，正是这一轮要改掉的写法。
  // ⑮ 首次减员：不说「X倒下了」（屏幕上有），只说它这一局扛了什么、以及跨局的记忆。
  if(context.faint){
   const f=context.faint,sentences=[];
   // 本局已经提过「最先倒下的总是它」就不再重复：这一句退回到「它这一局扛了多少」，
   // 记忆那一句交给借句机制去找一件还没说过的事。
   const again=l.hazard&&l.hazard.name===f.pet&&l.hazard.times>=2&&!usedTopics.has('first-fallen');
+  const hazardHere=l.hazard&&l.hazard.name===f.pet?l.hazard:null;
   // 「伤害都落在它身上」这件事一局只说一次：soak 说过就不再由减员这一句重说，
   // 反过来也一样（谁先说，谁占这个话题）。
   const soaked=usedTopics.has('damage-focus');
   if(again)sentences.push(SENT(`最先倒下的又是${f.pet}——最近${l.hazard.total}局里第${l.hazard.times}次。`,'memory','memory.events.firstFallen'));
   if(f.taken>0&&!soaked)sentences.push(SENT(`${f.pet}这一局一个人挨了${f.taken}点${f.most?'，是全队最多的':''}。`,'derived','game.history'));
-  if(turn&&l.lastMatch?.firstLossTurn)sentences.push(SENT(`上一局你是第${l.lastMatch.firstLossTurn}回合掉的第一只，这一局是第${turn}回合。`,'memory','memory.events.firstLossTurn + context.turn'));
+  // 跨局那一句优先说「它这几局倒下过几次」：同一只反复先倒的记录是陪练独有的，
+  // 而且它比「上一局你是第几回合掉的」多一个真的在变的数字——两局的局面一模一样时，
+  // 只有账本上的数在变，同一句话才不会一字不差地重来一遍。
+  if(hazardHere&&hazardHere.faints>=2&&!again)sentences.push(SENT(`最近${hazardHere.total}局里它倒下过${hazardHere.faints}次，这一局是第${turn}回合。`,'memory','memory.events.faints + context.turn'));
+  else if(turn&&l.lastMatch?.firstLossTurn)sentences.push(SENT(`上一局你是第${l.lastMatch.firstLossTurn}回合掉的第一只，这一局是第${turn}回合。`,'memory','memory.events.firstLossTurn + context.turn'));
   else if(f.turns>=2&&!soaked)sentences.push(SENT(`它在场上顶了${f.turns}个回合。`,'derived','game.history'));
-  // 减员这一句的关切落在「它这一局一个人扛了多久、多少」上——不是安慰，是这一局真的发生的事。
-  // 两个锚点任取其一：它在场几个回合，或者它一个人挨了多少点。
-  if(f.turns>=2)sentences.push(AFFECT('tense',`它一个人在场上顶了${f.turns}个回合才下去，这一局从这儿开始就悬了。`,'game.history'));
+  // 减员这一句的关切落在「它是第几回合、一个人扛了多久」上——这两个都对得回那一刻，
+  // 而不是落在整局的承伤统计上：情绪挂在它下去的那一回合，不挂在全队合计上。
+  if(turn)sentences.push(AFFECT('tense',`它扛到第${turn}回合才下去，这一局从这儿开始就悬了。`,'game.history + context.turn'));
+  else if(f.turns>=2)sentences.push(AFFECT('tense',`它一个人在场上顶了${f.turns}个回合才下去，这一局从这儿开始就悬了。`,'game.history'));
   else if(f.taken>0)sentences.push(AFFECT('grind',`${f.taken}点伤害都砸在它一只身上，这一局憋屈。`,'game.history'));
   add({id:`faint:${f.pet}:${turn||0}`,topic:again?'first-fallen':(f.taken>0&&!soaked?'damage-focus':null),klass:'faint',priority:99,tags:[],sentences,evidence:[
    `${f.pet} 在本局承受了 ${f.taken} 点伤害，对手总输出 ${f.total} 点，它在场 ${f.turns} 个回合（来源：game.history 的回合事件）。`,
@@ -608,17 +956,20 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
   // 但这句话局内那条已经说过就不再重复（话题 damage-trade 谁先说谁占）。
   const tradeFree=!usedTopics.has('damage-trade')&&sg.turns>=3;
   if(sentences.length<2&&tradeFree)sentences.push(SENT(`这一局你打出去${sg.dealt}点伤害，自己挨了${sg.taken}点。`,'derived','game.history'));
-  // 结算的情绪必须落在这场结算的事实上，而且不能重复上面已经说过的那件事：
-  // 这一局的交换比（打出去多少、挨了多少）是最适合承载「漂亮/可惜」的独立读数，
-  // 它只有在上面没被用过时才拿来当情绪句——同一句话不说第二遍。
-  const closers=[],tradeUsed=sentences.some(s=>/打出去\d+点伤害/.test(s.text));
-  const trade=!tradeUsed&&sg.turns>=3&&sg.dealt>0?{dealt:sg.dealt,taken:sg.taken}:null;
+  // 结算的情绪落在**最后一手**上，而不是落在这一局的合计上：
+  // 「这一局你打出去 X 点、挨了 Y 点，打得漂亮」是战后报告（用户点名的那一种），
+  // 现在改成回看收尾那一记——先说清是哪一记、打出去多少，再给情绪。
+  // 结算那一句的第二句事实（合计）已经由上面按话题记账决定了，这里只负责情绪句。
+  const closers=[];
+  const blow=finish?.blow||null;
   if(result==='win'){
-   if(trade)closers.push(AFFECT('praise',trade.dealt>=trade.taken?`这一局你打出去${trade.dealt}点、只挨了${trade.taken}点，打得漂亮。`:`打出去${trade.dealt}点、挨了${trade.taken}点还是拿下了，这一局漂亮。`,'game.history'));
+   // 「这一局你打出去 X 点、挨了 Y 点，打得漂亮」正是用户点名的那种战后报告（统计 + 情绪词），
+   // 已经删掉：没有收尾那一手时，退到「第 N 回合收掉」这一句——它仍然指着那一刻。
+   if(blow)closers.push(AFFECT('praise',`最后一记${blow.skill}打出去${blow.amount}点，第${turn||finish.turn}回合收掉，漂亮。`,'game.history.lastBlow'));
    else if(turn)closers.push(AFFECT('praise',`第${turn}回合收掉，这一下收得漂亮。`,'context.turn'));
    else if(streak>=2)closers.push(AFFECT('praise',`连着${streak}局拿下，这几下漂亮。`,'memory.events.result'));
   }else{
-   if(trade)closers.push(AFFECT('pity',`这一局你打出去${trade.dealt}点、挨了${trade.taken}点，还是没翻过来，可惜。`,'game.history'));
+   if(blow)closers.push(AFFECT('pity',`最后一记${blow.skill}打出去${blow.amount}点，第${turn||finish.turn}回合还是没翻过来，可惜。`,'game.history.lastBlow'));
    else if(turn)closers.push(AFFECT('pity',`撑到第${turn}回合还是没翻过来，可惜。`,'context.turn'));
    else if(l.count)closers.push(AFFECT('pity',`这第${l.count+1}局还是没拿下来，可惜。`,'memory.events.result + 本局'));
   }
@@ -635,11 +986,14 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
  // 字数额度不够时它会被整句丢掉，但那时前面那句也是玩家自己算不出来的统计。
  // 借用的那句也必须是这一局还没说过的：本局已经提过「这套阵容」之后，
  // 后面的局内观察就不能再把那句话抄一遍——那正是「重复的信息不要重复出现」。
+ // 时刻那一组（highlight / blunder / collapse / clutch / 结算的几种收法）也走这条：
+ // 它们自带的只有「这一局刚发生的那一下」，接一句跨局记得的事才是陪练该有的样子
+ //（顺带解决了另一个真问题：两局里出现同一个瞬间时，只有这一句能让两句话不完全相同）。
  const anchor=out.filter(r=>MEMORY_KLASSES.includes(r.klass)&&!usedIds.has(r.id)&&!(r.topic&&usedTopics.has(r.topic)))
   .sort((a,b)=>b.priority-a.priority)
   .map(r=>({reading:r,sentence:r.sentences.find(s=>s.kind==='memory')})).find(x=>x.sentence)||null;
  if(anchor)for(const r of out){
-  if(!['live','faint','result'].includes(r.klass))continue;
+  if(!BORROW_KLASSES.includes(r.klass))continue;
   if(r.sentences.some(s=>s.kind==='memory'||s.text===anchor.sentence.text))continue;
   if(r.sentences.length>=3)continue;
   r.sentences=[...r.sentences,SENT(anchor.sentence.text,'memory',anchor.sentence.source)];
@@ -648,6 +1002,10 @@ export function companionReadings({cross=null,signals=null,context={},now=Date.n
  }
  return rankReadings(out,goal);
 }
+// 允许「借一句跨局记录」的观察类别：局内读数与刚发生的那一刻。
+// 结算的几类（窄胜/翻盘/惜败/里程碑）里，里程碑自带记忆句，其余的也走这条。
+const BORROW_KLASSES=['live','faint','result','highlight','blunder','collapse','clutch',
+ 'narrow-win','comeback','near-miss'];
 const MEMORY_KLASSES=['rematch','habit','type','stage','return','trend'];
 
 // 句序：chat（接住玩家这句话）→ memory/derived（玩家不知道的事）→ affect（情绪落点）→ situation。
@@ -670,13 +1028,38 @@ function rankReadings(rows,goal){
   .map(({score,...r})=>r);
 }
 function emptyLedger(){return {count:0,wins:0,losses:0,todayCount:0,todayWins:0,todayLosses:0,daysAgo:null,lastMatch:null,recentTurns:[],currentRoster:[],currentTeam:[],session:null,rematch:null,hazard:null,stage:null,stageFirst:null,flow:null,trend:null,potion:null};}
-function emptySignals(){return {turns:0,dealt:0,taken:0,healedByEnemy:0,dealtSeries:[],takenBy:{},activeTurns:{},lastFallen:null,dry:null,fading:null,soak:null,trade:null,standoff:null,clutch:null};}
+// 结算那一句里的跨局那一笔：这一局接在账本的哪一格上（连胜/连败、今天第几次、这张图的第一局）。
+// 结算的每一条时刻观察都带上它：结算本来就是「这一局 + 之前那些局」，
+// 只有这一句能让同一局棋在两局里不要一字不差。没有账本可对时返回 null，不补默认值。
+function ledgerLine(l,result,streak){
+ if(result==='win'){
+  if(streak>=2)return SENT(`连着${streak}局拿下了。`,'memory','memory.events.result');
+  if(l.todayWins>=1)return SENT(`今天第${l.todayWins+1}次拿下。`,'memory','memory.events.result + 本局');
+  if(l.stageFirst)return SENT(`这是你在${l.stageFirst}拿下的第一局。`,'memory','memory.events.stage');
+  return null;
+ }
+ if(streak>=2)return SENT(`连着${streak}局没赢。`,'memory','memory.events.result');
+ if(l.todayLosses>=1)return SENT(`今天第${l.todayLosses+1}次失利。`,'memory','memory.events.result + 本局');
+ return null;
+}
+// 同一笔账的短语版本：收尾档（R3）正文只装得下一句，所以它并进情绪句里用。
+function ledgerClause(l,result,streak){
+ const line=ledgerLine(l,result,streak);
+ return line?line.text.replace(/。$/,''):null;
+}
+function emptySignals(){return {turns:0,dealt:0,taken:0,healedByEnemy:0,dealtSeries:[],takenBy:{},activeTurns:{},lastFallen:null,dry:null,fading:null,soak:null,trade:null,standoff:null,clutch:null,moment:null,cascade:null,finish:null};}
 
 // 事件 → 观察类别。一个事件只挑它那一类里优先级最高的一条。
+// 时刻那三类（highlight / blunder / collapse）各自单列一个事件：它们在触发层有优先级，
+// 一发生就要能挤进来（见 companionEvents 的顺序）。
+// 结算那一行按「这一局是怎么收的」排序：赢得惊险／翻盘／差一点／高光收尾／散掉／里程碑，
+// 最后才退回普通结算——事件名仍然是 result，变的是它先说哪一件。
 export const READING_CLASSES={
  return:['return'],rematch:['rematch'],stage:['stage'],type:['type'],
- habit:['habit'],trend:['trend'],clutch:['clutch'],live:['live'],'first-faint':['faint','live'],result:['result'],
- 'streak-loss':['result'],'streak-win':['result'],
+ habit:['habit'],trend:['trend'],clutch:['clutch'],live:['live'],'first-faint':['faint','live'],
+ highlight:['highlight'],blunder:['blunder'],collapse:['collapse'],
+ result:['narrow-win','comeback','near-miss','highlight','collapse','milestone','result'],
+ 'streak-loss':['near-miss','collapse','result'],'streak-win':['milestone','result'],
 };
 // 本局已经用掉的观察：ids 是观察编号，topics 是话题（同一件事一局只提一次——
 // 「最先倒下的总是它」在减员那一刻说过，就不该在第 8 回合再说一遍）。
@@ -711,6 +1094,16 @@ export function fitSentences(sentences=[],limit=80,tail=null){
 // ── 自检：这条话到底有没有信息 ──────────────────────────────────────────────
 // 复述屏幕的写法（「X连着2回合被草系按着打」「还剩2只」「血线反过来了」）。
 export const SCREEN_ECHO=/还剩\s*[0-9一二三]\s*只|被[^，。；]{0,6}系(按着打|压着打|克着打)|血线(反过来|反超|追回来)|补位不占回合|下一回合由你决定|请选择(下一只|行动)/;
+// 播报「我这儿没有数据」+ 把人推去开一局。**这不是文案风格问题，是姿态问题**：
+// 它说的是系统状态而不是玩家这个人（和「我看得有点急」同一类错误——说的是自己不是对方），
+// 把自己的限制当成开场白，还把陪伴挂上「你得先有战绩」的前提，等于拒绝对话；
+// 「0胜0负」则是早就定过的一条：「没有的、是 0 的就不要讲」。
+// 只在「本机一条记录都没有」那一段生效（checkCompanionInformation 的 freshIntro、
+// checkCompanionRestraint 的 emptyLedger）：玩家**自己问**账本时该讲账本，那时不拦。
+export const EMPTY_LEDGER_ECHO=/记录还是空|还没记上|没有记上|一局都还没|一局也没|0胜0负|零胜零负|0\s*胜\s*0\s*负|去开一局|开一局吧|先打一局|打完(第一局|这局|一局)?(我)?(就)?能接上话|等你(打完|打一局|先打)|等你有了|有记录才|没数据|没有数据|还没有数据|账本是空|账本还是空|你的记录(还)?是空/;
+// 还没有记录时，最不该出现的「选项菜单」写法（客服话术）：想聊什么都可以，但不要开菜单。
+// 「想聊宠物、配招还是道具都行」正是被点名的那一句——两个以上话题并列 + 一个都行/还是的收口。
+export const EMPTY_LEDGER_MENU=/想聊[^。！？]{0,12}(、|还是|或者|都行|都成)|(、[^。！？]{0,6}){1,}(还是|都行)|任选|请选择|以下(几)?(个)?话题/;
 // 自我中心的情绪：第一人称 + **陪练自己的状态或举动**（急、慌、紧张、坐不住、跟着念…）。
 // 这一条保持禁止，禁的是「谁在感受」而不是「有没有情绪」——「我看得有点急」
 // 「我在旁边都跟着念出来了」把玩家变成来看 AI 着急的旁观者，正是这一版要修掉的原句。
@@ -745,7 +1138,11 @@ function sharedToken(a,b){
 
 // 逐条自检：句子级来源（parts）齐的时候，要求至少一句是跨局记录或跨回合统计，
 // 至多一句是纯处境/陪坐、至多一句情绪、至多一句接话，且一条里不能只有一句。
-export function checkCompanionInformation(text,{parts=[],requireStance=false,klass=null}={}){
+// freshIntro 是「本机一条记录都没有」的那一段：那一段本来就没有任何可核对的事，
+// 第二句（「我是陪着你一起打的那只小芽」）说的是陪练**在场**，不是新事实，
+// 所以这一段豁免「至少一句跨局信息」这一关；**其余每一关照旧**——克制扫描、
+// 复述屏幕、空泛打鸡血、编造过去一个都不放过（见 chatReply 的 evidence 与上一段的硬线）。
+export function checkCompanionInformation(text,{parts=[],requireStance=false,klass=null,freshIntro=false}={}){
  const t=String(text??'').trim(),reasons=[];
  if(!t)return {valid:false,reasons:['empty-text']};
  if(SCREEN_ECHO.test(t))reasons.push('restates-screen');
@@ -755,7 +1152,7 @@ export function checkCompanionInformation(text,{parts=[],requireStance=false,kla
   const kinds=parts.map(p=>p.kind);
   const informative=kinds.filter(k=>k==='memory'||k==='derived').length;
   const soft=kinds.filter(k=>k==='situation'||k==='presence').length;
-  if(!informative)reasons.push('no-new-information');
+  if(!informative&&!freshIntro)reasons.push('no-new-information');
   if(soft>1)reasons.push('too-much-filler');
   if(kinds.filter(k=>k==='affect').length>1)reasons.push('too-many-affects');
   if(kinds.filter(k=>k==='chat').length>1)reasons.push('too-many-chat');
@@ -767,6 +1164,10 @@ export function checkCompanionInformation(text,{parts=[],requireStance=false,kla
    reasons.push(...stance.reasons);
   }
  }
+ // 没有记录时段的专用硬线（见 EMPTY_LEDGER_ECHO）：不许播报「我这儿还是空的」、
+ // 不许念「0胜0负」、不许把人推去开一局。这几条与句子来源无关（没给 parts 也要拦），
+ // 只在 freshIntro 为真时生效，免得「玩家直接问账本」那种该讲账本的场合被误伤。
+ if(freshIntro&&EMPTY_LEDGER_ECHO.test(t))reasons.push('empty-ledger-echo');
  return {valid:reasons.length===0,reasons:[...new Set(reasons)],counts:{memory:parts.filter(p=>p.kind==='memory').length,derived:parts.filter(p=>p.kind==='derived').length,affect:parts.filter(p=>p.kind==='affect').length}};
 }
 
@@ -783,12 +1184,23 @@ export function checkCompanionInformation(text,{parts=[],requireStance=false,kla
 // `decideRegister` 又在没有任何记录时提前返回 R0。两条加在一起，全新玩家（freshMemory）
 // 说「你好」「今天有点累」「随便陪我聊两句」，拿到的是同一句「我在。」——面试官打开 Demo
 // 看到的第一句话就是这三个字，CHAT_THREADS 在空账本下等于不存在。修法是给每条线程补一版
-// 「空账本」接话，两条纪律同时成立：
-//   1. 接住句子本身（问候回问候，说累接累，要人陪聊就应一声）。用词只来自玩家这一轮
-//      自己说的话（名字也是他自己说的），所以一条记录都没有也不会编造过去；
-//   2. 第二句说实话：`memory.events` 里一局都还没有。这是可核对的事实（空账本），
-//      不是安慰，也不是编出来的「上次」。
-// 有记录时行为不变：接完话落一件真的记得的事（跨局记录 / 本命 / 答对过的题）。
+// 「没有记录」时的接话：接住句子本身（问候回问候，说累接累，要人陪聊就应一声），用词只来自
+// 玩家这一轮自己说的话（名字也是他自己说的），所以一条记录都没有也不会编造过去。
+//
+// ── 第四次修正：接话不该把玩家推走，也不该播报自己的数据库 ────────────────────
+// 上一版的第二句是「你打的局我这儿一局都还没记上，等你打完第一局我就能接上话」。
+// 它每一个字都是真的，但**姿态**是错的，和上一轮被批掉的「我看得有点急」属于同一类毛病：
+//   ① 说的是**系统状态**（本机记录是空的），不是玩家这个人——玩家听到的是数据库，不是伙伴；
+//   ② 把陪练自己的限制当成开场白：没有历史从来不是玩家的问题，更不该是见面第一句；
+//   ③ 把玩家推开——「去开一局吧，打完我才能陪你聊」等于「你先去干活，干完我才理你」，
+//      陪伴被挂上了「你得先有战绩」的前提，这就是拒绝对话；
+//   ④ 顺口念出「0胜0负」——「没有的、是 0 的就不要讲」这条早就定了，这里又犯了一次。
+// 所以没有记录时第二句改成**在场的陪伴**：不解释自己有没有数据，不推向对局，不列选项菜单，
+// 问候就回问候，把它当成两个人碰面，不是一次 API 调用。三条硬线不变：
+//   · 不编造过去（一个字都不提「上次／之前／那天」）；
+//   · 不因为记录为空就把玩家推去开一局（禁止词表 EMPTY_LEDGER_ECHO 会拦）；
+//   · 玩家直接问账本时才讲账本（record 线程原样保留）。
+// 有记录时行为完全不变：接完话落一件真的记得的事（跨局记录 / 本命 / 答对过的题）。
 const PET_NAMES=SPECIES.map(s=>s.name).join('|');
 // 战术问句是军师的活：这类句子不走闲聊线程，免得陪练抢答。
 const TACTICAL_HINT=/怎么打|怎么用|怎么配|怎么选|建议|该不该|怎么办|咋办|该怎么|换上|换成|换掉|技能|能量|克制|属性|先手|防御|守住|培养|加点|阵容|战术|值得|哪个好/;
@@ -799,39 +1211,117 @@ const TIRED_LINE=/累|疲惫|没精神|困/;
 const UPSET_LINE=/烦|难受|心情|压力|撑不住|不想玩|不想打/;
 const MOOD_LINE=new RegExp(`${TIRED_LINE.source}|${UPSET_LINE.source}`);
 const CHAT_ASK_LINE=/陪我聊|随便聊|聊聊|说说话|唠|闲聊|说两句/;
-// 空账本的第二句。它确实是「关于过去」的一句话，但说的是**没有记录**这件事本身，
-// 所以它一个编造的过去都不含：memory.events 为空，正是「一局都还没记上」。
-const EMPTY_LEDGER_OPEN='你打的局我这儿一局都还没记上，等你打完第一局我就能接上话。';
-const EMPTY_LEDGER_MOOD='你打的局我这儿还没记上——先不聊对局，想说什么都行。';
-const EMPTY_LEDGER_MORE='账本还是空的，今天这些话我记着；第一局打完就能聊具体的了。';
+// 「没有记录」时的第二句：**在场的陪伴**，不是一句关于数据库的说明。
+// 三句话里没有任何一个关于过去的字，也没有一句把玩家推去开一局——
+// 陪练不需要玩家先有战绩才肯陪着说话，这正是第四次修正要守的那条线。
+// 同时它也不解释「我这儿有没有数据」：那是系统状态，不是两个人碰面时该说的话。
+// 而且它不**宣称**自己在听：「你说话我都在听」「你说的我还听着」是接线员台词，
+// 真人用行动证明在听，不用一句台词来说明（而且它不说「我一直都在」——那是空泛打鸡血，FILLER 会拦）。
+// 换成一句把人放慢的话：短、有停顿、不承诺任何东西。
+const COMPANION_NOTE_OPEN='慢慢来，不急。';
+// 续说的第二句：上一句已经在接着那个话题说了（「还累着啊——」「嗯，小芽还在。」），
+// 这一句只需要把节奏放慢，不再重复一次「接着说」，也不再宣称自己还在听。
+const COMPANION_NOTE_MORE='不急。';
+// 说累／说烦那一轮的第二句：先让人歇着，不问对局，也不提记录。
+// 它不写死「累了」——同一句要同时接住「累」和「烦」，写死一个词会让另一类对不上。
+const COMPANION_NOTE_MOOD='不用急着说什么。';
+// 陪伴句与接话句必须成对地互不相同（问候／说累／要人陪聊 × 开场／续说），
+// 否则两种问候会拼出同一段话——「三句问候三句不同」的验收会直接变红。
+// 这个内层函数名沿用下来，但它现在**不再是**「说明记录是空的」：
+// 它给的是「本机一条记录都没有」那一轮该说的**在场陪伴**（kind 记为 presence，
+// 因为它确实不含任何事实——不许把它标成 memory，那等于把一句陪伴句伪装成跨局信息）。
 function emptyLedgerLine(continuing=false,mood=false){
- return continuing?EMPTY_LEDGER_MORE:(mood?EMPTY_LEDGER_MOOD:EMPTY_LEDGER_OPEN);
+ return continuing?COMPANION_NOTE_MORE:(mood?COMPANION_NOTE_MOOD:COMPANION_NOTE_OPEN);
 }
 // 接住玩家这一句：问候回问候，说累接累，要人陪聊就应一声。
 // 开场与续说两版出自同一个函数，所以第二轮的接话一定不是开场那句。
-function selfLine(message,continuing){
+// fresh=true（本机一条记录都没有）时只换一处：问候那一轮的续说换成「嗯，小芽还在。」——
+// 有记录时那句「还在，接着聊。」也成立，但两个分支的接话句本来就没提过任何记录，
+// 所以除了这一处，空账本与原路径共用同一套接话句，两条分支的距离不会越拉越远。
+function selfLine(message,continuing,fresh=false){
  const t=String(message||'');
+ // 说心情时用**玩家自己那个词**（见 moodWord）：他说「不想打」，不能回他「烦」——
+ // 换词就等于告诉他「我没在听你说什么」，这是 reflective listening 第一步要挡掉的错。
+ // 续说那一轮六种词都以「还」起头，所以「第二轮必须听得出是接着上一轮」照旧成立。
+ const w=moodWord(t);
  if(continuing){
+  if(w)return MOOD_ECHO_MORE[w];
   if(TIRED_LINE.test(t))return '还累着啊——那就接着说。';
   if(UPSET_LINE.test(t))return '还烦着啊——那接着说。';
   if(CHAT_ASK_LINE.test(t))return '还聊我啊，那我接着说。';
-  if(GREETING_LINE.test(t))return '还在，接着聊。';
-  return '还聊我啊，那我再说一件。';
+  if(GREETING_LINE.test(t))return fresh?'嗯，小芽还在。':'还在，接着聊。';
+  // 空账本下没有「再说一件」这回事：一件都没记着，许这个诺就是假话。
+  // 有记录时照旧（那时确实还有一件记得的事在后面）。
+  return fresh?'还聊啊，好。':'还聊我啊，那我再说一件。';
  }
+ if(w)return MOOD_ECHO[w];
  if(TIRED_LINE.test(t))return '今天累了就先缓着。';
  if(UPSET_LINE.test(t))return '烦就先搁着，不聊对局也行。';
- if(CHAT_ASK_LINE.test(t))return '行，聊两句。';
+ if(CHAT_ASK_LINE.test(t))return '嗯，那就聊。';
+ // 「问候就回问候」：有记录时原本是「你好，我是小芽。」，同一句放在没有记录时也成立——
+ // 它说的是「谁在跟你说话」，不是「我这儿有没有数据」，所以不泄露任何系统状态。
  if(GREETING_LINE.test(t))return '你好，我是小芽。';
  return '我在——小芽，一直跟着你的那只。';
 }
 // 玩家这一轮自己提到的伙伴名：空账本下唯一能说出口的名字，因为它出自玩家这句话。
 function namedPet(message){const m=String(message||'').match(new RegExp(PET_NAMES));return m?m[0]:null;}
+
+// ── 说心情时**就停在心情上** ────────────────────────────────────────────────
+// 「今天有点累」这句话上一版谁都没接住：`chatReply` 在有记录时把「说心情」整个让给了
+// 关切通道（见下面的闸门），而关切通道给的是一段统计——「最近6局里，最先倒下的都是X」。
+// 玩家说累，你跟他讲他倒下过几次，这是雪上加霜：**数据不是此刻他要的东西**。
+// 所以这一类单独有一条出口，两步，都不含任何事实：
+//   ① 接词（mimic）——把他自己用过的那个词原样接回来；
+//   ② 停在那个词上——允许他此刻什么都不做，不报战绩、不提回合数、不问对局、也不劝。
+// 这是「每条都要有信息量」这条纪律**唯一**一处例外，理由是：有时候「再说事」这一步
+// 根本不该发生。代价是它过不了 checkCompanionInformation 的「至少一句跨局信息」——
+// 那一条本来是为「不许说空话」设的，而这里说的不是空话，是陪着；所以按 socialOnly 放行，
+// 并由 companion.test.js 的「人味」那一组逐条钉住它**不许夹带任何事实**。
+// 玩家这一轮自己用过的那个词，原样取回、**不做同义替换**：
+// 他说「累」，回「疲惫」就等于告诉他「我没在听你说什么」——reflective listening 的
+// 第一步是 mimic，换词就把这一步做废了。`困(?!难)` 是为了不把「困难」当成「困」。
+const MOOD_WORD_RE=/撑不住|不想玩|不想打|没精神|疲惫|难受|压力|心情|困(?!难)|累|烦/;
+function moodWord(message=''){
+ const m=String(message||'').match(MOOD_WORD_RE);
+ return m?m[0]:null;
+}
+// ① 接词：开场与续说两版，续说用「还」起头，让人听得出是接着上一轮。
+const MOOD_ECHO={累:'今天累了啊——',疲惫:'是真疲惫了——',没精神:'没精神啊——',困:'困了啊——',
+ 烦:'烦啊——',难受:'难受啊——',心情:'心里不痛快啊——',压力:'压力大啊——',撑不住:'撑不住了啊——',
+ 不想玩:'不想玩了啊——',不想打:'不想打了啊——'};
+const MOOD_ECHO_MORE={累:'还累着啊——',疲惫:'还疲惫着——',没精神:'还没缓过来啊——',困:'还困着啊——',
+ 烦:'还烦着啊——',难受:'还难受着啊——',心情:'心里还不痛快啊——',压力:'还压着啊——',撑不住:'还撑着啊——',
+ 不想玩:'还不想玩啊——',不想打:'还不想打啊——'};
+// ② 停在那个词上：只做一件事——允许他此刻什么都不做。
+const MOOD_COMPANY={累:'那就先歇着，不用急着做什么。',疲惫:'那就先歇着，不用急着做什么。',
+ 没精神:'那就先歇着，不用急着做什么。',困:'那就先歇着，不用急着做什么。',
+ 烦:'烦就先搁着，不聊对局也行。',难受:'那就先别管对局了。',心情:'那就先别管对局了。',
+ 压力:'那就先别管对局了。',撑不住:'那就先停下来。',
+ 不想玩:'那就不玩，没人催你。',不想打:'那就不打，没人催你。'};
+function moodLine(message,{continuing=false}={}){
+ const w=moodWord(message);
+ if(!w)return null;
+ const echo=(continuing?MOOD_ECHO_MORE:MOOD_ECHO)[w],company=MOOD_COMPANY[w];
+ if(!echo||!company)return null;
+ return {text:echo+company,word:w,parts:[SENT(echo,'chat','本轮消息'),SENT(company,'presence',null)]};
+}
+// 玩家只是道谢或应了一声：应一声就够，不必开启一段观察。
+// 「我在。」是状态回报，人不会用它回答「谢谢」；有记录时更冷——上一版对「谢谢」的
+// 唯一回应是一段战绩统计，那答的是账本，不是人。
+const THANKS_WORD=/^(谢谢|多谢|辛苦了|感谢)/;
+const ACK_WORD=/^(好的|好|嗯|哦|ok|OK|收到)/;
+function socialLine(message=''){
+ const t=String(message||'').trim();
+ if(THANKS_WORD.test(t))return '嗯，不用谢。';
+ if(ACK_WORD.test(t))return '嗯。';
+ return '在的。';
+}
 export const CHAT_THREADS=[
  {id:'self',
   match:new RegExp(`你是谁|你叫什么|你叫啥|小芽|陪练|在吗|你在吗|你在干嘛|你还?记得我吗|认识我吗|陪我聊|随便聊|聊聊|你好|您好|hi|hello|嗨|早|${MOOD_LINE.source}`,'i'),
   signature:/小芽|陪练/,
-  opener:(f,{message=''}={})=>({chat:selfLine(message,false),memory:linesOf(f).length?`你打过的那${linesOf(f).length}局我都留着底。`:null}),
-  followup:(f,{message=''}={})=>({chat:selfLine(message,true),memory:habitLine(f)})},
+  opener:(f,{message='',fresh=false}={})=>({chat:selfLine(message,false,fresh),memory:linesOf(f).length?`你打过的那${linesOf(f).length}局我都留着底。`:null}),
+  followup:(f,{message='',fresh=false}={})=>({chat:selfLine(message,true,fresh),memory:habitLine(f)})},
  {id:'away',
   match:/好久没|好久不见|很久没|最近忙|几天没|一段时间没|回来了|回坑|没怎么玩|没时间玩/,
   signature:/上次来|隔了\d+天|好久/,
@@ -840,15 +1330,20 @@ export const CHAT_THREADS=[
    ?{chat:'你回来啦。',memory:`你上次来是${f.daysAgo}天前，那天打了${sessionCount(f)}局，${sessionWins(f)}胜${sessionLosses(f)}负。`}
    :{chat:'回来就好，先坐会儿。',memory:null},
   followup:(f,{message=''}={})=>linesOf(f).length&&f.daysAgo!==null
-   ?{chat:'接着说你不在的这段——',memory:habitLine(f)||`你上次来是${f.daysAgo}天前，那天的记录我还留着。`}
-   :{chat:'接着说你不在的这段，我听着。',memory:null}},
+   ?{chat:'你不在的这段啊。',memory:habitLine(f)||`你上次来是${f.daysAgo}天前，那天的记录我还留着。`}
+   :{chat:'你不在的这段啊，慢慢说。',memory:null}},
  {id:'pet',
   match:new RegExp(`本命|最喜欢|最爱|最常带|哪只|哪一只|你记得.{0,6}(队伍|伙伴|宠物)|${PET_NAMES}`),
   signature:new RegExp(PET_NAMES),
   opener:(f,{message=''}={})=>{
    const pet=knownPet(f);
-   if(pet&&petFaints(f)>0)return {chat:`${pet}啊。`,memory:`你最近${linesOf(f).length}局的记录里，它倒下过${petFaints(f)}次。`};
-   if(!linesOf(f).length){const said=namedPet(message);return {chat:said?`${said}啊。`:'想聊哪只都行。',memory:null};}
+   const total=linesOf(f).length;
+   if(pet&&petFaints(f)>0)return {chat:`${pet}啊。`,memory:`你最近${total}局的记录里，它倒下过${petFaints(f)}次。`};
+   // 有记录、但这一只一次都没倒下过：**这也是一条真的记录，而且是好消息**。
+   // 上一版这里直接 return null，于是玩家问「我的本命是X」会掉回观察通道，
+   // 拿到一段与 X 完全无关的统计（「最先倒下的都是Y」）——问 A 答 B 是最伤人的那种冷。
+   if(pet&&total>0)return {chat:`${pet}啊。`,memory:`这${total}局的记录里，它一次都没倒下过。`};
+   if(!total){const said=namedPet(message);return {chat:said?`${said}啊。`:'你说哪只，我就聊哪只。',memory:null};}
    return null;},
   followup:(f,{message=''}={})=>{
    const pet=knownPet(f),falls=petFirstFallen(f);
@@ -860,7 +1355,7 @@ export const CHAT_THREADS=[
   match:/战绩|胜率|赢了几|输了几|几胜|几负|打了几局|多少局|账本/,
   signature:/这几局|今天第\d+次|^\d+胜|胜\d*负/,
   opener:(f,{message=''}={})=>linesOf(f).length
-   ?{chat:'想问账本啊，我给你念真的。',memory:`最近${linesOf(f).length}局${winCount(f)}胜${lossCount(f)}负，${todayCount(f)>0?`其中${todayCount(f)}局是今天打的`:'今天的还没记上'}。`}
+   ?{chat:'账本啊，我照实说。',memory:`最近${linesOf(f).length}局${winCount(f)}胜${lossCount(f)}负，${todayCount(f)>0?`其中${todayCount(f)}局是今天打的`:'今天还没打'}。`}
    :{chat:'账本啊——',memory:null},
   followup:(f,{message=''}={})=>linesOf(f).length
    ?{chat:'接着说这几局——',memory:longestTurns(f)?`回合数是${linesOf(f).slice(-3).map(e=>num(e.turns,1)||'?').join('、')}，${paceWords(f)}`:'这几局的回合数我都记着。'}
@@ -909,7 +1404,7 @@ function habitLine(f){
  const top=Object.entries(tally).sort((a,b)=>b[1]-a[1])[0];
  if(!top||top[1]<2)return null;
  const turns=linesOf(f).filter(e=>name(e.firstFallen)===top[0]).map(e=>num(e.firstLossTurn,1)).filter(Boolean);
- return turns.length>=2?`最先倒下的${top[0]}已经${top[1]}次了，最近一次在第${turns.at(-1)}回合——这个习惯我还记着。`:`最先倒下的${top[0]}已经${top[1]}次了，这个我还记着。`;
+ return turns.length>=2?`最先倒下的${top[0]}已经${top[1]}次了，最近一次在第${turns.at(-1)}回合。`:`最先倒下的${top[0]}已经${top[1]}次了。`;
 }
 export function chatThread(text=''){const t=String(text||'');return CHAT_THREADS.find(thread=>thread.match.test(t))||null;}
 // 上一轮聊的是哪个话题：先看玩家自己那句话，再看陪练的回话。
@@ -939,32 +1434,35 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  const thread=own||prev;
  if(!thread)return null;
  const continuing=Boolean(prev&&(!own||own.id===prev.id));
- const opts={message:text,continuing};
+ // fresh 一路传给线程文案：本机一条记录都没有时，接话句换「嗯，小芽还在。」这一版。
+ // 两个分支都不涉及任何过去，也不提记录。
+ const opts={message:text,continuing,fresh:!hasRecord};
  // 续说版本拼不出来（例如那天没有习惯记录）就退回开场版本，宁可少一句也不空着。
  const built=(continuing?thread.followup(f,opts):thread.opener(f,opts))||thread.opener(f,opts);
  if(!built)return null;
  // 第二句：先落一件真的记得的事（跨局记录 / 本命 / 答对过的题）。
- // 一条记录都没有时，说实话——账本还是空的，第一局打完才有得聊。这句话也是可核对的
- // 事实（memory.events 为空），不是安慰，更不是编出来的「上次」。
+ // 一条记录都没有时**不再播报「我这儿还是空的」**（那是系统状态，不是人话，而且会把人推去开一局），
+ // 改成一句在场的陪伴（kind=presence）：不解释自己有没有数据，不推向对局，也不列选项菜单。
+ // 它确实不含任何事实——所以不许冒充 memory，那会把「至少一句跨局信息」这条自检架空。
  const second=built.memory
-  ?{text:built.memory,source:'memory.events'}
+  ?{text:built.memory,kind:'memory',source:'memory.events'}
   :hasRecord?null
-  :f.knowsFavorite?{text:`你说过本命是${f.favorite}，这个我记着。`,source:'memory.favorite'}
-  :f.lessons.length?{text:`你答对过的${list(f.lessons)}，我这儿记着。`,source:'memory.lessons'}
-  :{text:emptyLedgerLine(continuing,MOOD_LINE.test(text)),source:'memory.events（空账本）'};
+  :f.knowsFavorite?{text:`你跟我说过，本命是${f.favorite}。`,kind:'memory',source:'memory.favorite'}
+  :f.lessons.length?{text:`你答对过的${list(f.lessons)}，我这儿记着。`,kind:'memory',source:'memory.lessons'}
+  :{text:emptyLedgerLine(continuing,MOOD_LINE.test(text)),kind:'presence',source:'没有记录（在场）'};
  if(!second)return null;
  const affects=[],last=linesOf(f).at(-1);
  if(thread.id==='record'&&last){
   if(last.result==='win')affects.push(AFFECT('praise','最近这一局是拿下的，收得漂亮。','memory.events.result'));
   else if(last.result==='loss')affects.push(AFFECT('pity','最近这一局没拿下来，可惜。','memory.events.result'));
  }
- const sentences=[SENT(built.chat,'chat','本轮消息'),SENT(second.text,'memory',second.source),...affects];
+ const sentences=[SENT(built.chat,'chat','本轮消息'),SENT(second.text,second.kind,second.source),...affects];
  const fit=fitSentences(sentences,limit);
  if(!fit)return null;
  return {text:fit.text,parts:fit.parts,thread:thread.id,continued:continuing,emptyLedger:!hasRecord,evidence:[
   `闲聊线程「${thread.id}」：你这一轮说的是「${text.slice(0,24)}」，${continuing?'接着上一轮同一个话题往下说':'开了一个新话题'}（来源：本轮消息 + memory.dialogue 的上一轮）。`,
   hasRecord?`跨局记录：已结束 ${linesOf(f).length} 场，${winCount(f)}胜${lossCount(f)}负（来源：memory.events）。`
-   :'跨局记录：memory.events 里一局都还没有（空账本）。这一轮只能说实话「还没记上」，不许提任何过去，也不许编一局出来。',
+   :'跨局记录：memory.events 里一局都还没有（没有记录）。这一轮只接住玩家这句话本身，不许提任何过去、不许念「0胜0负」、也不许把人推去开一局；玩家自己问账本时才讲账本。',
   hasRecord&&f.daysAgo!==null?`最近一次记录在 ${f.daysAgo} 天前（来源：memory.events.time）。`:'',
   hasRecord&&knownPet(f)?`记录里最常出现的是 ${knownPet(f)}，它出现过 ${petAppearances(f)} 次、倒下过 ${petFaints(f)} 次（来源：memory.events.faints）。`:'',
   hasRecord?`回合数记录：${linesOf(f).map(e=>num(e.turns,1)||'?').join('、')}（来源：memory.events.turns）。`:'',
@@ -994,12 +1492,25 @@ export function companion(context={},memory={},message=''){
  const limit=REGISTERS[state.register]?.limit||REGISTERS.R1.limit;
  // followupReply 是「接住追问」的修复句，不是一条新观察，所以不参加信息量自检。
  let register=state.register,text=null,reading=null,parts=[],observed=true,chat=null;
- if(register==='R0')text='我在。';
+ // 这两类**不接观察**，只接住人（理由见 moodLine 与 socialLine）：说心情（累／烦／
+ // 不想打了）与只道谢／应一声。放在观察通道之前，因为它们要的回应不是事实。
+ // socialOnly=true 表示这一句按设计就不含任何事实，跳过「至少一句跨局信息」那一关；
+ // 其余每一关照旧（复述屏幕、自我中心的情绪、空泛打鸡血、说教、战术指令都还在拦，
+ // companion.test.js 的「人味」那一组还会逐条钉住它不许夹带回合数、胜负数与倒下回合）。
+ let socialOnly=false;
+ const social=SOCIAL_ONLY.test(words.trim())?socialLine(words):null;
+ // 心情只在 R1／R2 出口：R0 的字数上限是 8 字（REGISTERS.R0.limit），装不下一整句陪伴；
+ // R3 是「已经连败、收尾陪坐」，那一档本来就在说「连着N局没赢……到这儿也行」，
+ // 那是陪着不是汇报，所以不在这里改它。
+ const mood=(register==='R1'||register==='R2')?moodLine(words,{continuing:Boolean(previousChatThread(memory))}):null;
+ if(register==='R0'){if(social){text=social;parts=[SENT(social,'chat','本轮消息')];socialOnly=true;}else text='我在。';}
  else if(register==='R1'||register==='R2'){
   // 玩家主动搭话（寒暄、家常、问陪练自己）先走闲聊线程：接住这句话，再落一件记得的事。
   // 战术问句与倾诉不走这里——前者是军师的活，后者由 R2/R3 的关切句接。
   chat=chatReply({message:words,memory,facts:f,intent,limit,now});
   if(chat){text=chat.text;parts=chat.parts;}
+  else if(mood){text=mood.text;parts=mood.parts;socialOnly=true;}
+  else if(social){text=social;parts=[SENT(social,'chat','本轮消息')];socialOnly=true;}
   else if(register==='R1'){
    reading=pick(CLASSES);
    if(reading){const fit=fitSentences(reading.sentences,limit);text=fit?.text||null;parts=fit?.parts||[];}
@@ -1007,22 +1518,37 @@ export function companion(context={},memory={},message=''){
  }
  if(!text&&register==='R3'){
   const lead=state.lossStreak>=2?SENT(`连着${state.lossStreak}局没赢。`,'memory','memory.events.result'):null;
-  const r=pick(CLASSES);
-  const body=[lead,...(r?r.sentences:[])].filter(Boolean).slice(0,2);
-  const fit=body.length?fitSentences(body,limit,SENT('到这儿也行，想继续我就在。','presence',null)):null;
-  if(fit){text=fit.text;parts=fit.parts;reading=r;}
+  // R3 是「玩家在倾诉，而记录里真的连着输」。这一档要说的只有两件事：处境（连着N局没赢）
+  // 与「到这儿也行」。**不接观察**——实测过的病灶是「有点烦」换回
+  // 「最近3局里，最先倒下的都是烬尾狐——最近几次在第3回合、第2回合」：
+  // 他烦的时候跟他讲他倒下过几次，这是雪上加霜，是汇报不是陪着（同 moodLine 的理由）。
+  // 有效倾诉先接住那个词（mimic），再落处境，最后给一句「到这儿也行」。
+  const moodR3=moodLine(words,{continuing:Boolean(previousChatThread(memory))});
+  if(moodR3&&!lead){
+   // 没有处境句可落（连败不足 2 局）：退回纯心情那一条，不为了凑信息量硬塞一句统计。
+   text=moodR3.text;parts=moodR3.parts;socialOnly=true;
+  }else{
+   const r=moodR3?null:pick(CLASSES);
+   const body=[...(moodR3?[SENT(moodR3.parts[0].text,'chat','本轮消息')]:[]),lead,...(r?r.sentences:[])].filter(Boolean).slice(0,2);
+   const fit=body.length?fitSentences(body,limit,SENT('到这儿也行，先歇会儿。','presence',null)):null;
+   if(fit){text=fit.text;parts=fit.parts;reading=r;}
+  }
  }else if(!text&&intent==='followup'){text=followupReply(memory).text;observed=false;}
  else if(!text&&register==='R2'){
   // R2 是玩家真的问了一句话：给两条观察（各带自己的来源），而不是把 R1 那句重说一遍。
   reading=pick(CLASSES);
   const second=reading?readings.find(r=>r!==reading&&CLASSES.includes(r.klass)):null;
   const body=reading?[...(f.preference==='brief'?reading.sentences.slice(0,1):reading.sentences.slice(0,2)),...(second?[second.sentences[0]]:[])].slice(0,3):[];
-  const offer=f.live&&!f.live.over&&body.length<2?SENT('这一局想聊哪一步，说一声就行。','presence','context.battle'):null;
+  const offer=f.live&&!f.live.over&&body.length<2?SENT('这一局哪一步不顺，你说。','presence','context.battle'):null;
   const fit=body.length?fitSentences(body,limit,offer):null;
   if(fit){text=fit.text;parts=fit.parts;}
  }
  // 说出来的每一句都要过自检：没有新信息、或者又变成复述屏幕，就当这条不存在。
- if(observed&&text&&text!=='我在。'&&!checkCompanionInformation(text,{parts}).valid){text=null;reading=null;parts=[];chat=null;}
+ // 走的是「本机一条记录都没有」的接话段（chat.emptyLedger）时，豁免「至少一句跨局信息」，
+ // 但**照旧**拦「播报我这儿是空的／把人推去开一局」这类姿态错误（freshIntro 里的硬线）。
+ // socialOnly 的两类（说心情／只道谢）按设计就不含事实，唯一豁免的是「至少一句跨局信息」
+ // 与「至少两句」这两条**信息量**判据；它们的文本来自固定小词表，由测试逐条钉住不许夹带事实。
+ if(observed&&!socialOnly&&text&&text!=='我在。'&&!checkCompanionInformation(text,{parts,freshIntro:Boolean(chat?.emptyLedger)}).valid){text=null;reading=null;parts=[];chat=null;}
  // 该档位需要的事实一条都拼不出来时，降到 R0 只说承接句：档位要么真的用上，要么明说降到最低。
  if(!text){register='R0';text='我在。';state.register='R0';state.registerReason='该档位需要的事实在本机记录里一条都找不到，降到最短承接句';reading=null;parts=[];chat=null;}
  return publicPacket({text,register,state,intent,reading,chat});
@@ -1035,11 +1561,15 @@ function liveGame(context={}){
  return {stageName:context.stageName||null,turn:b.turn,result:b.result||null,player:b.player,enemy:b.enemy,history:[]};
 }
 
+// 玩家追问上一句时，先把那句原话接回来再说，不换话题。
+// 上一版这里讲的是**陪练自己的解析能力**（「这句我还没接准。你说的是哪一处？」）
+// 并且把球踢回给玩家（「可以指出哪一点不对，我接着核对」）——那是 QA 工单的口气，
+// 不是一个人在跟你说话。接住原话、把话头递回去，就够了。
 function followupReply(memory){
  const last=(memory.dialogue||[]).filter(x=>x?.role==='assistant'&&typeof x.content==='string').at(-1)?.content;
- if(!last)return {text:'这句我还没接准。你说的是哪一处？',source:'memory.dialogue'};
+ if(!last)return {text:'你想问哪一段，我再说一遍。',source:'memory.dialogue'};
  const quote=last.replace(/[？?]+/g,'，').replace(/[。；，、\s]+$/,'').slice(0,36).replace(/[。；，、\s]+$/,'');
- return {text:`你是在接着刚才那句问：${quote}。可以指出哪一点不对，我接着核对。`,source:'memory.dialogue'};
+ return {text:`刚说的是「${quote}」。哪句不清楚，我再讲一遍。`,source:'memory.dialogue'};
 }
 
 // 每个数字都出现在依据里：这样模型改写后的答案也能通过 checkGroundedAnswer 的数字核对，
@@ -1080,19 +1610,21 @@ function publicPacket({text,register,state,intent,reading=null,chat=null}){
 // allow 里写清这一轮**该有**的东西：情绪不是被禁止的，被禁止的是把情绪落在自己身上。
 export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false}={}){
  const r=REGISTERS[register];
- // 空账本时送模型的那句话要换掉：原来写的是「至少一句要来自跨局记录（memory.events）」，
- // 而 memory.events 是空的——照这句写，模型只能编一局出来。这时宁可明说：不许提过去。
+ // 没有记录时送模型的那句话要换掉：原来写的是「至少一句要来自跨局记录（memory.events）」，
+ // 而 memory.events 是空的——照这句写，模型只能编一局出来；
+ // 上一版补的是「并说明记录还是空的」，那句话又把模型推向了另一个错：播报系统状态。
+ // 现在明说两件事：不许提过去，也不许讲「我这儿有没有数据」——没有历史就直接不聊历史。
  const grounding=emptyLedger
-  ?'本机还没有任何对战记录（memory.events 为空）：不许提过去，也不许编一局出来——只接住玩家这句话本身，并说明记录还是空的。'
+  ?'本机还没有任何对战记录（memory.events 为空）：不许提过去，也不许编一局出来；也不要说「记录还是空的／一局都还没记上」这类关于本机数据的话——没有历史就不聊历史，直接不聊它。'
   :'至少一句要来自跨局记录（memory.events）或跨回合统计（game.history），否则不如不说；';
  // 第二轮是在接着上一轮说：这一点也要写给模型。实测里只给「上一轮说过什么」不够，
  // 模型会把第二轮当成一个新问题答，读起来就是「各说各的」。
  const threading=continuing?'这一轮是接着上一轮同一个话题说：正文里要让人听得出是接着说的（「还聊」「接着说」这类词），不要另起一件不相干的事。':'';
- // 闲聊通道的一轮：模型的毛病是把「没有记录」讲成「等你打完再来」——那是把人挡回去。
- // 空账本时唯一该做的是接住这句话，所以这一条要和「不许提过去」分开写清楚。
- const smallTalk=chat?'这一轮是玩家主动搭话：先用一句话回他这句话本身（问候就回问候，说累就接住累，想聊天就应一声），再落事实；不要用「等你打完一回合再来」这类把人挡回去的说法。':'';
+ // 闲聊通道的一轮：模型的毛病有两个，一个是把「没有记录」讲成「等你打完再来」（把人挡回去），
+ // 另一个是接着报出「0胜0负」并把话题列成菜单（客服话术）。两条都要分开写清楚。
+ const smallTalk=chat?'这一轮是玩家主动搭话：先用一句话回他这句话本身（问候就回问候，说累就接住累，想聊天就应一声），再顺着说下去；不要用「等你打完一回合再来」「打完我就能接上话了」这类把人挡回去的说法，不要念「0胜0负」这种全零的账，也不要把话题列成选项菜单。':'';
  return {register,voice,maxChars:r.limit,maxQuestions:r.maxQuestions,allowAdvice:r.advice,
-  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':''].filter(Boolean),
+  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':'',emptyLedger?'播报本机有没有记录（「记录还是空的」「一局都还没记上」），或者把玩家推去开一局（「去开一局吧」「打完我就能接上话」）':''].filter(Boolean),
   allow:['对真实事件的可惜/漂亮/悬/憋屈/松口气（必须落在具体回合、数字或记录上）','跨局记录与偏好（玩家以前说过、打过的事）'],
   instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，只写有本机记录支撑的事实。${grounding}${threading}${smallTalk}不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
 }
@@ -1110,7 +1642,7 @@ const TACTICAL_OVERREACH=/建议(你)?(换|用|改|选|出)|不如(换|用|选)|
 // 复述屏幕 / 自我中心的情绪 / 空泛安慰 / 水平羞辱 / 说教 / 战术越界 / 没有记录支撑的过去，任何声线下都拦。
 // 注意第三条：拦的是「情绪落在陪练自己身上」，不是情绪本身——落在事件上的
 // 可惜/漂亮/悬/憋屈/松口气必须放行，否则「有情绪」这一项又被这条扫描做成 0。
-export function checkCompanionRestraint(text,{register='R2',facts={},previousAssistant='',voice='companion'}={}){
+export function checkCompanionRestraint(text,{register='R2',facts={},previousAssistant='',voice='companion',emptyLedger=false}={}){
  const t=String(text??''),reasons=[],registerInfo=REGISTERS[register]||REGISTERS.R2;
  if(!t.trim())return {valid:false,reasons:['empty-text'],register,limit:registerInfo.limit,voice};
  if(t.length>registerInfo.limit)reasons.push(`over-limit:${t.length}>${registerInfo.limit}`);
@@ -1118,6 +1650,10 @@ export function checkCompanionRestraint(text,{register='R2',facts={},previousAss
  if(questions>registerInfo.maxQuestions)reasons.push(`too-many-questions:${questions}>${registerInfo.maxQuestions}`);
  if(SELF_CENTERED_EMOTION.test(t)||SELF_FOCUS.test(t))reasons.push('speaker-feeling');
  if(SCREEN_ECHO.test(t))reasons.push('restates-screen');
+ // 没有记录时段：播报「我这儿是空的」、念「0胜0负」、把人推去开一局，都是姿态错误，一律拦。
+ // 玩家自己问账本时该讲账本，所以这条由调用方用 emptyLedger 明确打开。
+ if(emptyLedger&&EMPTY_LEDGER_ECHO.test(t))reasons.push('empty-ledger-echo');
+ if(emptyLedger&&EMPTY_LEDGER_MENU.test(t))reasons.push('smalltalk-menu');
  if(FILLER.test(t))reasons.push('empty-encouragement');
  if(/菜|太弱|你错了|你不行|水平不够|速度意识差|手残|瞎打|乱打|不会玩|没天赋|水平差/.test(t))reasons.push('skill-insult');
  if(PREACH.test(t))reasons.push('preach');
@@ -1139,7 +1675,7 @@ export function checkCompanionRestraint(text,{register='R2',facts={},previousAss
 // **完全分开**：军师把额度用光不会让陪练闭嘴，陪练说满也不会动军师一次。
 // cooldownTurns=3：话变长了，两次开口之间至少隔 3 个回合，不然左下角会连成一片。
 export const COMPANION_LIMITS={maxPerMatch:4,cooldownTurns:3,reducedAfterDismissals:2,quietAfterDismissals:4};
-export const COMPANION_EVENTS=['result','streak-loss','streak-win','first-faint','return','rematch','stage','type','habit','trend','clutch','live'];
+export const COMPANION_EVENTS=['result','streak-loss','streak-win','first-faint','return','rematch','stage','type','habit','trend','clutch','live','highlight','blunder','collapse'];
 
 // 一局内的陪练记账。与 coach/memory.js 的 adaptiveGate 读同一份 dismiss 记录、同一个 7 天窗口，
 // 但**不共用**军师的 session：近 7 天被主动关掉 2 次降到每局 1 次，4 次降到 0 次。
@@ -1206,12 +1742,17 @@ export function companionEvents(game,{said=[],session=null,winStreak=0,lossStrea
   const register=eventRegister(event,{lossStreak});
   return readingsFor(event,bundle,used).some(r=>fitReading(r,register));
  };
- // 整局结束：先看跨局里程碑，其次才是普通结算。结算也要过同一把尺——
- // 这一局所有能说的都被说过时，收尾那句宁可不说，也不重说一遍。
+ // 整局结束：先看这一局是怎么收的（赢得惊险／翻盘／差一点／高光收尾／散掉／里程碑），
+ // 结算的普通那一版排在最后。结算也要过同一把尺——这一局所有能说的都被说过时，
+ // 收尾那句宁可不说，也不重说一遍。
  if(game?.result){
   const closing=game.result==='win'&&winStreak>=2?'streak-win':game.result==='loss'&&lossStreak>=3?'streak-loss':'result';
   return sayable(closing)?[closing]:[];
  }
+ // 刚结算的那一手排在跨局观察前面：玩家刚打出一记漂亮的收尾、或者刚走了一手臭棋，
+ // 陪练要先对**这一刻**有反应，而不是先说「这套阵容你打过三次」。
+ // collapse（伙伴连着倒）最重，其次是臭棋（该安慰的那一下），再是高光（该夸的那一下）。
+ for(const event of ['collapse','blunder','highlight'])if(sayable(event))return [event];
  // 开局两句之内先说「跨局」那一类（这套阵容打过几次、隔了几天、上一局最先倒的是谁）：
  // 玩家刚坐下来的时候最需要的是「它记得我」，不是复述这一回合发生了什么。
  if(turn<=2&&sayable('return'))return ['return'];
@@ -1250,7 +1791,7 @@ export function eventRegister(event,{lossStreak=0}={}){
 export function fitReading(reading,register='R4'){
  if(!reading)return null;
  const limit=REGISTERS[register]?.limit||REGISTERS.R4.limit;
- const tail=register==='R3'?SENT('到这儿也行，想继续我就在。','presence',null):null;
+ const tail=register==='R3'?SENT('到这儿也行，先歇会儿。','presence',null):null;
  const fit=fitWithStance(orderSentences(reading.sentences),limit,tail);
  if(!fit)return null;
  const requireStance=STANCE_REQUIRED.includes(reading.klass);
@@ -1287,12 +1828,20 @@ export function proactiveReading(event,context={},register='R4',{used=null,now=D
  const faint=context.faint||faintFact(signals,context.fallen?.length?context.fallen.at(-1):null);
  const bundle={cross,signals,context:{turn:context.turn||signals.turns||null,result:context.result||fallback,
   winStreak:context.winStreak||0,lossStreak:context.lossStreak||0,items:context.items||null,goal,faint},now};
- const reading=readingsFor(event,bundle,used)[0];
- const fit=fitReading(reading,register);
- if(!fit)return null;
- // 这一句消耗掉的话题：自己的，加上借用那句话所属的。
- const topics=readingTopics(reading);
- return {text:fit.text,readingId:reading.id,topics,parts:fit.parts,evidence:reading.evidence,register};
+ // 从高到低找**第一条真的说得出口**的观察，而不是「最高优先级那条」。
+ // 这两件事在时刻层加进来之后不再等价：一条时刻观察可能字数装不下、或者撞上硬线
+ // （实测：窄胜那条第一版写了「对面还剩0只」，撞上「不复述屏幕」的扫描），
+ // 只试第一条的话，这一回合就会因为「排序第一的那条说不出」而整句哑掉——
+ // 而后面明明还有一条能说的（里程碑）。触发层（companionEvents 的 sayable）用的是
+ // 「有没有一条说得出口」，这里必须与它同口径。
+ for(const reading of readingsFor(event,bundle,used)){
+  const fit=fitReading(reading,register);
+  if(!fit)continue;
+  // 这一句消耗掉的话题：自己的，加上借用那句话所属的。
+  const topics=readingTopics(reading);
+  return {text:fit.text,readingId:reading.id,topics,parts:fit.parts,evidence:reading.evidence,register};
+ }
+ return null;
 }
 export function proactiveText(event,context={},register='R4',options={}){
  const reading=proactiveReading(event,context,register,options);

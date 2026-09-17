@@ -27,6 +27,9 @@ export function coachEvent(event,context,session){
  if(session.said.has(event))return null;
  const limit=Number.isInteger(session.limit)?session.limit:COMPANION_LIMITS.maxPerMatch;
  // 结算是这一局的收尾句（「到这儿也行」），不让它被局内的额度挤掉：局内 4 次 + 结算 1 次。
+ // 时刻那三类（highlight / blunder / collapse）**不**进这张表：它们仍然是局内开口，
+ // 一样受「每局 4 次 + 两次之间隔 3 回合」的约束——陪练不是转播，宁可漏掉一个时刻，
+ // 也不能让左下角连成一片（那条约束由 companion.test.js 的冷却用例守着）。
  const closing=event==='result'||event==='streak-win'||event==='streak-loss';
  if(!closing&&session.count>=limit)return null;
  if(!closing&&session.lastTurn!==null&&context.turn-session.lastTurn<COMPANION_LIMITS.cooldownTurns)return null;

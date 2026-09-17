@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {createGame,step,legalActions,rankEnemyActions,SKILLS,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords} from './coach/companion.js';
+import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,EMPTY_LEDGER_ECHO,EMPTY_LEDGER_MENU,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {strategistTrigger,strategistSession,attentionState} from './coach/experience.js';
 import {coachEvent,coachContext} from './coach.js';
@@ -897,12 +897,16 @@ test('small talk never hijacks a tactical question, and never invents a chat thr
  assert.equal(answer.register,'R2');
  assert.equal(answer.chatThread,null,'战术提问不能被闲聊线程接走');
  assert(!/小芽，一直跟着你的那只/.test(answer.text),answer.text);
- // 没有任何记录时也开闲聊，但只接住这句话本身 + 一句实话「账本还是空的」，不编经历
+ // 没有任何记录时也开闲聊：只接住这句话本身 + 一句在场的陪伴，不编经历，
+ // 也不播报「我这儿还是空的」（那是系统状态，见下面那一组验收）。
  const bare=chatReply({message:'你好',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'});
  assert(bare,'空账本下的寒暄也必须接住，不能返回 null 让玩家拿到「我在。」');
  assert.equal(bare.thread,'self');
  assert.equal(bare.emptyLedger,true);
  assert.match(bare.text,/你好/);
+ assert.match(bare.text,/小芽/,bare.text);
+ assert(!EMPTY_LEDGER_ECHO.test(bare.text),`空账本下不许播报「我这儿还是空的」，也不许把人推去开一局：${bare.text}`);
+ assert(!EMPTY_LEDGER_MENU.test(bare.text),`空账本下不许把话题列成选项菜单：${bare.text}`);
  assert(!/上次|之前|上回|上一场|那一局|那天/.test(bare.text),`空账本下不许提过去：${bare.text}`);
  assert.equal(companion({mode:'camp'},freshMemory(),'你好').text,bare.text,'被动通道走的必须是同一句接话');
  // 线程识别本身：认出上一轮玩家说过的话题，也认得出陪练回话里的签名
@@ -927,6 +931,12 @@ const HYPE_TALK=/加油|别灰心|你已经很棒|你能行|一定可以|没关�
 // 硬线（本轮新增）：空账本下不许出现编造的过去。这些说法在一条记录都没有时没有依据，
 // 「之前你／上次」正是审阅点名要拦的那类。
 const FAKE_PAST=/上次|上回|之前你|以前的|你以前|上一场|那一局|那天你|你打过的那一局|我记得你|已经打过/;
+// 空账本下连「我这儿记着」这类**声称有记忆**的说法也不能出现：那时 memory.events 是空的，
+// 说了就是假话。有记录时这两句恰恰是正确行为（见本组最后那条），所以单独列一张表。
+const EMPTY_LEDGER_MEMORY_CLAIM=/我这儿记着|我都留着底|记录我还留着|我记着/;
+// 本轮新增的第四条硬线（见文件末尾「空账本聊天不许播报自己的数据库」那一组）：
+// 空账本下不许播报系统状态、不许把人推去开一局、不许念全零的账、不许把话题列成菜单。
+const EMPTY_LEDGER_BAN=/记录还是空|还没记上|没有记上|一局都还没|一局也没|0胜0负|零胜零负|去开一局|开一局吧|先打一局|打完.{0,4}能接上话|等你打完|等你有了|有记录才|没数据|没有数据|还没有数据|账本是空|账本还是空|你的记录(还)?是空/;
 function sayFresh(memory,message){
  const answer=companion({mode:'camp'},memory,message);
  return {answer,memory:{...memory,dialogue:[...(memory.dialogue||[]),{role:'user',content:message},{role:'assistant',content:answer.text}].slice(-8)}};
@@ -950,11 +960,18 @@ test('fresh memory: the three greetings get three different answers, and the sec
   // 空账本的依据里也不能冒出战绩：说了没有记录，就得真的是空的
   assert(answer.evidence.some(x=>/memory\.events 里一局都还没有/.test(x)),answer.evidence.join(' | '));
   assert(!/已结束\s*[1-9]/.test(answer.evidence.join(' ')),'空账本的依据里不许有战绩');
-  // 空账本下按最严的口径过一遍克制扫描：连「过去」都不许提
-  assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]}}).valid,
-   `${answer.text} → ${checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]}}).reasons.join(',')}`);
+  // 空账本下按最严的口径过一遍克制扫描：连「过去」都不许提，
+  // 并且明确打开 emptyLedger——那一段的硬线（播报空记录／推去开一局／列菜单）在扫描里也拦。
+  assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).valid,
+   `${answer.text} → ${checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).reasons.join(',')}`);
+  // 本轮新增的硬线：没有历史就直接不聊历史，也不聊「我这儿有没有数据」。
+  assert(!EMPTY_LEDGER_BAN.test(answer.text),`「${message}」播报了系统状态或把玩家推去开一局：${answer.text}`);
+  assert(!EMPTY_LEDGER_MENU.test(answer.text),`「${message}」把话题列成了选项菜单：${answer.text}`);
+  assert(!EMPTY_LEDGER_ECHO.test(answer.text),`「${message}」命中了空账本禁止词表：${answer.text}`);
+  assert(!EMPTY_LEDGER_MEMORY_CLAIM.test(answer.text),`「${message}」声称自己记得：${answer.text}`);
  }
- // 接住的是话头，不是同一句模板：问候得到应答，说累得到的接话里带着「累」
+ // 接住的是话头，不是同一句模板：问候得到应答，说累得到的接话里带着「累」。
+ // 问候那一轮同时说清「谁在陪你」（名字在第一句里），不靠第二句补充身份。
  assert(/你好/.test(firsts[0].text)&&/小芽/.test(firsts[0].text),firsts[0].text);
  assert(/累/.test(firsts[1].text),firsts[1].text);
  assert(/聊/.test(firsts[2].text),firsts[2].text);
@@ -971,8 +988,10 @@ test('fresh memory: the three greetings get three different answers, and the sec
   assert(!FAKE_PAST.test(two.answer.text),`第二轮编造了过去：${two.answer.text}`);
   assert(!TACTIC_TALK.test(two.answer.text),`第二轮给了战术指令：${two.answer.text}`);
   assert(!HYPE_TALK.test(two.answer.text),`第二轮是空泛打鸡血：${two.answer.text}`);
-  assert(checkCompanionRestraint(two.answer.text,{register:two.answer.register,facts:{allowPast:false,lessons:[]}}).valid,
+  assert(checkCompanionRestraint(two.answer.text,{register:two.answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).valid,
    `${second}：${two.answer.text}`);
+  assert(!EMPTY_LEDGER_BAN.test(two.answer.text),`第二轮播报了系统状态或把玩家推去开一局：${two.answer.text}`);
+  assert(!EMPTY_LEDGER_MENU.test(two.answer.text),`第二轮把话题列成了菜单：${two.answer.text}`);
   // 第二轮问的如果是「今天有点累」，接话必须落在这件事上（不是换一件毫不相干的事）
   if(/累/.test(second))assert(/累/.test(two.answer.text),`说累却没有接住：${two.answer.text}`);
  }
@@ -1003,12 +1022,16 @@ test('negative verification: the old 「一律 R0／一律『我在。』」 cha
  const check=checkCompanionInformation('我在。',{parts:old[0].parts});
  assert.equal(check.valid,false);
  assert(check.reasons.includes('no-new-information'));
- // 同一条自检对新实现是过的：接话句 + 一句 memory（空账本），两句都有来源
+ // 同一条自检对新实现是过的——但**必须带上 freshIntro**：没有记录时第二句是在场的陪伴
+ // （presence），不是跨局信息，所以这一段明确豁免「至少一句跨局信息」那一关，
+ // 而不是把一句陪伴句标成 memory 去骗过它（那样等于把这条自检架空）。
  const fresh=chatReply({message:'你好',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'});
  assert(fresh,'空账本下 chatReply 必须给出接话句（旧实现这里返回 null）');
- const freshCheck=checkCompanionInformation(fresh.text,{parts:fresh.parts});
+ const freshCheck=checkCompanionInformation(fresh.text,{parts:fresh.parts,freshIntro:true});
  assert.equal(freshCheck.valid,true,freshCheck.reasons.join(','));
- assert.deepEqual(fresh.parts.map(p=>p.kind),['chat','memory']);
+ assert.deepEqual(fresh.parts.map(p=>p.kind),['chat','presence']);
+ // 默认口径（不打开 freshIntro）仍然把同一段话判成「没有新信息」：豁免是有开关的，不是默认放行
+ assert(checkCompanionInformation(fresh.text,{parts:fresh.parts}).reasons.includes('no-new-information'));
 });
 
 
@@ -1106,4 +1129,390 @@ test('军师/老师在场时陪练照样能说话——内容边界不等于时�
   '刚显示过仍要压住，免得一闪一闪');
  // 排队太久就丢掉，不补一句过时的话
  assert.equal(companionCueSlot({barVisible:true,queuedAt:now-999999,now}).action,'drop');
+});
+
+// ── 空账本聊天不许播报自己的数据库：用户实测后的第四次修正 ────────────────────
+// 用户看到的两句真实输出：
+//   「你好哦」   → 「你好呀，小芽在。你这边本机对战记录还是空的，一局都还没记上…去开一局吧，打完我就能接上话了。」
+//   「我们聊聊呗」→ 「行，聊两句。你这边一局都还没记上，0胜0负，想聊宠物、配招还是道具都行。」
+// 四个病：① 讲的是系统状态不是玩家这个人（和上一轮被批掉的「我看得有点急」同类）；
+// ② 把自己的限制当成开场白；③ 把玩家推开（「去开一局吧，打完我才能陪你聊」＝拒绝对话）；
+// ④ 念「0胜0负」——「没有的、是 0 的就不要说」这条早就定过。
+// 正确姿态：在场、温和、不解释自己、不推人走、不列菜单。三条硬线不变：不编造过去、
+// 不因为记录为空就把人推去开一局、玩家直接问账本时才讲账本。
+const FRESH_CHAT_GREETINGS=['你好哦','我们聊聊呗','今天有点累'];
+test('空账本闲聊：不播报「我这儿是空的」，不推人走，不念全零，不列菜单',()=>{
+ const firsts=[];
+ for(const message of FRESH_CHAT_GREETINGS){
+  const answer=companion({mode:'camp'},freshMemory(),message);
+  firsts.push(answer.text);
+  // 还要接得住：一句 8 字以内的 R0 承接句不算接住
+  assert.notEqual(answer.text,'我在。',`空账本下不许只回「我在。」（玩家说的是「${message}」）`);
+  assert.equal(answer.register,'R1',`「${message}」应当接住，而不是降档`);
+  assert.equal(answer.chatThread,'self');
+  // ① 不许提「记录是空的／一局都还没记上」这类系统状态
+  assert(!EMPTY_LEDGER_ECHO.test(answer.text),`「${message}」播报了自己的数据库：${answer.text}`);
+  // ② 不许念全零的账
+  assert(!/0\s*胜\s*0\s*负|零胜零负/.test(answer.text),`「${message}」念了全零的账：${answer.text}`);
+  // ③ 不许把玩家推去开一局
+  assert(!/去开一局|开一局吧|先打一局|打完.{0,4}能接上话|等你打完/.test(answer.text),`「${message}」把玩家推去开一局：${answer.text}`);
+  // ④ 不许列选项菜单（「想聊宠物、配招还是道具都行」）
+  assert(!EMPTY_LEDGER_MENU.test(answer.text),`「${message}」把话题列成了菜单：${answer.text}`);
+  assert(!EMPTY_LEDGER_BAN.test(answer.text),`「${message}」命中了空账本禁止词表：${answer.text}`);
+  // 硬线不变
+  assert(!FAKE_PAST.test(answer.text),`「${message}」编造了过去：${answer.text}`);
+  assert(!TACTIC_TALK.test(answer.text),`「${message}」闲聊里给了战术指令：${answer.text}`);
+  assert(!HYPE_TALK.test(answer.text),`「${message}」是空泛打鸡血：${answer.text}`);
+  assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).valid,
+   `${answer.text} → ${checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).reasons.join(',')}`);
+ }
+ // 三句问候还是三句不同的话，而且问候就回问候（第一句带着名字）
+ assert.equal(new Set(firsts).size,3,`三种问候得到了同一句：${firsts.join(' | ')}`);
+ assert(/你好/.test(firsts[0])&&/小芽/.test(firsts[0]),firsts[0]);
+ assert(/聊/.test(firsts[1]),firsts[1]);
+ assert(/累/.test(firsts[2]),firsts[2]);
+ // 第二轮仍要承接：存下第一轮的 dialogue 再走一轮
+ for(const first of FRESH_CHAT_GREETINGS)for(const second of FRESH_CHAT_GREETINGS){
+  const one=sayFresh(freshMemory(),first);
+  const two=sayFresh(one.memory,second);
+  assert.equal(two.answer.chatThread,'self',`${first} → ${second} 没接住线程`);
+  assert.equal(two.answer.chatContinued,true,`${first} → ${second} 没认出上一轮的话题`);
+  assert.notEqual(two.answer.text,one.answer.text,`${first} → ${second} 把第一轮那句重说了`);
+  assert(/还|接着/.test(two.answer.text),`${first} → ${second} 没有明说在接着上一轮：${two.answer.text}`);
+  assert(!EMPTY_LEDGER_ECHO.test(two.answer.text),`${first} → ${second} 第二轮又播报了自己的数据库：${two.answer.text}`);
+  assert(!EMPTY_LEDGER_MENU.test(two.answer.text),`${first} → ${second} 第二轮把话题列成了菜单：${two.answer.text}`);
+  assert(!FAKE_PAST.test(two.answer.text),`${first} → ${second} 第二轮编造了过去：${two.answer.text}`);
+  assert(!EMPTY_LEDGER_MEMORY_CLAIM.test(two.answer.text),`${first} → ${second} 第二轮声称自己记得：${two.answer.text}`);
+  // 说累那一轮，第二轮必须还落在这件事上
+  if(/累/.test(second))assert(/累/.test(two.answer.text),`说累却没有接住：${two.answer.text}`);
+ }
+ // 这一段本来就没有可核对的记录：豁免的只有「至少一句跨局信息」这一关，别的照旧。
+ // 豁免必须**明确打开**（freshIntro），默认口径仍然拦得住同一段话——否则等于把自检废掉。
+ const fresh=companion({mode:'camp'},freshMemory(),'你好哦');
+ const freshChat=chatReply({message:'你好哦',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'});
+ assert.equal(freshChat.emptyLedger,true);
+ assert.equal(checkCompanionInformation(fresh.text,{parts:freshChat.parts,freshIntro:true}).valid,true,
+  checkCompanionInformation(fresh.text,{parts:freshChat.parts,freshIntro:true}).reasons.join(','));
+ const strict=checkCompanionInformation(fresh.text,{parts:freshChat.parts});
+ assert.equal(strict.valid,false,'没有明确打开 freshIntro 时，这条自检必须照旧返回不合格');
+ assert(strict.reasons.includes('no-new-information'),strict.reasons.join(','));
+ assert.equal(strict.reasons.includes('empty-ledger-echo'),false,'新文案不该命中禁止词表');
+ // 「想找人聊两句」和「你好」一样是闲聊意图：判成 other 时模型那一侧的措辞没底
+ for(const text of ['我们聊聊呗','随便聊聊','聊聊呗','陪我聊两句','说说话','唠两句','我们聊聊天'])assert.equal(intentOf(text),'chat',`「${text}」应当判成闲聊意图`);
+ for(const text of ['这局怎么打','聊聊配招'])assert.notEqual(intentOf(text),'chat',`「${text}」不是闲聊，别被接话通道截走`);
+ // 有记录时那条真记得的事一个字都不能弄坏
+ const withRecord=companion({mode:'camp'},history([winGame(),lossGame()]),'你好');
+ assert.match(withRecord.text,/你打过的那2局我都留着底/,withRecord.text);
+ assert(!EMPTY_LEDGER_ECHO.test(withRecord.text),withRecord.text);
+ assert(!EMPTY_LEDGER_MENU.test(withRecord.text),withRecord.text);
+});
+
+// ── 负向验证：把文案改回上面那两句（用户实测的原文），这一组必须变红 ────────────
+// 逐字复刻用户看到的两句，用来当对照组跑同一条验收：两条旧文案必须每一条都不合格。
+// 这就是「改回旧文案 → 测试变红」的可执行版本，不靠人工比对。
+function legacyEmptyLedgerText(message){
+ const t=String(message||'');
+ if(/累|疲惫|没精神|困/.test(t))return '今天累了就先缓着。你打的局我这儿还没记上——先不聊对局，想说什么都行。';
+ if(/聊聊|陪我聊|随便聊|说两句/.test(t))return '行，聊两句。你这边一局都还没记上，0胜0负，想聊宠物、配招还是道具都行。';
+ return '你好呀，小芽在。你这边本机对战记录还是空的，一局都还没记上…去开一局吧，打完我就能接上话了。';
+}
+test('negative verification: the old 「记录还是空的／去开一局吧」 copy fails this acceptance',()=>{
+ const legacy=legacyEmptyLedgerText('你好哦');
+ // ① 两句旧文案都命中禁止词表：只要改回去，上面那组断言立刻变红
+ assert(EMPTY_LEDGER_ECHO.test(legacy),'对照组：旧文案必须命中空账本禁止词表');
+ assert(EMPTY_LEDGER_BAN.test(legacy),'对照组：旧文案必须命中本轮新增的禁止词表');
+ assert(EMPTY_LEDGER_ECHO.test(legacyEmptyLedgerText('我们聊聊呗')),'对照组：菜单那句也必须被拦');
+ // ② 逐条点名用户看到的四个病
+ assert(/记录还是空的/.test(legacy),'① 它在讲自己的数据库');
+ assert(/还没记上|一局都还没记上/.test(legacy),'② 它把自己的限制当成开场白');
+ assert(/去开一局吧|打完我就能接上话/.test(legacy),'③ 它把玩家推开');
+ assert(/0胜0负/.test(legacyEmptyLedgerText('我们聊聊呗')),'④ 它念了全零的账');
+ assert(EMPTY_LEDGER_MENU.test(legacyEmptyLedgerText('我们聊聊呗')),'⑤ 它把话题列成了菜单');
+ // ③ 这些不能只是「测试里写死的正则」：真接通道也必须拒绝这两句
+ const bare=chatReply({message:'你好哦',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'});
+ assert(!EMPTY_LEDGER_ECHO.test(bare.text),`现在的真输出不该命中：${bare.text}`);
+ assert.equal(checkCompanionInformation(bare.text,{parts:bare.parts,freshIntro:true}).valid,true);
+ // 同一段话换成旧文案，同一把尺子必须判不合格
+ assert.equal(checkCompanionInformation(legacy,{parts:bare.parts,freshIntro:true}).valid,false,
+  '空账本自检必须把旧文案拦下来');
+ assert(checkCompanionInformation(legacy,{parts:bare.parts,freshIntro:true}).reasons.includes('empty-ledger-echo'));
+ assert.equal(checkCompanionRestraint(legacy,{register:'R1',facts:{allowPast:false,lessons:[]},emptyLedger:true}).valid,false,
+  '克制扫描必须把旧文案拦下来');
+ // ④ 续说那一轮同样拦得住：旧实现里它只是把同一句再说一遍
+ assert(!/还聊|接着/.test(legacyEmptyLedgerText('我们聊聊呗')),'对照组：旧文案第二轮没有承接词');
+ assert.equal(legacyEmptyLedgerText('我们聊聊呗'),legacyEmptyLedgerText('随便聊聊'),'对照组：旧实现换句话还是同一句');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 对「刚发生的那一刻」给反应：十个场景，每个都要有真实输出
+//
+// 这一组测的不是「有没有情绪词」，而是**情绪挂在哪一刻上**。用户的判定是：
+// 上一版交付的是「一份事后统计 + 贴一个情绪词」（「对面打出的96点伤害全落在烬尾狐身上……
+// 这一局憋屈」）——统计没有错，但它不是陪练该说的话。陪练要做的是对刚结算的那一手有反应。
+// 所以每条断言都落在「那一刻」上：正文里必须出现那一手的回合号与当事人，
+// 情绪句也必须落在同一个回合上。全部对局由引擎真跑出来，不是手写的读数。
+// ═══════════════════════════════════════════════════════════════════════════
+// 一条「对那一刻的反应」的三条硬要求：点出那一刻（回合号 + 当事人）、情绪落在同一回合上、
+// 并且过得了发布尺（字数/信息量/克制扫描）。**把情绪改回挂在聚合统计上（旧写法）过不了它**，
+// 所以这个函数同时是负向验证的判据（见本段最后一条测试）。
+function assertMomentReaction(line,{turn,names=[],stance=null,label=''}){
+ assert(line,`${label}：这一刻没有说出任何话`);
+ assert(line.parts&&line.parts.length>=2,`${label}：不是 2–3 句：${line.text}`);
+ const affect=line.parts.find(p=>p.kind==='affect');
+ assert(affect,`${label}：这条话没有情绪句（改回统计播报就会这样）：${line.text}`);
+ assert(line.text.includes(String(turn)),`${label}：没有回到第 ${turn} 回合那一刻：${line.text}`);
+ for(const n of names)assert(line.text.includes(n),`${label}：没有点出那一刻的「${n}」：${line.text}`);
+ assert(affect.text.includes(String(turn)),`${label}：情绪没有落在第 ${turn} 回合上：${affect.text}`);
+ assert(AFFECT_WORDS.test(affect.text),`${label}：情绪句里没有五种立场之一：${affect.text}`);
+ if(stance)assert.equal(affect.affect,stance,`${label}：立场不对（想要 ${stance}）：${affect.text}`);
+ assertSpeakable(line);
+ return line;
+}
+// 从观察编号里取那一刻：`highlight:2:苔盾菇` → 第 2 回合、苔盾菇。
+function momentOf(line){
+ const parts=String(line.readingId||'').split(':');
+ return {turn:Number(parts[1]),names:[parts[2]].filter(x=>x&&!/^\d+$/.test(x))};
+}
+function momentLine(lines,prefix,label){
+ const line=lines.find(l=>String(l.readingId||'').startsWith(prefix));
+ assert(line,`${label}：整局没有说出这一类（实际说了：${lines.map(l=>l.readingId).join('、')||'一句都没有'}）`);
+ return line;
+}
+
+test('moment 1 highlight: a finish off a half-health foe is praised on that exact strike',()=>{
+ const {game,lines}=replay(3,freshMemory(),{smart:true,difficulty:'easy'});
+ const line=momentLine(lines,'highlight:','高光');
+ const m=momentOf(line);
+ assertMomentReaction(line,{...m,stance:'praise',label:'高光'});
+ // 夸的是「哪一下」：这一记用的技能必须在句子里（回合记录里打向它的那些技能之一）
+ const skills=(game.history||[]).flatMap(h=>h.events||[]).filter(e=>typeof e==='string'&&e.includes(m.names[0])&&/你的.+造成/.test(e))
+  .map(e=>e.match(/使用(.+?)，/)[1]);
+ assert(skills.length,`高光那一记在回合记录里找不到：${m.names[0]}`);
+ assert(skills.some(sk=>line.text.includes(sk)),`没有夸在那一记技能上（${skills.join('/')}）：${line.text}`);
+ assert(line.text.includes(m.names[0]),`没有点出被收掉的那一只：${line.text}`);
+});
+test('moment 2a blunder: the kill left standing gets comfort on that hand, not a lecture',()=>{
+ const {lines}=replay(1,freshMemory());
+ const line=momentLine(lines,'blunder:','臭棋·该收没收');
+ assertMomentReaction(line,{...momentOf(line),stance:'pity',label:'该收没收'});
+ assert(/站在那儿只剩|只剩\d+点/.test(line.text),`没有说清那一刻它只剩多少：${line.text}`);
+});
+test('moment 2b blunder: the hit that landed exactly on the last HP gets comfort on that hand',()=>{
+ const {lines}=replay(3,freshMemory());
+ const line=momentLine(lines,'blunder:','臭棋·该防没防');
+ assertMomentReaction(line,{...momentOf(line),stance:'pity',label:'该防没防'});
+ assert(/对面那记/.test(line.text),`没有点出对面那一记：${line.text}`);
+});
+test('moment 3 clutch: surviving on a sliver is reacted to on that turn',()=>{
+ const {lines}=replay(1,freshMemory());
+ const line=momentLine(lines,'clutch:','贴着血皮撑过来');
+ const m=momentOf(line);
+ assertMomentReaction(line,{...m,label:'残血撑过'});
+ assert(/只剩\d+点/.test(line.text),`没有说清那一刻剩多少：${line.text}`);
+});
+test('moment 4 collapse: partners falling one after another is 憋屈 on those two turns',()=>{
+ const {lines}=replay(2,freshMemory());
+ const line=momentLine(lines,'collapse:','伙伴连着倒');
+ const m=momentOf(line);
+ assertMomentReaction(line,{...m,stance:'grind',label:'崩盘'});
+ // 两只都要点出来：谁在第几回合下去的
+ const falls=[...line.text.matchAll(/第(\d+)回合([\u4e00-\u9fa5]{2,4})下去|第(\d+)回合([\u4e00-\u9fa5]{2,4})也跟着倒了/g)];
+ assert(line.text.split('第').length>=3,`只点了一只，没说出「连着倒」：${line.text}`);
+});
+test('moment 5 comeback: a win from behind is marvelled at on the turn it turned',()=>{
+ const {lines}=replay(1,freshMemory(),{smart:true});
+ const line=momentLine(lines,'comeback:','翻盘');
+ assertMomentReaction(line,{...momentOf(line),stance:'praise',label:'翻盘'});
+ assert(/领先\d+点|对面还剩\d+只/.test(line.text),`没有说出中盘落后在哪儿：${line.text}`);
+});
+test('moment 6 near-miss: a loss by a sliver is 可惜 and carries no analysis',()=>{
+ const {lines}=replay(3,freshMemory(),{strategy:'guard',difficulty:'easy'});
+ const line=momentLine(lines,'near-miss:','惜败');
+ assertMomentReaction(line,{...momentOf(line),stance:'pity',label:'惜败'});
+ assert(/只剩\d+点/.test(line.text),`没有点出差的那几点：${line.text}`);
+ // 惜败不分析：不许出现战术指令或说教（checkCompanionRestraint 覆盖，这里再钉一次硬线）
+ assert(!/应该|建议|下次|换上|换成|集火|先出/.test(line.text),`惜败不该变成复盘：${line.text}`);
+});
+test('moment 7 milestone: a first clear is celebrated with the ledger, not with a stat sheet',()=>{
+ const {lines}=replay(3,freshMemory(),{smart:true,difficulty:'easy'});
+ const line=momentLine(lines,'milestone:','里程碑');
+ const turn=Number((line.text.match(/第(\d+)回合/)||[])[1]);
+ assertMomentReaction(line,{turn,names:[],stance:'praise',label:'里程碑'});
+ assert(/第一局|连着\d+局/.test(line.text),`里程碑没有说出跨局的那笔账：${line.text}`);
+ assert(line.text.includes('冠军高地'),`里程碑没有点出是哪张图：${line.text}`);
+});
+test('moment 8 return: coming back after days still remembers where you left off',()=>{
+ let memory=freshMemory();
+ for(const [seed,options] of [[1,{}],[2,{}],[4,{strategy:'smart'}]])memory=rememberBattle(memory,play(seed,options));
+ const away=backdate(memory,6);
+ const {lines}=replay(9,away);
+ const line=momentLine(lines,'return:','久别');
+ assert(/6天前/.test(line.text),line.text);
+ assert(AFFECT_WORDS.test(line.text),`久别那句没有情绪落点：${line.text}`);
+ assert(!/想你了|好久不见呀|欢迎回来/.test(line.text));
+ assertSpeakable(line);
+});
+test('moment 9 stage again: the same stage is noted gently, on the turn it stopped last time',()=>{
+ let memory=freshMemory();
+ for(const seed of [1,2])memory=rememberBattle(memory,play(seed,{}));
+ const {lines}=replay(2,memory);
+ const line=momentLine(lines,'stage:','又翻同一关');
+ assert(/又回到/.test(line.text),`没有认出「又来同一张图」：${line.text}`);
+ assert(/第\d+回合/.test(line.text),`没有说出上次停在哪一刻：${line.text}`);
+ assert(!/你就是|你总是|又犯|还是不行|水平/.test(line.text),`「又翻同一关」不许变成指责：${line.text}`);
+ assertSpeakable(line);
+});
+test('moment 10 narrow win: it breathes first, then looks back at the last blow',()=>{
+ const {lines}=replay(3,freshMemory(),{smart:true});
+ const line=momentLine(lines,'narrow-win:','赢得惊险');
+ assertMomentReaction(line,{...momentOf(line),stance:'relief',label:'赢得惊险'});
+ assert(/最后一记|最后那记/.test(line.text),`没有回看收尾那一手：${line.text}`);
+ assert(/只剩\d+点|只剩.+一个/.test(line.text),`没有说出当时多险：${line.text}`);
+});
+test('the hard lines hold on every moment line, and a fresh memory never invents a past',()=>{
+ const scenes=[[1,{}],[2,{}],[3,{smart:true,difficulty:'easy'}],[54,{difficulty:'easy'}]];
+ const momentPrefixes=['highlight:','blunder:','collapse:','clutch:','comeback:','narrow-win:','near-miss:','milestone:'];
+ let seen=0;
+ for(const [seed,options] of scenes){
+  const {lines}=replay(seed,freshMemory(),options);
+  for(const line of lines){
+   if(!momentPrefixes.some(p=>String(line.readingId||'').startsWith(p)))continue;
+   seen++;
+   // ① 不评价玩家水平 / ② 不空泛安慰 / ③ 不说教 / ④ 不抢军师的活 / ⑤ 不复述屏幕 / ⑥ 不自我中心
+   const scan=checkCompanionRestraint(line.text,{register:line.register,facts:{allowPast:true,lessons:[]}});
+   assert(scan.valid,`时刻那一句撞了硬线（${scan.reasons.join('、')}）：${line.text}`);
+   assert(!/菜|太弱|手残|不会玩|瞎打|乱打|没天赋|水平差|你错了/.test(line.text),`评价了玩家水平：${line.text}`);
+   assert(!/加油|别灰心|你已经很棒|再接再厉|下次一定|一定可以|你可以的|不要放弃|没关系的|放轻松|我一直都在|我陪着你|你不是一个人/.test(line.text),`空泛安慰：${line.text}`);
+   assert(!/你应该|你必须|你最好|下一次?别|以后别|下次记得|要记住|不该|别再/.test(line.text),`说教：${line.text}`);
+   assert(!/建议|不如换|最好换|换上|换成|集火|先出|先打|留着药/.test(line.text),`抢了军师的活：${line.text}`);
+   assert(!SCREEN_ECHO.test(line.text),`复述屏幕：${line.text}`);
+   assert(!SELF_CENTERED_EMOTION.test(line.text)&&!SELF_FOCUS.test(line.text),`把镜头对准了陪练自己：${line.text}`);
+   // ⑦ 本机一条记录都没有时，不许提任何「过去」
+   assert(!/上次|上回|之前你|以前的|上一场|上一局|那天|已经打过/.test(line.text),`没有记忆却提了过去：${line.text}`);
+  }
+ }
+ assert(seen>=6,`这一组没有真的压到时刻那一层（只看到 ${seen} 句）`);
+});
+test('negative verification: hang the affect back on an aggregate statistic and the scenes go red',()=>{
+ const game=play(3,{smart:true,difficulty:'easy'});
+ const context=coachContext(game,newProfile(),freshMemory());
+ // ① 拿掉「刚发生的那一刻」，只留聚合统计 → 时刻场景全部说不出话。
+ // 这正是「把情绪改回挂在统计上」的后果：统计里没有「哪一手」，就没有可以回应的那一刻。
+ const stripped={...context.signals,moment:null,finish:null,cascade:null};
+ for(const event of ['highlight','blunder','collapse'])assert.equal(proactiveText(event,{...context,signals:stripped},'R4'),null,
+  `${event}：没有那一刻就该闭嘴，不许退回统计播报`);
+ for(const event of ['result','streak-loss']){
+  const reading=proactiveReading(event,{...context,signals:stripped},'R1');
+  if(reading)assert(!/^(narrow-win|comeback|near-miss|collapse|highlight|milestone)/.test(reading.readingId),
+   `${event}：没有收尾那一手，就不该再产出时刻读数（实际：${reading.readingId}）`);
+ }
+ // ② 聚合统计本身不许再带情绪词——旧写法就是「统计 + 贴一个情绪词」。
+ const readings=companionReadings({cross:context.cross,signals:context.signals,context:{turn:game.turn,result:game.result}});
+ const aggregates=['soak','trade','fading','standoff','dry'];
+ const stats=readings.filter(r=>aggregates.some(k=>String(r.id).startsWith(k+':')));
+ assert(stats.length>=1,`这一局应当算得出聚合统计（实际：${readings.map(r=>r.id).join('、')}）`);
+ for(const r of stats)assert(!r.sentences.some(s=>s.kind==='affect'),
+  `聚合统计里又贴上了情绪词（旧写法）：${r.sentences.map(s=>s.text).join('')}`);
+ // ③ 把旧写法那一句塞进「回应那一刻」的断言里 → 必须判它不合格
+ const legacy={text:'对面打出的96点伤害全落在烬尾狐身上。烬尾狐一个人顶了2个回合。2个回合都这么挨着，这一局憋屈。',
+  parts:[{text:'对面打出的96点伤害全落在烬尾狐身上。',kind:'derived'},{text:'烬尾狐一个人顶了2个回合。',kind:'derived'},
+   {text:'2个回合都这么挨着，这一局憋屈。',kind:'affect',affect:'grind'}]};
+ assert.throws(()=>assertMomentReaction(legacy,{turn:10,names:['炽鬃狮'],label:'旧写法'}),
+  '旧写法（统计 + 情绪词）必须过不了「回应那一刻」这条线');
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 人味（W13）：先接住人，再说事
+//
+// 上面那些验收解决的是「这条话值不值得说」，这一组解决「这句话像不像人说的」。
+// 依据两条（只取原理，不抄句子）：
+//   · reflective listening 的 mimic → rephrase：先让对方感到被听见，再往下说
+//     （Dieter et al., CoNLL 2019, https://aclanthology.org/K19-1037/）；
+//   · 情感验证理论：先观察并反映对方处境，再给支持或引导
+//     （Son et al., ACL 2026 Findings, https://aclanthology.org/2026.findings-acl.1/）。
+// 机械判据只有一条：**玩家这一轮自己用过的词，回答里必须出现**。
+// 换词（他说「累」，你回「疲惫」）等于告诉他「我没在听你说什么」。
+//
+// 实测过的病灶（这一组就是钉它）：有 6 局记录时，「今天有点累」「谢谢」「嗯」「好的」
+// 四种说法拿到的是**同一段**「最近6局里，最先倒下的都是烬尾狐……」——它答的是账本，
+// 不是人；空账本时「谢谢」得到两个字的「我在。」——那是状态回报，不是回话。
+// ══════════════════════════════════════════════════════════════════════════════
+// 客服腔：批准式、菜单、柜台、**宣称**自己在听、播报自己的解析能力、声明自己是 AI、
+// 以及**条件式的在场**（「想继续我就在」——把陪伴挂上「你先开口」的前提，等于把门虚掩上）。
+const SERVICE_TONE=/请问|有什么可以帮|作为(一个)?AI|我的能力|我还没接准|我给你念|念真的|说一声就行|想聊哪只都行|你说话我都在听|你说的我还听着|我接着核对|想继续我就在|随时找我|为您|请稍候|已为您/;
+// 播报系统状态而不是说玩家：被动通道在任何账本状态下都不该出现这类句子。
+// （空账本另有一张更严的 EMPTY_LEDGER_ECHO；这张管的是有记录时也照念的那种。）
+const DATABASE_TALK=/本机|记录是空|还没记上|没有记上|0胜0负|零胜零负|账本是空|账本还是空/;
+// 玩家说心情时，回答里不许出现战报：回合数、第几回合、胜负数、倒下、伤害。
+// 这是「先接住人，再说事」里最要紧的一半——**有时候「再说事」这一步根本不该发生**：
+// 他累了不是来听战报的，他烦的时候跟他讲他倒下过几次是雪上加霜。
+const MOOD_LEAK=/回合数|第\d+回合|\d+胜\d+负|\d+负\d+胜|倒下|伤害|打出|\d+点/;
+// 每个词都要被原样接回来（mimic），一个同义替换都不许有。
+const MOOD_CASES=[['今天有点累','累'],['有点烦','烦'],['难受','难受'],['不想打了','不想打'],['压力有点大','压力']];
+// 有记录、不连败：这一段的「说心情」原本被整个让给了观察通道。
+// 同一个 play(seed) 的 id 是固定的，而 rememberBattle 按 id 去重——直接把同一个 seed
+// 拼三次只会存下**一条**（实测：三次 lossGame() → memory.events 只有 1 条、lossStreak=1，
+// 于是「连败走 R3」那一段根本没碰到 R3，负向验证也就照不出来）。所以每局都要给不同的 id。
+const historyOf=games=>history(games.map((g,i)=>({...g,id:`w13-${i}-${g.id}`})));
+const calmHistory=()=>historyOf([winGame(),winGame(),lossGame()]);
+const streakHistory=()=>historyOf([lossGame(),lossGame(),lossGame()]);
+
+test('人味①接词：玩家自己用过的那个词必须被接回来',()=>{
+ for(const [label,memory] of [['空账本',freshMemory()],['有记录',calmHistory()]]){
+  for(const [message,word] of MOOD_CASES){
+   const answer=companion({mode:'camp'},memory,message);
+   assert(answer.text.includes(word),
+    `${label}：玩家说的是「${message}」（他自己用的词是「${word}」），回答里没有这个词：${answer.text}`);
+  }
+ }
+});
+
+test('人味②停在心情上：玩家说心情时，回答里不许出现战报',()=>{
+ const memory=calmHistory();
+ for(const [message,word] of MOOD_CASES){
+  const answer=companion({mode:'camp'},memory,message);
+  assert(!MOOD_LEAK.test(answer.text),`「${message}」的回答是汇报不是陪着：${answer.text}`);
+  assert(answer.text.includes(word),answer.text);
+  assert(answer.text.length<=REGISTERS[answer.register].limit,`${message} 超长：${answer.text}`);
+  const restraint=checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:true,lessons:[]}});
+  assert(restraint.valid,`${message}：${answer.text} → ${restraint.reasons.join(',')}`);
+ }
+ // 连败时走 R3（收尾陪坐）：那一档说的是处境（连着N局没赢）与「到这儿也行」，
+ // 仍然不许报读数——实测病灶正是「有点烦 → 最近3局里，最先倒下的都是烬尾狐……第3回合」。
+ const streak=streakHistory();
+ for(const [message,word] of MOOD_CASES){
+  const answer=companion({mode:'camp'},streak,message);
+  assert(!MOOD_LEAK.test(answer.text),`R3 的倾诉回答里不该有这些读数：${answer.text}`);
+  assert(answer.text.includes(word),answer.text);
+ }
+ // 有记录时「今天有点累」不许再讲倒下：这一句就是那个病灶的原话
+ assert(!companion({mode:'camp'},memory,'今天有点累').text.includes('倒下'));
+});
+
+test('人味③不当客服：被动通道不出现客服腔与系统状态',()=>{
+ const fixtures=[['空账本',freshMemory()],['有记录',calmHistory()],
+  ['连败',streakHistory()],['久别',backdate(calmHistory(),5)]];
+ const messages=['你好哦','我们聊聊呗','今天有点累','有点烦','不想打了','谢谢','嗯','好的','在吗','好久没来了'];
+ for(const [label,memory] of fixtures)for(const message of messages){
+  const answer=companion({mode:'camp'},memory,message);
+  assert(!SERVICE_TONE.test(answer.text),`${label}「${message}」是客服腔：${answer.text}`);
+  assert(!DATABASE_TALK.test(answer.text),`${label}「${message}」在播报系统状态：${answer.text}`);
+  const restraint=checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:true,lessons:memory.lessons}});
+  assert(restraint.valid,`${label}「${message}」：${answer.text} → ${restraint.reasons.join(',')}`);
+ }
+ // 道谢要有回话，不能是状态回报
+ assert.notEqual(companion({mode:'camp'},freshMemory(),'谢谢').text,'我在。','对「谢谢」不许只回「我在。」');
+ assert.notEqual(companion({mode:'camp'},calmHistory(),'谢谢').text,'我在。');
+ // 负向验证：把文案改回客服腔，上面的判据必须逐条命中——
+ // 这一组不是「碰巧通过」，而是旧文案真的会被同一把尺子拦下来。
+ for(const legacy of ['想问账本啊，我给你念真的。','这一局想聊哪一步，说一声就行。',
+  '这句我还没接准。你说的是哪一处？','你说话我都在听。','想聊哪只都行。','本机对战记录还是空的','我们这边0胜0负']){
+  assert(SERVICE_TONE.test(legacy)||DATABASE_TALK.test(legacy),`对照组必须命中：${legacy}`);
+ }
+ // 「我在。」是第三种病（状态回报），它既不客服也不数据库，所以单列一条负向验证：
+ // 旧行为是「一律 R0 → 我在。」，它对「谢谢」没有任何回应，同一条判据必须把它拦下来。
+ const legacyThanks='我在。';
+ assert(!legacyThanks.includes('谢'),'对照组：旧回答里没有任何回应「谢谢」的东西');
+ assert.notEqual(companion({mode:'camp'},freshMemory(),'谢谢').text,legacyThanks);
+ assert(!SERVICE_TONE.test(companion({mode:'camp'},freshMemory(),'你好哦').text));
 });
