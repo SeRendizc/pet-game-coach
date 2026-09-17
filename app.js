@@ -184,7 +184,12 @@ function decideEnemyFirst(){
  // 这里按引擎已有的补位语义挑：活着且不在场上的伙伴里血量最高的那只。
  if(game.phase==='replace'&&(game.replaceSide||'player')==='enemy'){
   const bench=game.enemy.pets.map((p,i)=>({p,i})).filter(x=>x.p.hp>0&&x.i!==game.enemy.active);
-  pvpEnemyLocked=bench.length?{kind:'switch',target:bench.sort((a,b)=>b.p.hp-a.p.hp)[0].i}:null;
+  const pick=bench.length?{kind:'switch',target:bench.sort((a,b)=>b.p.hp-a.p.hp)[0].i}:null;
+  pvpEnemyLocked=pick;
+  // 敌方补位时玩家点不了（pvpPick 会因为 replaceSide 不是他而直接返回），
+  // 所以必须由这里把 AI 的补位提交掉。少了这一步，AI 决定了却没人交，
+  // 界面就停在「正在出招…」永远不动——这就是玩家实测到的卡死。
+  if(pick)act(pick);
   return;
  }
  pvpEnemyLocked=chooseEnemy(game);
@@ -225,7 +230,12 @@ async function act(action,enemyAction){if(busy)return;
  // 出招之前先记下当时还有没有收尾机会；结算之后才拿 after 快照判断这一手有没有造成后果。
  const info=old.phase==='battle'?incidentInfo(old,decision):null;
  turnIncident=info?{...info,action:structuredClone(action)}:null;
- render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);const next=pvpMode()?resolveTurn(old,action,enemyAction!==undefined?enemyAction:chooseEnemy(old),{manualReplace:true}):step(old,action);let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
+ render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);// 补位阶段不能走 chooseEnemy：那个函数要的是「这一回合出什么招」，而补位要的是
+// 「换上谁」，它会抛「当前行动不可用」，异常让 busy 一直为 true，界面就此冻结
+// （玩家实测到的卡死）。补位阶段对手的动作来自 decideEnemyFirst 已经定好的
+// pvpEnemyLocked，没有就让 resolveTurn 按 replaceQueue 自己推进。
+ const otherAction=old.phase==='replace'?(pvpEnemyLocked||null):chooseEnemy(old);
+const next=pvpMode()?resolveTurn(old,action,enemyAction!==undefined?enemyAction:otherAction,{manualReplace:true}):step(old,action);let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
 for(const frame of next.frames||[]){if(!frame.text)continue;renderSides(frame.state);$('action-banner').textContent=frame.text;for(const side of ['player','enemy']){const card=$(side+'-card'),floating=$(side+'-float'),p=active(frame.state,side),prev=previous[side].pets.find(x=>x.id===p.id),delta=p.hp-prev.hp;card.classList.remove('hit','act','guarding');floating.className='float-number';void card.offsetWidth;if(delta<0)card.classList.add('hit');else if(frame.side===side)card.classList.add('act');if(frame.text.includes('防御：')&&frame.side===side)card.classList.add('guarding');if(delta){floating.textContent=(delta>0?'+':'')+delta;floating.className='float-number show'+(delta>0?' heal':'');}}previous=frame.state;if(ms)await pause(ms);}
 game=next;
  // 陪练的主动气泡只挂在两个真实事件上：本局第一次有伙伴倒下，以及整局结束——
