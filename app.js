@@ -477,7 +477,7 @@ function notify(event){if(preview)return null;const text=coachEvent(event,coachC
 // 三个角色的出现方式必须一眼分得开：
 //   军师 / 老师 = 顶部条（#live-coach）里一句短话 + 「看看原因」；
 //   陪练      = 左下角一个人：头像 + 名字 + 2–3 行，自己会走。
-// 「不同时出现」的仲裁在 coach/companion.js 的 companionCueSlot：军师条在场时陪练排队，
+// 陪练何时开口由 coach/companion.js 的 companionCueSlot 决定。**军师条在场不再阻挡陪练**——
 // 条收起来再补上；排队超过 20 秒就丢掉——补一句过期的话不如不说。
 function hideCompanionCue(){clearTimeout(bubbleTimer);bubbleTimer=null;$('coach-bubble').hidden=true;companionHover=false;bubbleDeadline=0;companionShownCue=null;}
 // 让位：军师/老师要开口，陪练先收起来。**已经显示出来的那一句不丢**——它回到队列里，
@@ -551,7 +551,7 @@ function flushCompanionCue(){
  // 军师/老师正在说话的两种形态：顶部条（#live-coach）与中间那条提示（#attention-cue）。
  // 任何一个在场，陪练都先等着——「两处噪音」指的就是这两种声音叠在一起。
  function strategistCueVisible(){return !$('live-coach').hidden||!$('attention-cue').hidden;}
- // 让位判定只有一处（coach/companion.js 的 companionCueSlot）。
+ // 开口判定只有一处（coach/companion.js 的 companionCueSlot）：只防闪烁与防过期，不做时间互斥。
  const slot=companionCueSlot({barVisible:strategistCueVisible(),queuedAt:companionPending.at,now:Date.now(),holdUntil:companionShownAt+COMPANION_DEFER.minVisibleMs});
  if(slot.action==='hold')return 'hold';
  const pending=companionPending;companionPending=null;

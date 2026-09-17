@@ -663,18 +663,23 @@ test('the proactive path stays silent when the screen is the only thing to repea
 });
 
 // ── 出场方式（这一层不改）───────────────────────────────────────────────────
-test('one companion line at a time, and never at the same moment as the strategist bar',()=>{
- assert.equal(companionCueSlot({barVisible:true,queuedAt:Date.now(),now:Date.now()}).action,'hold');
+test('陪练一次只说一句，但军师条在场并不阻止它——时间互斥已取消',()=>{
+ // 这条原来叫「never at the same moment as the strategist bar」，断言 barVisible 时一律 hold。
+ // 用户指出这个设计是错的：军师/老师和陪练位置不同、说的是不同种类的话，本来就可以同时说。
+ // 互斥的实际后果是战斗里军师一开口陪练就被静音，而军师经常开口——等于把陪练废掉。
+ // 现在改为：内容边界照守（不给战术指令），时间上不互斥；只保留防闪烁与防过期。
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:1,now:2}).action,'show','军师在场不再是阻挡理由');
  assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:2}).action,'show');
- assert.equal(companionCueSlot({barVisible:false,queuedAt:0,now:2}).action,'idle');
- assert.equal(companionCueSlot({barVisible:true,queuedAt:0,now:0}).action,'hold','还没排队时军师在场：等，而不是抢');
- assert.equal(companionCueSlot({barVisible:true,queuedAt:1,now:COMPANION_DEFER.maxWaitMs+2}).action,'drop');
- assert.match(companionCueSlot({barVisible:true,queuedAt:1,now:2}).reason,/让位/);
- assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:2,holdUntil:9000}).action,'hold');
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:0,now:2}).action,'idle','没排队就是 idle');
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:1,now:COMPANION_DEFER.maxWaitMs+2}).action,'drop',
+  '排队太久就丢掉，不补一句过时的话');
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:2,holdUntil:9000}).action,'hold',
+  '刚显示过仍要压住，免得一闪一闪');
  assert.equal(companionCueSlot({barVisible:false,queuedAt:1,now:9001,holdUntil:9000}).action,'show');
  assert(COMPANION_DEFER.minVisibleMs>=3000,'最小显示窗口不能短到读不完一句话');
  assert(COMPANION_DEFER.maxWaitMs>=10000,'排队窗口不能短到一句话永远轮不上');
 });
+
 test('the bubble stays as long as the words need, and wears an existing pet portrait',()=>{
  assert.equal(bubbleDurationMs('长'.repeat(40)),27000);
  assert.equal(bubbleDurationMs('长'.repeat(10)),18000);
@@ -1085,4 +1090,20 @@ test('页面默认的「自动」角色 + 拼接说明：闲聊仍归陪练，�
  assert.equal(review.route,'teacher','玩家要求复盘时仍走老师');
  const growth=await runCoach({message:'帮我看看培养'+I,role:'auto',context:ctx,memory:freshMemory()});
  assert.equal(growth.route,'teacher','玩家问培养时仍走老师');
+});
+
+test('军师/老师在场时陪练照样能说话——内容边界不等于时间互斥',()=>{
+ // 原来 companionCueSlot 在 barVisible 时一律 hold，理由写成「军师条在场：陪练让位」。
+ // 那个理由站不住：两者位置不同（顶部条 vs 左下气泡），说的是不同种类的话。
+ // 实际后果是战斗里军师一开口陪练就被静音，而军师经常开口——等于把陪练废掉。
+ // 该守的是内容边界（不给战术指令），不是时间上的互斥。
+ const now=1000000;
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:now-50,now}).action,'show',
+  '军师条在场不能挡住陪练');
+ assert.equal(companionCueSlot({barVisible:false,queuedAt:now-50,now}).action,'show');
+ // 但防闪烁仍要生效：刚说过就不马上重开
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:now-50,now,holdUntil:now+3000}).action,'hold',
+  '刚显示过仍要压住，免得一闪一闪');
+ // 排队太久就丢掉，不补一句过时的话
+ assert.equal(companionCueSlot({barVisible:true,queuedAt:now-999999,now}).action,'drop');
 });

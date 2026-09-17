@@ -1175,9 +1175,14 @@ export function bubbleDurationMs(text){
 export const COMPANION_DEFER={maxWaitMs:20000,minVisibleMs:5000};
 export function companionCueSlot({barVisible=false,queuedAt=0,now=0,holdUntil=0}={}){
  if(queuedAt&&now-queuedAt>COMPANION_DEFER.maxWaitMs)return {action:'drop',reason:`排队超过 ${COMPANION_DEFER.maxWaitMs}ms，这条已经不新鲜了`};
- if(barVisible)return {action:'hold',reason:'军师条在场：陪练让位，等它收起来再说'};
+ // 军师/老师说话时，陪练**照样可以说**。
+ // 原来这里写的是「军师条在场：陪练让位」，理由是「两处同时说话=噪音」——那个理由站不住：
+ // 两者位置不同（顶部条 vs 左下气泡），说的也是不同种类的话（战术建议 vs 陪伴）。
+ // 实际后果是战斗里军师一开口陪练就被静音，而战斗里军师经常开口，等于把陪练废掉了。
+ // 真正该守的是**内容**边界（陪练不给战术指令，见 checkCompanionRestraint），不是时间上的互斥。
+ // barVisible 仍然收下，只用于避免同一条消息刚显示过又重开（下面的 holdUntil 已经覆盖）。
  if(now<holdUntil)return {action:'hold',reason:`刚显示过，${COMPANION_DEFER.minVisibleMs}ms 内不再重开，免得一闪一闪`};
- return {action:queuedAt?'show':'idle',reason:'军师条不在场'};
+ return {action:queuedAt?'show':'idle',reason:'可以开口（军师/老师在不在场都不影响）'};
 }
 
 // 陪练何时开口（纯函数，可脱开 DOM 单测）。一次只返回一个事件：同一回合最多说一句。
