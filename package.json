@@ -14,6 +14,7 @@
     "build:report": ".venv-agent/bin/python scripts/build-report.py",
     "eval:retrieval": "node scripts/eval-retrieval.js",
     "train:intervention": "node scripts/train-intervention.js",
+    "test:smoke": "node scripts/browser-smoke.mjs",
     "test:browser": "node --test browser.test.js"
   }
 }
