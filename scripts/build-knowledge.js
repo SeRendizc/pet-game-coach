@@ -12,5 +12,14 @@ principle:`${TYPES[type]}系攻击克制${targets.map(x=>TYPES[x]).join('、')}�
   +`打向克制你的属性时${RULES.typeResist}，其余（含同系）${1}。普通攻击倍率${1}。`,counterexample:'按技能属性而不是宠物属性计算；不含原作同系加成或属性免疫。'}))];
 const marker='\n// Generated local tactical cards; edit knowledge/tactics.json then regenerate.\n';
 writeFileSync(target,readFileSync(target,'utf8').split(marker)[0]+marker+'export const TACTIC_CARDS = '+JSON.stringify(cards)+';\nexport const REFERENCE_CARDS = '+JSON.stringify(reference)+';\n');
+
+// 语义检索用的语料也必须一起生成。
+//
+// 它原本是手工维护的第三份副本，没有任何生成器，于是两张卡改了它却不知道——
+// 实测里模型引用的正是它里面的旧文案（「去掉该分支」「同属性或被反克时0.75」），
+// 而这些话会经模型转述后到玩家眼前。有生成器才不会漂。
+const corpusTarget=new URL('../knowledge/semantic-corpus.json',import.meta.url);
+writeFileSync(corpusTarget,JSON.stringify([...cards,...reference],null,2)+'\n');
+console.log('Wrote knowledge/semantic-corpus.json ('+((cards.length+reference.length))+' cards)');
 writeFileSync(new URL('../knowledge/reference.generated.json',import.meta.url),JSON.stringify(reference,null,2));
 console.log(`Built ${cards.length} tactical + ${reference.length} engine-derived reference cards`);

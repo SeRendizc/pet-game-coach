@@ -60,3 +60,12 @@ test('generated reference facts stay tied to the engine rather than copied exter
  for(const [id,s]of Object.entries(SKILLS)){const c=REFERENCE_CARDS.find(c=>c.id==='rule:skill:'+id);assert(c);assert(c.principle.includes('消耗'+s.cost+'豆'));assert.equal(c.rulesVersion,createGame().version);}
  for(const p of SPECIES){const c=REFERENCE_CARDS.find(c=>c.id==='rule:pet:'+p.id);assert(c.principle.includes('生命'+p.maxHp));assert.match(c.counterexample,/实际成长/);}
 });
+test('the semantic corpus is generated from the same source as content.js',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {TACTIC_CARDS,REFERENCE_CARDS}=await import('./content.js');
+ const corpus=JSON.parse(readFileSync(new URL('./knowledge/semantic-corpus.json',import.meta.url),'utf8'));
+ // 这份语料是语义检索真正读的文件，曾经是手工维护的第三份副本、没有生成器，
+ // 于是两张卡改了它不知道，模型引用到的仍是旧文案。现在由 build-knowledge 一起生成。
+ assert.deepEqual(corpus,[...TACTIC_CARDS,...REFERENCE_CARDS],
+  '语义语料与 content.js 不一致：跑一次 npm run build:knowledge');
+});
