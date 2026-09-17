@@ -112,7 +112,7 @@ function deployView(){
  $('roster').innerHTML=filteredSpecies().map(base=>{
   const capped=matchMode==='pvp'&&pvpLevel==='cap';
   const p=capped?grownAt(base.id,LEVEL_CAP):grown(base.id),order=selected.indexOf(p.id);
-  const act=`<button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}">加入队伍</button>`}`;
+  const act=`<button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}" ${selected.length>=3?'disabled':''}>加入队伍</button>`}`;
   return petCard(base,{order,level:p.level,action:act,stats:p});}).join('');
  $('selection').innerHTML=selected.length?selected.map((id,i)=>`<span class="slot"><em>${i+1}</em>${SPECIES.find(p=>p.id===id).name}</span>`).join(''):'<span class="muted">按 1 → 2 → 3 的出场顺序选择三只伙伴</span>';
  const advice=selected.length?rosterAdvice(selected.map(grown)):null;
@@ -121,7 +121,11 @@ function deployView(){
  else $('roster-advice').innerHTML='<span class="muted">选好三只后给出阵容建议：共同弱点、克制面与速度线</span>';
  renderPickSplit();
  $('start').disabled=!!preview||selected.length!==3||(matchMode==='pvp'&&pvpOpponent==='human'&&enemySelected.length!==3);
- document.querySelectorAll('#roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;selected=selected.includes(id)?selected.filter(x=>x!==id):[...selected,id];deployView();});
+ document.querySelectorAll('#roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;
+ // 上限三道保险：按钮 disabled、这里再挡一次、startMatch 也校验。
+ // 之前重构卡片模板时新加了「加入队伍」按钮却没有上限，能选到 6、7 只。
+ if(!selected.includes(id)&&selected.length>=3)return;
+ selected=selected.includes(id)?selected.filter(x=>x!==id):[...selected,id];deployView();});
  document.querySelectorAll('#roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();camp();});
  const pvp=matchMode==='pvp',stage=STAGES.find(x=>x.id===stageId),avg=selected.length?Math.round(selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/selected.length):1;
  $('deploy-side').innerHTML=`<div class="side-row"><span>模式</span><b>${pvp?'对局 · PVP':'训练 · PVE'}</b></div>`
@@ -436,14 +440,15 @@ async function act(action,enemyAction){if(busy)return;
 const next=resolveTurn(old,action,otherAction,pvpMode()?{manualReplace:true}:{});let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
 for(const frame of next.frames||[]){if(!frame.text)continue;renderSides(frame.state);$('action-banner').textContent=frame.text;for(const side of ['player','enemy']){const card=$(side+'-card'),floating=$(side+'-float'),p=active(frame.state,side),prev=previous[side].pets.find(x=>x.id===p.id),delta=p.hp-prev.hp;card.classList.remove('hit','act','guarding');floating.className='float-number';void card.offsetWidth;if(delta<0)card.classList.add('hit');else if(frame.side===side)card.classList.add('act');if(frame.text.includes('防御：')&&frame.side===side)card.classList.add('guarding');if(delta){floating.textContent=(delta>0?'+':'')+delta;floating.className='float-number show'+(delta>0?' heal':'');}}previous=frame.state;if(ms)await pause(ms);}
 game=next;
- // 陪练的主动气泡只挂在两个真实事件上：本局第一次有伙伴倒下，以及整局结束——
- // 那是闲聊与情绪，不是战术提示。战术提示归军师，由 strategistEvaluate 判定。
+ // 陪练的主动气泡挂在真实事件上：跨局记忆（这套阵容打过几次、你最先倒下的总是谁）
+ // 与局内读数（谁连着几回合没输出、伤害落在谁身上）。战术提示归军师。
  if(!preview){
-  // 陪练的触发只看真实发生的事：局内的四类信号 + 跨局的连胜/连败里程碑（都由 coach.js 派生）。
+  // cross 是 coach.js 算出来的跨局账本，signals 是本局的回合统计；
+  // 触发层用它们判断「这一类现在到底有没有话可说」，说不出新信息就不占窗口。
+  // 记账挂在 notify 的返回值上：没说出来就不算「说过了」，下个回合还在的话还能补。
   const live=coachContext(game,profile,coachMemory);
-  for(const ev of companionEvents(game,{said:companionSaid,winStreak:live.winStreak,lossStreak:live.lossStreak})){
-   companionSaid.add(ev);
-   notify(ev);
+  for(const ev of companionEvents(game,{said:companionSaid,session:coachSession,winStreak:live.winStreak,lossStreak:live.lossStreak,cross:live.cross,signals:live.signals})){
+   if(notify(ev))companionSaid.add(ev);
   }
  }
  // 结算后用 after 快照判一次「明显策略错误」：分差与后果都来自真实枚举，
@@ -457,10 +462,15 @@ game=next;
   // 军师在局内反复看到同一课上的失误（判据是 transferAssessment：只数没被提示的独立行动）→
   // 把这一课标回未掌握，老师才有机会再讲一次。为什么又教，答案就是这里的 reason。
   if(decision.lesson){const struggle=observeStruggle(coachMemory,{lesson:decision.lesson});if(struggle.relearned){coachMemory=struggle.memory;logCoachEvent('relearn',decision.lesson);}}
-  saveCoachMemory();}lastFeedback=pvpMode()?null:feedback(game.history.filter(x=>x.type==='turn').at(-1),currentHint);if(!preview){roundArchive=archiveRound(game,roundArchive);try{localStorage.setItem('xiaoya-last-round',JSON.stringify(roundArchive));}catch{$('save-message').textContent='对局记录保存失败，先导出战报以免刷新丢失。';}}if(old.phase==='replace')tab='skill';if(game.result){const settled=settle(profile,game,matchId);profile=settled.profile;reward=settled.reward;if(!game.preview){save();coachMemory=rememberBattle(coachMemory,game);saveCoachMemory();}/* Completion review is rendered after settlement, without a second generic bubble. */}else if(!companionSaid.has('first-faint')&&game.player.pets.some(p=>p.hp<=0)){companionSaid.add('first-faint');}
-$('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':`${next.frames?.filter(f=>f.text).at(-1)?.text||'补位完成。'} 下一回合由你决定。`;
+  saveCoachMemory();}lastFeedback=pvpMode()?null:feedback(game.history.filter(x=>x.type==='turn').at(-1),currentHint);if(!preview){roundArchive=archiveRound(game,roundArchive);try{localStorage.setItem('xiaoya-last-round',JSON.stringify(roundArchive));}catch{$('save-message').textContent='对局记录保存失败，先导出战报以免刷新丢失。';}}if(old.phase==='replace')tab='skill';if(game.result){const settled=settle(profile,game,matchId);profile=settled.profile;reward=settled.reward;if(!game.preview){save();coachMemory=rememberBattle(coachMemory,game);saveCoachMemory();}/* Completion review is rendered after settlement, without a second generic bubble. */}/* 原来这里还有一句「有伙伴倒下就把 first-faint 记成说过了」：它会把没来得及说出口的
+     减员观察直接烧掉——陪练刚说过别的事、正在冷却时，这一条就永远没机会了。
+     现在没有说出来就不算说过，触发层下一回合还在的话会把它补上。 */
+// 结算后不再复述最后一帧——那句话刚在动画里念过，也已经写进战斗记录，
+    // 再放在横幅上是同一信息出现两遍。动画过程中仍然逐帧叙述（见上面的 frames 循环），
+    // 这里只留「接下来做什么」。
+    $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':'下一回合由你决定。';
 }catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
-function notify(event){if(preview)return;const text=coachEvent(event,coachContext(game,profile,coachMemory),coachSession);if(text)queueCompanionCue(text);}
+function notify(event){if(preview)return null;const text=coachEvent(event,coachContext(game,profile,coachMemory),coachSession);if(text)queueCompanionCue(text);return text||null;}
 
 // —— 陪练的在场方式（#coach-bubble）─────────────────────────────────────────────
 // 三个角色的出现方式必须一眼分得开：
@@ -616,7 +626,11 @@ function rerollSeed(){
  const el=$('seed');
  el.value=Math.floor(Math.random()*4294967295);
 }
-function startMatch(){advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
+function startMatch(){advanceContext();
+ // 第三道保险：队伍必须是三只。上限曾经失效过（能选到 7 只），
+ // 与其相信界面上那两道，这里直接挡住。
+ if(selected.length!==3){document.getElementById('save-message').textContent='请选择三只伙伴再开始。';return;}
+ const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}pvpOpponent=$('pvp-opponent').value;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;const versus=matchMode==='pvp';const avgLv=selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/Math.max(1,selected.length);
 // 真人同机（分屏）默认双方都按满级打：那是一场对等较量，不该由谁练得多决定胜负。
  // 对手是 AI 时仍按玩家队伍的平均等级适配，那是闯关性质的对手。
  const capped=matchMode==='pvp'&&pvpLevel==='cap';

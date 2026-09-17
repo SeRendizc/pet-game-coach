@@ -24,8 +24,8 @@
 \usepackage{xurl}              % 允许 URL 任意位置断行
 \usepackage[hidelinks]{hyperref}
 
-\linespread{1.25}
-\setlength{\parskip}{0.62em}
+\linespread{1.16}
+\setlength{\parskip}{0.45em}
 
 % 章节样式：用 ctex 自己的接口，不引 titlesec
 \ctexset{
@@ -50,5 +50,28 @@
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 
 % 截图：只给图，不给标题，图注写在正文里。宽度留出余量避免 overfull。
+% 默认宽度按「读得清」定，不按「省地方」定：本报告正文栏宽 453pt，
+% 一个整栏宽的界面元素在 1000 CSS px 视口下有 956 px，缩到 45% 栏宽时
+% 12px 的依据正文只剩 2.9pt——那种图放进 PDF 等于没有。
+%
+% 用浮动体而不是行内 center：行内的整栏大图一旦在本页放不下，就会把整页剩下的
+% 空白一起带走（第一版 9 张图直接把报告从 9 页顶到 12 页，多出来的三页几乎全是空隙）。
+% 浮动体让正文继续填满当前页，图挪到能放下的地方。
 \newcommand{\shot}[2][0.72]{%
-  \begin{center}\includegraphics[width=#1\linewidth]{figs/#2}\end{center}}
+  \begin{figure}[htbp]\centering\includegraphics[width=#1\linewidth]{figs/#2}\end{figure}}
+
+% 并排两张截图，各配一行小字说明「哪张是哪块界面」。
+% 两块加起来 0.92 栏宽，剩下的留给 \hfill，不会 overfull。
+% 开头的 \vspace{0pt} 不是装饰：minipage 的 [t] 对齐的是**第一行的基线**，
+% 而图片那一行的基线在图片底边，两张不一样高的图于是变成底对齐，一高一低。
+% 加一个零高的空行把基线提到顶端，才是真的顶对齐。
+\newcommand{\shotpair}[5][0.46]{%
+  \begin{figure}[htbp]\centering
+  \begin{minipage}[t]{#1\linewidth}\vspace{0pt}\centering
+    \includegraphics[width=\linewidth]{figs/#2}\\[3pt]{\small #3}%
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[t]{#1\linewidth}\vspace{0pt}\centering
+    \includegraphics[width=\linewidth]{figs/#4}\\[3pt]{\small #5}%
+  \end{minipage}%
+  \end{figure}}

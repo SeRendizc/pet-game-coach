@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SPECIES,SKILLS,createGame,resolveTurn,damage,chooseEnemy,rankEnemyActions,active} from './engine.js';
+import {SPECIES,SKILLS,createGame,resolveTurn,damage,chooseEnemy,rankEnemyActions,legalActions,active} from './engine.js';
 import {newProfile,loadProfile,train,resetTraining,settle} from './progression.js';
 import {coachEvent,localReply,coachContext} from './coach.js';
 const skill=id=>({kind:'skill',id});
@@ -15,7 +15,33 @@ test('AI decision is pure and independent of any submitted action',()=>{const g=
 test('training changes next battle, caps allocation, reset refunds',()=>{let p=newProfile();p=train(p,'fox','speed');p=train(p,'fox','atk');p=train(p,'fox','hp');p=train(p,'fox','hp');assert.throws(()=>train(p,'fox','hp'));const g=createGame(17,['fox','turtle','deer'],{pets:p.pets});assert.equal(g.player.pets[0].speed,41);assert.equal(g.player.pets[0].atk,31);p=resetTraining(p,'fox');assert.equal(p.tokens,6);assert.equal(p.pets.fox.points.atk,0);});
 test('battle rewards are once-only, progress levels and survive serialization',()=>{let p=newProfile();const g=createGame();g.result='win';p=settle(p,g,'a').profile;assert.equal(p.pets.fox.xp,24);const again=settle(p,g,'a');assert.equal(again.reward,null);assert.deepEqual(again.profile,p);p=settle(p,g,'b').profile;assert.equal(p.pets.fox.level,2);assert.equal(p.pets.fox.xp,18);assert.equal(p.tokens,12);assert.deepEqual(loadProfile(JSON.stringify(p)),p);g.result='escaped';assert.equal(settle(p,g,'c').reward,null);});
 test('invalid saved growth falls back safely',()=>{assert.deepEqual(loadProfile('{'),newProfile());const p=newProfile();p.pets.fox.points.hp=-2;assert.deepEqual(loadProfile(JSON.stringify(p)),newProfile());});
-test('companion can initiate without a complaint and respects suppression',()=>{const c={mode:'pve',preference:'gentle',turn:4,result:'loss',lossStreak:1};const s={count:0,lastTurn:null,dismissed:false};assert(coachEvent('first-faint',c,s));assert.equal(coachEvent('first-faint',{...c,turn:5},s),null);assert(coachEvent('result',c,s));assert.equal(coachEvent('result',c,s),null);assert.equal(coachEvent('result',{...c,preference:'quiet'},{count:0,lastTurn:null}),null);assert.equal(coachEvent('result',c,{count:0,lastTurn:null,dismissed:true}),null);});
+test('companion can initiate without a complaint and respects suppression',()=>{
+ // 陪练现在只在「有玩家自己算不出来的信息」时开口，所以这里用引擎真跑出两个真实时刻：
+ // 有伙伴倒下的那一刻，以及整局结束的那一刻。其余（说不说、说几次）交给门控。
+ const advance=g=>{
+  const legal=legalActions(g);
+  if(g.phase==='replace')return resolveTurn(g,legal[0],null);          // 减员后的免费补位
+  const mine=g.player.pets[g.player.active];
+  const id=mine.skills.find(x=>SKILLS[x].power>0&&SKILLS[x].cost<=mine.energy&&legal.some(a=>a.kind==='skill'&&a.id===x))||legal.find(a=>a.kind==='skill'&&a.id!=='guard').id;
+  return resolveTurn(g,skill(id),chooseEnemy(g));
+ };
+ let g=createGame(1,['fox','turtle','deer'],{difficulty:'normal',stageName:'01 · 青芽草地',stageId:'meadow'});
+ for(let n=0;n<40&&!g.result&&!g.player.pets.some(p=>p.hp<=0);n++)g=advance(g);
+ assert(g.player.pets.some(p=>p.hp<=0),'需要一个真实发生过的减员局面');
+ const faintContext=coachContext(g,newProfile());
+ const s={count:0,lastTurn:null,dismissed:false};
+ const faint=coachEvent('first-faint',faintContext,s);
+ assert(faint,'真实减员时陪练要能开口');
+ assert(!/倒下了|还剩\s*\d+\s*只/.test(faint),'不许复述屏幕上已经写着的事：'+faint);
+ assert.equal(coachEvent('first-faint',{...faintContext,turn:faintContext.turn+1},s),null,'同一事件本局只说一次');
+ for(let n=0;n<200&&!g.result;n++)g=advance(g);
+ assert(g.result,'这一局要真的打完');
+ const endContext=coachContext(g,newProfile());
+ assert(coachEvent('result',endContext,s),'结算时要说这一局的记录');
+ assert.equal(coachEvent('result',endContext,s),null);
+ assert.equal(coachEvent('result',{...endContext,preference:'quiet'},{count:0,lastTurn:null}),null);
+ assert.equal(coachEvent('result',endContext,{count:0,lastTurn:null,dismissed:true}),null);
+});
 test('PVP live blocks unsolicited and queried tactical help',()=>{const c={mode:'pvp-live',preference:'gentle',turn:2,result:'loss'};assert.equal(coachEvent('result',c,{count:0,lastTurn:null}),null);assert.match(localReply('狐狸',c),/不提供战术分析/);const context=coachContext(createGame(),newProfile());assert(!('seed' in context));});
 
 test('difficulty is saved and changes decision behavior without stat bonuses',()=>{

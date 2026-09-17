@@ -86,3 +86,13 @@ test('app.js wires the companion presence layer and leaves the bubble to the com
  // 安静档仍然最优先
  assert(src.includes("if(profile.coach.mode==='quiet'){companionPending=null;hideCompanionCue();}"),'安静档必须立刻收起陪练气泡');
 });
+
+test('队伍上限是三只，且开始前会被校验',async()=>{
+ // 这条是补的回归：重构卡片模板时新加了一个「加入队伍」按钮却没有数量上限，
+ // 于是能一路选到 6、7 只，startMatch 还照样开打。
+ const {readFileSync}=await import('node:fs');
+ const src=readFileSync(new URL('./app.js',import.meta.url),'utf8');
+ assert.match(src,/selected\.length>=3\?'disabled'/,'满员时「加入队伍」必须禁用');
+ assert.match(src,/if\(!selected\.includes\(id\)&&selected\.length>=3\)return;/,'点选处理必须挡上限');
+ assert.match(src,/if\(selected\.length!==3\)\{[^}]*请选择三只伙伴/,'开始前必须校验队伍是三只');
+});
