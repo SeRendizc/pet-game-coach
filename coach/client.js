@@ -2,7 +2,7 @@ import {CoachScheduler} from './scheduler.js';
 import {chooseEnemy,legalActions} from '../engine.js';
 export const RESPONSE_INSTRUCTIONS='\n回答要求：不要向玩家报内部局面评分，用可见的宠物、技能和状态解释。游戏按回合结算，不按秒；不要编造技能冷却。道具名称只能使用回复药、净化药、能量果，不要把它们叫作解药或以太。双方同时决定，不能先看对手本回合出招再决定自己的行动。复盘中hpBefore是回合开始、hpAfter是结束，不能把行动前生命称作打完还剩。逐回合核对实际事件：行动取消不能说成打出了伤害，事前预测和事后结算必须分开。';
 import {runCoach,assembleContext,checkGroundedAnswer} from './runtime.js';
-import {checkCompanionRestraint} from './companion.js';
+import {checkCompanionRestraint,playerWords} from './companion.js';
 let session=null;
 export async function connectionStatus(){const response=await fetch('/api/bootstrap',{cache:'no-store'});if(!response.ok)throw Error('请启动新版本机后端');session=await response.json();return session;}
 const scheduler=new CoachScheduler();
@@ -46,10 +46,116 @@ async function executeCoach(payload,signal){
  return {...fallback,provider:'local-fallback',fallbackReason:friendly,stateToken:payload.stateToken,contextAudit:assembled.audit};}
 }
 // 陪练档位扫描用的最小事实集：只判断「有没有真实经历可以支撑过去陈述」和「课程名是否真的记录过」。
+// playerMessage 传的是**玩家原话**（先把 RESPONSE_INSTRUCTIONS 切掉）：问候轮的那条硬线
+//（回合数／胜负／血线／速度比较／战术词一个都不许出现）只在「他这一轮整句只是问候」时生效，
+// 而这件事只有扫描这一侧知道——模型自己不会说「我这一轮是问候轮」。
 function companionRestraint(data,payload){
  const memory=payload.memory||{},dialogue=Array.isArray(memory.dialogue)?memory.dialogue:[];
  const previousAssistant=[...dialogue].reverse().find(x=>x?.role==='assistant'&&typeof x.content==='string')?.content||'';
- return checkCompanionRestraint(data.text,{register:data.register||data.companionState?.register||'R2',facts:{allowPast:Boolean((memory.events||[]).length||(memory.lessons||[]).length||dialogue.length),lessons:memory.lessons||[]},previousAssistant});
+ return checkCompanionRestraint(data.text,{register:data.register||data.companionState?.register||'R2',facts:{allowPast:Boolean((memory.events||[]).length||(memory.lessons||[]).length||dialogue.length),lessons:memory.lessons||[]},previousAssistant,playerMessage:playerWords(payload.message)});
+}
+
+// ── 小芽的对话记录：会话列表 + 上限（与「跨局账本」是两回事）──────────────────
+// 用户原话：「每次刷新能不能清空一下小芽对话记录？或者做成对话式保存一下可以选回去」。
+// 两个方案里选了后者，理由是刷新就清空等于**丢数据**（用户问的是「能不能」，不是「必须」），
+// 而「保存 + 选回去」是同一件事的超集：默认刷新后接着看，想开新的就按「新对话」。
+// 三条硬约束在这里落地：
+//   ① 不丢数据：刷新后接着看；旧会话留在列表里，能选回去（app.js 的 #chat-threads）；
+//   ② 数量有上限：会话 8 条、每条 40 轮、整包 180KB —— localStorage 撑不爆；
+//   ③ **清对话 ≠ 清记忆**：这一层只读写 {version,activeId,sessions} 这三个字段，
+//      一个字都不碰 memory.events / lessons / goal / favorite / journal。
+//      跨局账本是另一个存储键（xiaoya-memory-v1），「新对话」只换会话，账本原样留着。
+export const CHAT_LIMITS={sessions:8,turns:40,bytes:180000};
+export const CHAT_STORE_VERSION=1;
+export const CHAT_TITLE_MAX=18;
+export const CHAT_TURN_MAX=2000;
+export function emptyChatStore(){return {version:CHAT_STORE_VERSION,activeId:null,sessions:[]};}
+export function newChatSession(now=Date.now()){
+ return {id:`chat-${now.toString(36)}-${Math.random().toString(36).slice(2,8)}`,title:'',startedAt:now,updatedAt:now,turns:[]};
+}
+function cleanTurn(turn){
+ if(!turn||typeof turn!=='object')return null;
+ const role=turn.role==='user'?'user':turn.role==='assistant'?'assistant':null;
+ const content=typeof turn.content==='string'?turn.content.slice(0,CHAT_TURN_MAX):'';
+ if(!role||!content)return null;
+ return {role,content,at:Number.isFinite(turn.at)?turn.at:0};
+}
+function cleanSession(session,now){
+ if(!session||typeof session!=='object'||typeof session.id!=='string'||!session.id)return null;
+ const turns=(Array.isArray(session.turns)?session.turns:[]).map(cleanTurn).filter(Boolean).slice(-CHAT_LIMITS.turns);
+ return {id:session.id,title:typeof session.title==='string'?session.title.slice(0,CHAT_TITLE_MAX):'',
+  startedAt:Number.isFinite(session.startedAt)?session.startedAt:now,
+  updatedAt:Number.isFinite(session.updatedAt)?session.updatedAt:now,turns};
+}
+// 上限三道：每条 40 轮、最多 8 条、整包 180KB。超了先丢**最旧**的会话（按 updatedAt），
+// 丢到装得下为止——宁可少留几段旧对话，也不能让 localStorage 写不进去，
+// 因为写不进去等于这一次全都丢（而且会连带把上一次的内容留在旧值上，读出来是错的）。
+export function trimChatStore(store){
+ const now=Date.now();
+ let sessions=(Array.isArray(store?.sessions)?store.sessions:[]).map(s=>cleanSession(s,now)).filter(Boolean);
+ sessions.sort((a,b)=>b.updatedAt-a.updatedAt);
+ sessions=sessions.slice(0,CHAT_LIMITS.sessions);
+ let activeId=sessions.some(s=>s.id===store?.activeId)?store.activeId:(sessions[0]?.id||null);
+ let out={version:CHAT_STORE_VERSION,activeId,sessions};
+ while(sessions.length>1&&JSON.stringify(out).length>CHAT_LIMITS.bytes){
+  sessions=sessions.slice(0,-1);
+  activeId=sessions.some(s=>s.id===activeId)?activeId:sessions[0].id;
+  out={version:CHAT_STORE_VERSION,activeId,sessions};
+ }
+ return out;
+}
+export function readChatStore(raw){
+ if(typeof raw!=='string'||!raw)return emptyChatStore();
+ try{const parsed=JSON.parse(raw);if(!parsed||typeof parsed!=='object')return emptyChatStore();return trimChatStore(parsed);}catch{return emptyChatStore();}
+}
+export function serializeChatStore(store){return JSON.stringify(trimChatStore(store));}
+export function activeChatSession(store){
+ const clean=trimChatStore(store);
+ return clean.sessions.find(s=>s.id===clean.activeId)||null;
+}
+export function chatTitle(session){
+ if(!session)return '';
+ const first=(session.turns||[]).find(t=>t.role==='user');
+ const text=String(session.title||first?.content||'').replace(/\s+/g,' ').trim();
+ if(!text)return '新的对话';
+ return text.length>CHAT_TITLE_MAX?text.slice(0,CHAT_TITLE_MAX)+'…':text;
+}
+// 送去模型的那一段历史：和原来一样只取最近 8 轮（assembleContext / runtime 的窗口没变），
+// 变的只是「这 8 轮从哪一段会话里取」。
+export function chatConversation(session,limit=8){
+ return (session?.turns||[]).slice(-limit).map(t=>({role:t.role,content:t.content}));
+}
+export function appendChatTurn(store,role,text,now=Date.now()){
+ const base=trimChatStore(store);
+ const wanted=role==='user'?'user':'assistant';
+ const content=String(text??'').slice(0,CHAT_TURN_MAX);
+ if(!content)return base;
+ const sessions=base.sessions.slice();
+ let index=sessions.findIndex(s=>s.id===base.activeId);
+ if(index<0){sessions.unshift(newChatSession(now));index=0;}
+ const session=sessions[index];
+ const turns=[...session.turns,{role:wanted,content,at:now}].slice(-CHAT_LIMITS.turns);
+ const title=session.title||(wanted==='user'?content.slice(0,CHAT_TITLE_MAX):'');
+ sessions[index]={...session,turns,title,updatedAt:now};
+ return trimChatStore({version:CHAT_STORE_VERSION,activeId:session.id,sessions});
+}
+// 「新对话」：**只**新开一段会话，旧的那段留在列表里。账本一个字段都不动。
+export function startChatSession(store,now=Date.now()){
+ const base=trimChatStore(store);
+ const fresh=newChatSession(now);
+ return trimChatStore({version:CHAT_STORE_VERSION,activeId:fresh.id,sessions:[fresh,...base.sessions]});
+}
+export function selectChatSession(store,id){
+ const base=trimChatStore(store);
+ return base.sessions.some(s=>s.id===id)?{version:CHAT_STORE_VERSION,activeId:id,sessions:base.sessions}:base;
+}
+// 存档升级：老版本把最近 8 轮对话塞在 memory.dialogue 里（那时还没有「会话」这个概念）。
+// 第一次带新代码打开时把它当成「上一段对话」收进列表——一条都不丢。
+export function seedChatStoreFromDialogue(dialogue,now=Date.now()){
+ const turns=(Array.isArray(dialogue)?dialogue:[]).map(cleanTurn).filter(Boolean);
+ if(!turns.length)return emptyChatStore();
+ const session={...newChatSession(now),turns:turns.slice(-CHAT_LIMITS.turns)};
+ return trimChatStore({version:CHAT_STORE_VERSION,activeId:session.id,sessions:[session]});
 }
 
 // ── 对手 agent 的浏览器侧 ────────────────────────────────────────────────────

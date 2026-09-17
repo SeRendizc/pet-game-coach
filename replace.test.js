@@ -14,7 +14,9 @@
 // 模型调用一律失败），局面只由引擎决定；种子固定 313（对手首发是草系苔盾菇，
 // 我方首发火系炽鬃狮，克制关系稳定）；并在页面里把**对手补位那一次**请求改成永不落地，
 // 精确模拟"对手的补位决定没回来/回来了也过期被丢掉"这一类故障。
-// 这样：没有看门狗的版本会永远停在补位页（红），有看门狗的版本 1.5 秒内自己走完（绿）。
+// 这样：没有看门狗的版本会永远停在补位页（红），有看门狗的版本自己走完（绿）。
+// 期限分两档，这条测试走的是"请求还在飞"那一档：给足对手自己的 4 秒预算再加 0.6 秒余量，
+// 所以下面的等待窗必须比它宽——看门狗不会抢对手 agent 的决定权，只保证"没人提交"不会变成永久卡死。
 //
 // 需要本机有 Chrome；没有就跳过（本仓库的测试要能在没有图形环境的机器上跑）。
 import test from 'node:test';
@@ -165,13 +167,13 @@ test('PVP 对手宠物倒下时：界面说清是谁在补位，并且对局一�
 
   // ② 玩家一下都不点，对局也必须自己走完这一步（看门狗用引擎的补位语义提交）。
   let resumed=null;
-  const deadline=Date.now()+5000;
+  const deadline=Date.now()+9000;   // 看门狗在"请求还在飞"这一档是 4.6 秒（4 秒预算 + 0.6 秒余量）
   while(Date.now()<deadline){
    const s=await js(snapshotExpr);
    if(!String(s.phase).includes('补位')&&s.enemyActiveHp>0){resumed=s;break;}
    await sleep(120);
   }
-  assert.ok(resumed,`等了 5 秒对手的补位仍然没有落地（界面停在「${(await js(snapshotExpr)).phase}」）`);
+  assert.ok(resumed,`等了 9 秒对手的补位仍然没有落地（界面停在「${(await js(snapshotExpr)).phase}」）`);
   assert.notEqual(resumed.enemyActiveName,captured.enemyActiveName,'对手应该换上了另一只存活伙伴');
   assert.ok(resumed.enemyActiveHp>0,'补位后对手场上必须是存活宠物');
 

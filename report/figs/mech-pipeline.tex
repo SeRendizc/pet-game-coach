@@ -1,0 +1,46 @@
+% 总图：三种角色共用的执行链。只放图，不放正文段落——
+% 正文（「跑的是同一条链」那段与「链上七步各有出处」那段）在 sections/02-delivery.tex 里。
+%
+% 图号：走 preamble.tex 的 \shotcaption（\refstepcounter{shot}），与 \shot、\shotpair
+%       共用同一个计数器，因此全文图号连续、不会重号。正文用 \ref 引用。
+%       \shotcaption 自带 \par\vspace{3pt}，图注与 TikZ 画布之间另有 6pt 上文间距。
+%
+% 为什么竖排：正文栏只有 453pt 宽，七个框横排需要 500pt 以上，放不下。
+%       竖排还有个好处——主链只有「向下」一种走向，顺序不可能读反。
+%       反馈回路沿左侧向上，不横穿任何框。
+%
+% 行距 1.35cm 是这张图的关键参数：改小会让箭头顶到下一个框，改大会把图顶到下一页。
+\begin{figure}[htbp]\centering
+\vspace{6pt}
+\begin{tikzpicture}[
+  font=\scriptsize,
+  >={Latex[length=2.4pt,width=2.4pt]},
+  cbox/.style={draw=black!60,rounded corners=3pt,align=center,inner sep=2.4pt,
+               text width=118pt},
+  terminal/.style={cbox,fill=black!9},
+  flow/.style={->,thick,draw=black!75},
+  fb/.style={->,densely dashed,draw=black!55}]
+
+  \node[terminal] (s1) at (0,0)     {\textbf{玩家提问 / 自动触发}\quad{\tiny\ttfamily app.js}};
+  \node[cbox]     (s2) at (0,-1.35) {\textbf{硬策略门控}\quad{\tiny\ttfamily policy.js}};
+  \node[cbox]     (s3) at (0,-2.7)  {\textbf{有界工具循环}\quad{\tiny\ttfamily runtime.js}};
+  \node[cbox]     (s4) at (0,-4.05) {\textbf{引擎 / RAG 回执}\quad{\tiny\ttfamily toolbox.js}};
+  \node[cbox]     (s5) at (0,-5.4)  {\textbf{一致性校验}\quad{\tiny\ttfamily runtime.js}};
+  \node[cbox]     (s6) at (0,-6.75) {\textbf{有界输出 / 沉默}\quad{\tiny\ttfamily runtime.js}};
+  \node[terminal] (s7) at (0,-8.1)  {\textbf{事件记忆与反思}\quad{\tiny\ttfamily memory.js}};
+
+  % 主链：七步一路向下，每一步只有一个向下的箭头
+  \draw[flow] (s1) -- (s2);
+  \draw[flow] (s2) -- (s3);
+  \draw[flow] (s3) -- (s4);
+  \draw[flow] (s4) -- (s5);
+  \draw[flow] (s5) -- (s6);
+  \draw[flow] (s6) -- (s7);
+
+  % 反馈回路：记忆回到下一轮的触发。沿左侧向上走，与所有框都不相交。
+  \draw[fb] (s7.west) -- (-2.05,-8.1);
+  \draw[fb] (-2.05,-8.1) -- (-2.05,0);
+  \draw[fb] (-2.05,0) -- (s1.west);
+\end{tikzpicture}
+\shotcaption{三种角色共用的执行链，以及链上七步各自的出处}\label{fig:pipeline-chain}
+\end{figure}

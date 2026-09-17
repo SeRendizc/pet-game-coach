@@ -8,7 +8,7 @@
 %   讲成一句话       app.js 的 updateCoach() → requestCoach({role:'strategist'}) → coach/runtime.js 的
 %                   runCoach() → provider.generate；没连上模型时用 experience.js 的本地模板兜底
 %   展开给依据       app.js 第 771 行的「计算依据」details，条目来自 coach/strategist.js 的 evidence
-\begin{figure}[htbp]\centering
+\begin{figure}[H]\centering
 \begin{tikzpicture}[font=\scriptsize]
 \node[mbox] (a1) {\mbody{当前局面}{app.js}{{\ttfamily matchContext()}}};
 \node[mbox,right=8pt of a1.north east,anchor=north west] (a2)

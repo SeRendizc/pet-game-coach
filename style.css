@@ -474,3 +474,14 @@
 .pick-split.split .pet-option>.buttons button{height:24px;line-height:1;padding:0 8px}
 /* 两侧的筛选条对齐：边框与内边距在左右两侧写法不同，差 2px，用同高的行轨道吸收掉。 */
 .pick-split.split .pick-side>nav{height:30px;box-sizing:border-box}
+
+/* ── 小芽的对话记录：历史会话下拉 + 新对话 ────────────────────────────────────
+   界面改动克制：`.quick-questions` 那一排（怎么培养 / 这回合怎么打 / 小测验 /
+   整局复盘 / 上一回合）一个按钮都没动，这两个控件只占对话流水上方的一行。
+   下拉里是过去几段会话，条数与每条长度都有上限（coach/client.js 的 CHAT_LIMITS）；
+   「新对话」只换会话，跨局记忆（战绩 / 偏好 / 课程）不受影响。 */
+.chat-history{display:flex;align-items:center;gap:7px;margin:2px 0 0}
+.chat-history-label{flex:none;font-size:11px;color:var(--muted)}
+#chat-threads{flex:1;min-width:0;max-width:none;font-size:12px;padding:5px 7px}
+#chat-new{flex:none;padding:5px 10px;font-size:12px}
+@media(max-width:560px){.chat-history-label{display:none}}

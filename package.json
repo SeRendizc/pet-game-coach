@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test engine.test.js rules.test.js offline.test.js mechanics.test.js pvp.test.js browser.test.js features.test.js coach.test.js companion.test.js strategist.test.js server.test.js opponent.test.js knowledge.test.js evals/agent.test.js evals/regression.test.js evals/slow-model.test.js wiring.test.js copy.test.js evals/player-copy.test.js evals/tool-arguments.test.js",
+    "test": "node --test engine.test.js rules.test.js offline.test.js mechanics.test.js pvp.test.js browser.test.js features.test.js coach.test.js companion.test.js strategist.test.js server.test.js opponent.test.js knowledge.test.js evals/agent.test.js evals/regression.test.js evals/slow-model.test.js wiring.test.js copy.test.js evals/player-copy.test.js evals/tool-arguments.test.js replace.test.js",
     "start": "node server.js",
     "test:opponent": "node --test opponent.test.js",
     "test:knowledge": "node --test knowledge.test.js",

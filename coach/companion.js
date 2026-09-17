@@ -66,6 +66,36 @@
 // 而模型那一侧的约束同步改成「这一轮不需要任何跨局记录」（见 replyConstraints 的 mood 分支），
 // 免得本地模板接住了、模型改写时又把它换回一段战报。
 //
+// ── 第九次修正：问候就回应问候；军师的话不从陪练嘴里出来 ──────────────────────────
+// 用户实测（role=auto，走页面真实入口，有跨局记录）：
+//   「哈喽」→「哈喽。记得你最近三局都赢了，回合数是10、11、12。眼前这场对溪刃獭，
+//             你首发烬尾狐，速度38比它34快，可以先动。」
+// 两个病，来源不同，这里分别查清了：
+//   ① 「问候换回战绩」的素材**来自本地**：`哈喽` 原来一张问候词表都没进
+//      （SOCIAL_ONLY / GREETING_LINE / CHAT_THREADS.self 都不认它），于是这一轮被判成
+//      「没有明确意图」，chatReply 让开、观察通道接手——本机模板给模型的那份「事实草稿」
+//      是「上一局你碰的就是这套阵容。那局打到第26回合，拿下了…」（用文件头那次现场复核
+//      的可执行版本复现：tmp 里的诊断脚本打出的 packet.text）。**另外**，就算是「你好」，
+//      有记录时本机模板的第二句也是「你打过的那N局我都留着底。」——它把这一轮定性成
+//      「可以聊账本的一轮」，模型照着扩写就成了「记得你最近三局都赢了，回合数是10、11、12」。
+//   ② 「速度38比它34快，可以先动」**不是本地模板给的**：全库检索确认，陪练的任何模板里
+//      都没有「速度」与「先手」这两个词（只有 TACTICAL_HINT 这个**输入**分类器里有）。
+//      它是模型自己从 game_evidence.publicState 里算出来的——公开局面里本来就带着双方速度
+//      （烬尾狐 38、溪刃獭 34），而系统提示里写着「publicState是你已经看见的实时局面」。
+//      所以它自认为在复述看得见的事实，不是「给建议」；`replyConstraints` 的 forbid 里
+//      「复述屏幕上已经写着的事」拦不住它，`TACTICAL_OVERREACH` 也拦不住它
+//      （现场复核：整段过扫描返回 valid:true, reasons:[]，因为「可以先动」里没有一个被禁的动词）。
+// 三条一起收紧，本地与模型说同一句话：
+//   · 本地模板：问候轮的第二句一律换成**在场**句（emptyLedgerLine），不再落记录；
+//     问候词表三处同源（GREETING_WORDS / GREETING_SEEN / isGreetingTurn），`哈喽` 进得来。
+//   · 模型约束：replyConstraints 多一个 greeting 分支——不要跨局记录、不要顺势拐回战斗、
+//     不要速度对比与先手判断；forbid 里把「速度对比与先手判断」单列一条（它不是「复述屏幕」）。
+//   · 事后扫描：TACTICAL_OVERREACH 补进速度／先手／出手顺序三类说法；
+//     新增 GREETING_TALK + `greeting-turn-talk`——问候轮里出现回合数、胜负、血线、速度比较
+//     或任何战术词，一律判不合格，由 coach/client.js 回退到本机模板。
+// 判据可执行：`checkCompanionRestraint(用户实测原话, {greeting:true})` 必须不再 valid
+//（companion.test.js 的「问候轮」那一组，正反两向 + 负向验证）。
+//
 // ══════════════════════════════════════════════════════════════════════════════
 // 小芽的说话方式（内部设计说明，改文案前先读这一节）
 // ══════════════════════════════════════════════════════════════════════════════
@@ -219,8 +249,33 @@ export const REGISTERS={
 export const REGISTER_ORDER=['R0','R1','R2','R3','R4'];
 export const EMOTION_WORDS=/烦|输了|难受|好菜|气死|崩了|不想玩|好难/;
 export const FOLLOWUP_WORDS=/^[？?]+$|连续性|什么意思|为什么|为啥/;
+
+// ── 问候这一族词（第九次修正）────────────────────────────────────────────────
+// 原来三张词表各写各的，于是「哈喽」一个都没进：它既不是寒暄（SOCIAL_ONLY）也不是问候
+//（GREETING_LINE），意图判成 other，接话线程（CHAT_THREADS 的 self）也不认它——
+// 一句「哈喽」直接掉进观察通道，换回来的是一段战绩。用户实测的原话就是这条路径上的产物：
+// 「哈喽」→「上一局你碰的就是这套阵容。那局打到第26回合，拿下了…」（本机模板），
+// 模型照着这份「事实草稿」改写，就成了「记得你最近三局都赢了，回合数是10、11、12」。
+// 现在三张表**同源**，不会再各漏一个词：
+//   GREETING_WORDS  头部/整句判定（宽松：「哈喽哈喽」也算；`你?好` 让「好」能单独成词）；
+//   GREETING_SEEN   子串判定（具体：**不能**用 `你?好`，否则「好久没来了」里的「好」
+//                   会把久别那条线程截走，away 永远轮不上）；
+//   isGreetingTurn  整句只是问候——问候轮的那条硬线挂在它上面。
+const GREETING_WORDS='你?好|您好|哈喽|哈啰|哈罗|hi|hello|嗨|嘿|早安|早上好|中午好|下午好|晚上好|晚安|早|在吗|在么|在不在|喂';
+const GREETING_SEEN='哈喽|哈啰|哈罗|你好|您好|hi|hello|嗨|嘿|早安|早上好|中午好|下午好|晚上好|晚安|早|在吗|在么|在不在|喂';
+// 「整句只是问候」的判据：把语气词和标点去掉之后，剩下的字正好是一个或多个问候词。
+// 两步法是故意的——`(?:(?:A|B)[语气词]*)+` 这种嵌套量词在长输入上有回溯风险，
+// 而先剥语气词再整句匹配是线性的。上限 24 字：问候本来就很短，超了就不当问候轮。
+// 它比 GREETING_LINE 严：「你好，我的本命是啥」不是纯问候，不能被当成问候轮
+//（那一轮该答的是本命，不是「你好」）。
+const GREETING_FILLER=/[!！。~～,.，、;；:：?？\s啊呀哦哟嗯呢哎诶啦嘞]/g;
+const GREETING_CHAIN=new RegExp(`^(?:${GREETING_WORDS})+$`,'i');
+export function isGreetingTurn(message=''){
+ const t=String(message||'').replace(GREETING_FILLER,'');
+ return t.length>0&&t.length<=24&&GREETING_CHAIN.test(t);
+}
 // 纯寒暄：整句就是社交用语。带问题的句子（「你好，能问下…」）不算。
-const SOCIAL_ONLY=/^(你?好|您好|hi|hello|嗨|早|早安|晚安|谢谢|多谢|辛苦了|好的|好|嗯|哦|ok|OK|收到|在吗|在么|在不在)[!！。~～,.， ]*$/;
+const SOCIAL_ONLY=new RegExp(`^(?:${GREETING_WORDS}|谢谢|多谢|辛苦了|好的|好|嗯|哦|ok|OK|收到)[!！。~～,.， ]*$`,'i');
 // 「想找人聊两句」类：不带任何战术诉求，只是要人陪着说话（「我们聊聊呗」「随便聊两句」
 // 「陪我说说话」）。它和纯寒暄一样属于闲聊意图——判成 other 时模型那一侧的措辞没底，
 // 玩家听到的就会是「行，聊两句」后面跟着一句不接话的说明。带问题的句子照旧走 ask。
@@ -1374,7 +1429,7 @@ const TACTICAL_HINT=/怎么打|怎么用|怎么配|怎么选|建议|该不该|�
 // 都出自玩家这一轮。**判断顺序是固定的：心情／状态 → 要人陪聊 → 问候**。
 // 顺序就是这一节的规矩：玩家说了具体状态时，问候让位——「好早啊，今天没睡好」里那个「好」
 // 不能把「没睡好」挤掉（第八次修正要修的就是这一处）。
-const GREETING_LINE=/^(你?好|您好|hi|hello|嗨|早|早安|晚安|在吗|在么|在不在)/i;
+const GREETING_LINE=new RegExp(`^(?:${GREETING_WORDS})`,'i');
 const TIRED_LINE=/累|疲惫|没精神|困/;
 const UPSET_LINE=/烦|难受|心情|压力|撑不住|不想玩|不想打/;
 // 状态那一族（第八次修正）：「没睡好」「今天状态不好」原来一个词表都不收——于是
@@ -1537,7 +1592,9 @@ function socialLine(message='',{now=Date.now(),named=false}={}){
 }
 export const CHAT_THREADS=[
  {id:'self',
-  match:new RegExp(`你是谁|你叫什么|你叫啥|小芽|陪练|在吗|你在吗|你在干嘛|你还?记得我吗|认识我吗|陪我聊|随便聊|聊聊|你好|您好|hi|hello|嗨|早|${MOOD_LINE.source}`,'i'),
+  // 问候词用 GREETING_SEEN（子串形态，里面是「你好」而不是 `你?好`）：
+  // 「哈喽」原来不在这张表里，所以它连 self 这条线程都认不出来，chatReply 直接返回 null。
+  match:new RegExp(`你是谁|你叫什么|你叫啥|小芽|陪练|你在吗|你在干嘛|你还?记得我吗|认识我吗|陪我聊|随便聊|聊聊|${GREETING_SEEN}|${MOOD_LINE.source}`,'i'),
   signature:/小芽|陪练/,
   opener:(f,{message='',fresh=false,now=Date.now()}={})=>({chat:selfLine(message,false,fresh,now),memory:linesOf(f).length?`你打过的那${linesOf(f).length}局我都留着底。`:null}),
   followup:(f,{message='',fresh=false,now=Date.now()}={})=>({chat:selfLine(message,true,fresh,now),memory:habitLine(f)})},
@@ -1642,6 +1699,8 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  const text=String(message||'');
  if(TACTICAL_HINT.test(text))return null;
  const hasRecord=linesOf(f).length>0;
+ // 这一轮是不是「整句只是问候」。它决定第二句**不落记录**（见下面 second 那一段）。
+ const greeting=isGreetingTurn(text);
  // 有记录时的「说心情」（烦、难受、累、没睡好、状态不好）仍然走原来的关切通道：那时真的有事可以关切，
  // 闲聊不该把它换成一句家常——而且**说状态的那一轮不该有任何战报**（见 moodLine 的那条例外）。
  // 一条记录都没有时没有可关切的事，接住这句话本身就是回应（走下面的线程文案）。
@@ -1671,7 +1730,16 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  // 同一个玩家在空账本和有记录时拿到的应该是同一句陪伴（第八次修正）。
  // 续说那一轮照旧只说一句「不急。」：上一句已经接着那个话题了，不再重复一遍。
  const moodSecond=moodLine(text,{continuing});
- const second=built.memory
+ // ── 第九次修正：问候轮的第二句**不再是记录** ────────────────────────────────
+ // 上一版这里给的是 `你打过的那N局我都留着底。`——它本身不含数字，但它把这一轮定性成
+ // 「可以聊账本的一轮」。模型拿到的那份「事实草稿」就是它，于是同一轮里长出了
+ // 「记得你最近三局都赢了，回合数是10、11、12」；用户的原话是「别那么着急拐回战斗」，
+ // 而一句「哈喽」换来回合数与胜负统计正是这句话的实例。
+ // 现在问候轮的第二句一律是**在场的陪伴**（emptyLedgerLine 的那两句，和一条记录都没有时
+ // 用的是同一对句子）：问候就回应问候，问候轮的效果不再由账本决定。
+ const second=greeting
+  ?{text:emptyLedgerLine(continuing,false),kind:'presence',source:'问候轮（在场）'}
+  :built.memory
   ?{text:built.memory,kind:'memory',source:'memory.events'}
   :hasRecord?null
   :f.knowsFavorite?{text:`你跟我说过，本命是${f.favorite}。`,kind:'memory',source:'memory.favorite'}
@@ -1679,14 +1747,15 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
   :{text:(moodSecond&&!continuing?moodSecond.company:emptyLedgerLine(continuing,Boolean(moodSecond))),kind:'presence',source:'没有记录（在场）'};
  if(!second)return null;
  const affects=[],last=linesOf(f).at(-1);
- if(thread.id==='record'&&last){
+ // 记录那一句都没说，就没理由再补一句情绪——问候轮整段只有「接住问候 + 在场」。
+ if(!greeting&&thread.id==='record'&&last){
   if(last.result==='win')affects.push(AFFECT('praise','最近这一局是拿下的，收得漂亮。','memory.events.result'));
   else if(last.result==='loss')affects.push(AFFECT('pity','最近这一局没拿下来，可惜。','memory.events.result'));
  }
  const sentences=[SENT(built.chat,'chat','本轮消息'),SENT(second.text,second.kind,second.source),...affects];
  const fit=fitSentences(sentences,limit);
  if(!fit)return null;
- return {text:fit.text,parts:fit.parts,thread:thread.id,continued:continuing,emptyLedger:!hasRecord,evidence:[
+ return {text:fit.text,parts:fit.parts,thread:thread.id,continued:continuing,emptyLedger:!hasRecord,greeting,evidence:[
   `闲聊线程「${thread.id}」：你这一轮说的是「${text.slice(0,24)}」，${continuing?'接着上一轮同一个话题往下说':'开了一个新话题'}（来源：本轮消息 + memory.dialogue 的上一轮）。`,
   hasRecord?`跨局记录：已结束 ${linesOf(f).length} 场，${winCount(f)}胜${lossCount(f)}负（来源：memory.events）。`
    :'跨局记录：memory.events 里一局都还没有（没有记录）。这一轮只接住玩家这句话本身，不许提任何过去、不许念「0胜0负」、也不许把人推去开一局；玩家自己问账本时才讲账本。',
@@ -1728,6 +1797,13 @@ export function companion(context={},memory={},message='',now=Date.now()){
  // 这一轮是不是「说心情／状态」：决定了三件事——问候让位、正文只有接词+一句陪着、
  // 以及送给模型的约束里**不再要求**跨局记录（他这一轮要的不是战报）。
  let moodUsed=false;
+ // 这一轮是不是「整句只是问候」（哈喽／你好／在吗…）。问候轮有两条自己的硬线：
+ // 正文不带战绩，送给模型的约束也不许要跨局记录（见 replyConstraints 的 greeting 分支）。
+ const greeting=isGreetingTurn(words);
+ // 问候轮的理由也要跟着改：decideRegister 给的那句是「先接住这句话，再落一件自己真的记得的事」，
+ // 而这一轮恰恰**不落**记录。送模型的证据包里写着同一句，所以这里必须同步——
+ // 否则模型读到的「档位依据」和「回复约束」互相打架，它照着依据写就又把话拐回战斗了。
+ if(greeting)state.registerReason='玩家这一轮只是打了个招呼：问候就回问候——不落跨局记录、不报战绩、不聊对局（意图=chat）';
  const hasRecord=f.history.length>0;
  const continuing=Boolean(previousChatThread(memory));
  // named 只在**真正的第一次见面**（本机一条记录都没有）时为真：有记录时那句问候照说，
@@ -1755,7 +1831,9 @@ export function companion(context={},memory={},message='',now=Date.now()){
   // 空账本下说心情／状态会走这条线程（那时没有可关切的事），所以这里也要认出来：
   // 只要这一轮说的是心情／状态，模型那一侧就不许再要跨局记录。
   chat=chatReply({message:words,memory,facts:f,intent,limit,now});
-  if(chat){text=chat.text;parts=chat.parts;if(MOOD_LINE.test(words))moodUsed=true;}
+  // 问候轮的接话句本身就是全部内容（第二句是在场，不是记录），所以它按 socialOnly 走：
+  // 豁免的只有「至少一句跨局信息」这一条**信息量**判据，其余每一关照旧。
+  if(chat){text=chat.text;parts=chat.parts;if(chat.greeting)socialOnly=true;if(MOOD_LINE.test(words))moodUsed=true;}
   else if(moodFits(mood,limit)){text=mood.text;parts=mood.parts;socialOnly=true;moodUsed=true;}
   else if(social){text=social;parts=[SENT(social,'chat','本轮消息')];socialOnly=true;}
   else if(register==='R1'){
@@ -1790,6 +1868,10 @@ export function companion(context={},memory={},message='',now=Date.now()){
   const fit=body.length?fitSentences(body,limit,offer):null;
   if(fit){text=fit.text;parts=fit.parts;}
  }
+ // 问候轮的最后一道闸：上面任何一条路都没接住时，兜的也必须是**问候句本身**，
+ // 而不是降级成一段观察。「问候换回战绩」正是第九次修正要修的那一处，
+ // 所以这里宁可只说一句问候，也不让观察通道接手。
+ if(!text&&greeting){text=social||greetingLine(now,{named:!hasRecord&&!continuing});parts=[SENT(text,'chat','本轮消息')];socialOnly=true;chat=null;moodUsed=false;}
  // 说出来的每一句都要过自检：没有新信息、或者又变成复述屏幕，就当这条不存在。
  // 走的是「本机一条记录都没有」的接话段（chat.emptyLedger）时，豁免「至少一句跨局信息」，
  // 但**照旧**拦「播报我这儿是空的／把人推去开一局」这类姿态错误（freshIntro 里的硬线）。
@@ -1798,7 +1880,7 @@ export function companion(context={},memory={},message='',now=Date.now()){
  if(observed&&!socialOnly&&text&&text!=='我在。'&&!checkCompanionInformation(text,{parts,freshIntro:Boolean(chat?.emptyLedger)}).valid){text=null;reading=null;parts=[];chat=null;moodUsed=false;}
  // 该档位需要的事实一条都拼不出来时，降到 R0 只说承接句：档位要么真的用上，要么明说降到最低。
  if(!text){register='R0';text='我在。';state.register='R0';state.registerReason='该档位需要的事实在本机记录里一条都找不到，降到最短承接句';reading=null;parts=[];chat=null;moodUsed=false;}
- return publicPacket({text,register,state,intent,reading,chat,mood:moodUsed});
+ return publicPacket({text,register,state,intent,reading,chat,mood:moodUsed,greeting});
 }
 
 // 被动通道手里只有 buildContext 的快照（history 被裁空），把它当成一个「没有回合记录的对局」读。
@@ -1821,7 +1903,7 @@ function followupReply(memory){
 
 // 每个数字都出现在依据里：这样模型改写后的答案也能通过 checkGroundedAnswer 的数字核对，
 // 不会因为「引用了陪练模板里的真实数字」被误判成编造。
-function publicPacket({text,register,state,intent,reading=null,chat=null,mood=false}){
+function publicPacket({text,register,state,intent,reading=null,chat=null,mood=false,greeting=false}){
  const f=state.facts,history=f.history;
  const wins=history.filter(e=>e.result==='win').length,losses=history.filter(e=>e.result==='loss').length,draws=history.filter(e=>e.result==='draw').length;
  const evidence=[`本机对战记录：已结束${history.length}场，${wins}胜${losses}负${draws?draws+'平':''}（来源：memory.events，最多保留12场，预制场景不写入）。`];
@@ -1848,14 +1930,14 @@ function publicPacket({text,register,state,intent,reading=null,chat=null,mood=fa
  const settings=[`交流偏好${f.preference||'未设置'}`,`玩法目标${f.goal||'未设置'}`,`本命${f.favorite||'未设置'}`].join('、');
  evidence.push(`你的设置：${settings}（来源：你明确表达过才会记录）。`);
  if(f.lessons.length)evidence.push(`课程记录：${f.lessons.join('、')}（${f.lessons.length}条答对过的练习，不等于熟练掌握）。`);
- return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat),mood}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
+ return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat),mood,greeting}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
 }
 
 // 模型路径下的档位约束：随证据包一起送到服务端（server.js 把整个证据包作为 game_evidence 发给模型）。
 // forbid 里的每一条与 checkCompanionRestraint / checkCompanionInformation 的硬线一一对应：
 // 复述屏幕、播报自己的情绪、空泛安慰、评价水平、说教、战术指挥，一条都不留。
 // allow 里写清这一轮**该有**的东西：情绪不是被禁止的，被禁止的是把情绪落在自己身上。
-export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false,mood=false}={}){
+export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false,mood=false,greeting=false}={}){
  const r=REGISTERS[register];
  // 没有记录时送模型的那句话要换掉：原来写的是「至少一句要来自跨局记录（memory.events）」，
  // 而 memory.events 是空的——照这句写，模型只能编一局出来；
@@ -1866,7 +1948,14 @@ export function replyConstraints(register,voice='companion',{emptyLedger=false,c
  // 约束原来无条件写着「至少一句要来自跨局记录」——模型照着写，就会把刚接住的情绪又换成
  // 一段战报（「今天没睡好」→「最近3局里，最先倒下的有2次是烬尾狐……」），
  // 而这正是用户第三次提的那个病灶。所以这一轮换成一句相反的要求。
- const grounding=mood
+ // ── 第九次修正：**问候那一轮同样不要跨局记录**，而且这一条排在最前面。──────────────
+ // 用户实测：「哈喽」→「记得你最近三局都赢了，回合数是10、11、12。眼前这场对溪刃獭……
+ // 可以先动。」——问候换来一串战绩。模型不是凭空长出来的：上一版这里无条件要求
+ // 「至少一句要来自跨局记录」，于是它照着这句把一句问候扩写成了一段战报。
+ // 本地模板那一侧同步改（chatReply 的 greeting 分支），两边说同一句话。
+ const grounding=greeting
+  ?'这一轮**不需要**任何跨局记录或跨回合统计，也不要拿本机记录当开场白：他只是打了声招呼，回他这声招呼本身就是全部内容。'
+  :mood
   ?'这一轮**不需要**任何跨局记录或跨回合统计：他说的是自己的状态，不是来听战报的；接住他这句话本身，比任何数字都该说。'
   :emptyLedger
   ?'本机还没有任何对战记录（memory.events 为空）：不许提过去，也不许编一局出来；也不要说「记录还是空的／一局都还没记上」这类关于本机数据的话——没有历史就不聊历史，直接不聊它。'
@@ -1876,7 +1965,10 @@ export function replyConstraints(register,voice='companion',{emptyLedger=false,c
  const threading=continuing?'这一轮是接着上一轮同一个话题说：正文里要让人听得出是接着说的（「还聊」「接着说」这类词），不要另起一件不相干的事。':'';
  // 闲聊通道的一轮：模型的毛病有两个，一个是把「没有记录」讲成「等你打完再来」（把人挡回去），
  // 另一个是接着报出「0胜0负」并把话题列成菜单（客服话术）。两条都要分开写清楚。
- const smallTalk=chat?'这一轮是玩家主动搭话：先用一句话回他这句话本身（问候就回问候，说累就接住累，想聊天就应一声），再顺着说下去；不要用「等你打完一回合再来」「打完我就能接上话了」这类把人挡回去的说法，不要念「0胜0负」这种全零的账，也不要把话题列成选项菜单。':'';
+ // 问候那一轮不再说「再顺着说下去」——那句话正是「顺势拐回战斗」的许可。
+ const smallTalk=chat?(greeting
+  ?'这一轮是玩家主动打招呼：只回他这声招呼（用当前时段的问候，或一句同样短的应声），到此为止，不要顺势把话拐回战斗、也不要另起一个话题；不要用「等你打完一回合再来」「打完我就能接上话了」这类把人挡回去的说法。'
+  :'这一轮是玩家主动搭话：先用一句话回他这句话本身（问候就回问候，说累就接住累，想聊天就应一声），再顺着说下去；不要用「等你打完一回合再来」「打完我就能接上话了」这类把人挡回去的说法，不要念「0胜0负」这种全零的账，也不要把话题列成选项菜单。'):'';
  // R0（安静档／线上竞技／本局被点掉）：上限从 8 字放宽到 24 字是为了让玩家搭话时
  // 答得住一句陪伴句，不是为了让这一档也能讲正事。这句约束就是那条闸门：
  // 模型在 R0 只许回玩家这一句本身，不许提对局、记录、回合数、胜负，也不许提问。
@@ -1884,10 +1976,20 @@ export function replyConstraints(register,voice='companion',{emptyLedger=false,c
  // 说状态／心情那一轮的四条：① 用他自己的词接住（不许同义替换）；② 落点在他身上；
  // ③ 对局、记录、回合数、胜负一个字都不提；④ 想拐回对局也是后面几轮的事，不是这一轮。
  const care=mood?'这一轮玩家说的是他自己的心情或状态：先用他用的那个词原样接住（他说「累」就回「累」，不许换成「疲惫／辛苦」；说「没睡好」就回「没睡好」），然后把话停在他的状态上——最后一句要落在他身上。对局、记录、回合数、胜负一个字都不要提：想拐回对局也是后面几轮的事，不是这一轮。也不要说教（「你该睡了」「早点睡」这类话一个字都不许有）。':'';
+ // 问候轮的全量禁令（第九次修正）。它和 checkCompanionRestraint 的 greeting 分支、
+ // GREETING_TALK 是同一句话的两种写法：送给模型的与事后扫描的必须一致，
+ // 否则模型会一直踩线、玩家拿到的一直是回退文案。
+ const greet=greeting?'这一轮玩家只是打了个招呼：回一句问候或一声同样短的应声就够，不要报回合数、胜负、连胜连败、血线，不要做速度对比或先后手判断（「你比它快」「可以先动」「先手在你」这类一句都不许有），也不要给下一步该做什么的建议（「换上/换成/别用/留着/建议你…」），更不要顺势讲本局局面——拐回战斗是后面几轮的事，不是这一轮。':'';
+ // 速度对比与先手判断是军师的语言，不是陪练的。它单列一条，因为它不属于上面任何一类：
+ // 模型把它当成「复述屏幕上看得见的事实」（publicState 里确实有双方速度），
+ // 所以「不要复述屏幕」那条约束拦不住它——实测那句正是这样穿过去的。
+ const noTactics='速度对比（「速度38比它34快」）、先手判断（「可以先动」「先手在你」）、以及任何告诉玩家这一手该出什么的说法，都属于军师的活：陪练一句都不给。';
  return {register,voice,maxChars:r.limit,maxQuestions:r.maxQuestions,allowAdvice:r.advice,
-  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':'',emptyLedger?'播报本机有没有记录（「记录还是空的」「一局都还没记上」），或者把玩家推去开一局（「去开一局吧」「打完我就能接上话」）':'',register==='R0'?'提对局、记录、回合数或胜负（安静档只回玩家这一句话）':'',mood?'提对局、记录、回合数或胜负（他这一轮说的是自己的状态，先接住他）':''].filter(Boolean),
-  allow:['对真实事件的可惜/漂亮/悬/憋屈/松口气（必须落在具体回合、数字或记录上）','跨局记录与偏好（玩家以前说过、打过的事）'],
-  instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，${mood?'':'只写有本机记录支撑的事实。'}${quiet}${care}${grounding}${threading}${smallTalk}不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
+  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥','速度对比与先手判断（「速度38比它34快」「可以先动」「先手在你」）',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':'',emptyLedger?'播报本机有没有记录（「记录还是空的」「一局都还没记上」），或者把玩家推去开一局（「去开一局吧」「打完我就能接上话」）':'',register==='R0'?'提对局、记录、回合数或胜负（安静档只回玩家这一句话）':'',mood?'提对局、记录、回合数或胜负（他这一轮说的是自己的状态，先接住他）':'',greeting?'提对局、记录、回合数、胜负、血线或本局局面（这一轮只是问候，回问候就够）':''].filter(Boolean),
+  allow:greeting
+   ?['对这句问候本身的回应（用当前时段的问候，或一句同样短的应声）——这一轮不要别的']
+   :['对真实事件的可惜/漂亮/悬/憋屈/松口气（必须落在具体回合、数字或记录上）','跨局记录与偏好（玩家以前说过、打过的事）'],
+  instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，${mood||greeting?'':'只写有本机记录支撑的事实。'}${quiet}${care}${greet}${grounding}${threading}${smallTalk}${noTactics}不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
 }
 
 // 两条声线。自我中心的情绪在任何声线下都拦——「我看得有点急」正是这一版要修掉的方向：
@@ -1899,14 +2001,36 @@ export const VOICES={companion:'陪练',sober:'克制'};
 // 「到这儿也行」（给他许可、停不停由他），绝不许说「你该睡了」「早点睡」（替他决定）。
 const PREACH=/你应该|你必须|你最好|下一次?别|以后别|要记住|下次记得|不该|别再|得改|认真点|长点记性|该睡了|该休息了|早点睡|早点休息|快去睡|去睡吧|睡觉去|别熬夜/;
 // 战术指令：告诉玩家这一手该出什么。这是军师的活——陪练只评论，不指挥。
-const TACTICAL_OVERREACH=/建议(你)?(换|用|改|选|出)|不如(换|用|选)|最好(换|用|选|是)|换(掉|上|成)|改用|别用|不要用|先(出|放|上)[^。，]{0,4}(技能|招)|集火|先打|留着(技能|药)|把(药|回复药)(吃|用)了/;
+// ── 第九次修正：这张表原来只拦「换上／别用」这一类**指令动词**，于是换个说法就能过 ──
+// 用户实测那句「眼前这场对溪刃獭，你首发烬尾狐，速度38比它34快，可以先动。」完整地穿过了
+// 这条扫描（现场复核：checkCompanionRestraint 对整段返回 valid:true, reasons:[]）——
+// 因为「可以先动」「速度38比它34快」里一个被禁的动词都没有。它照样是战术指令：
+// 它替玩家判断了出手顺序该指望什么，正是「军师说、陪练不说」的那条线。
+// 补进来的三类：
+//   ① 速度／先手这一类**局面比较**（速度比、先手、先动、抢先、出手顺序、速度线）；
+//   ② 「比…快/慢 + 数字」这种把两个面板摆在一起算的说法；
+//   ③ 把「换上/换成」当建议动词用的祈使句（原来只拦「换掉/换上」的字面）。
+// 这三类在陪练的模板里一个字都没有（全库检索：模板只出现在 TACTICAL_HINT 这个**输入**分类器里），
+// 所以加进来不会误伤自己的文案。
+// 「先手」不能整词拦：陪练夸刚刚那一手是合法的（「这一手先手抢得漂亮」是**回看**，
+// 不是**前瞻**），所以只拦「先手在你／抢到先手／可以先动」这类替玩家判断下一步的说法。
+export const TACTICAL_OVERREACH=/建议(你)?(换|用|改|选|出)|不如(换|用|选)|最好(换|用|选|是)|换(掉|上|成)|改用|别用|不要用|先(出|放|上)[^。，]{0,4}(技能|招)|集火|先打|留着[^。，；]{0,4}(技能|招|药|道具|果)|把(回复药|净化药|能量果|药)(吃|用)了|先动|先出手|先手(在你|归你|在你手上|是|更|稳|能|可以|就)|抢先手|抢到先手|抢下先手|出手顺序|速度线|速度\s*\d|速度\s*(比|对|差|更|慢|快)|(比|和|跟)[^。，；！？]{0,6}(快|慢)\s*\d|(先|再|直接)(换|上)[^。，；！？]{0,6}(更|比较|稳|好|划算)/;
+// 问候轮的专属禁令（第九次修正）。问候就回应问候：一句招呼不该换来回合数、胜负、血线、
+// 速度比较，也不该换来「先动／换上／别用」这类战术词。
+// 它比 TACTICAL_OVERREACH 宽：那一张拦的是**战术越界**，这一张拦的是「把话拐回战斗」本身——
+// 「记得你最近三局都赢了」没有一个战术词，但它正是用户点名的那一句。
+// 只在玩家这一轮**整句只是问候**时生效（isGreetingTurn），所以不会误伤正常的一轮。
+export const GREETING_TALK=new RegExp(`回合数|第\\s*\\d+\\s*回合|\\d+\\s*回合|\\d+\\s*胜|\\d+\\s*负|胜率|连胜|连败|赢|输|拿下|没拿下来|血线|血量|\\d+\\s*点血|速度|先手|先动|先出手|换上|换成|换掉|别用|不要用|建议|集火|留着|克制|技能|能量|加点|培养|阵容|出招|首发|这场|本局|这一局|对面|对手|记录|账本|这几局|\\d+\\s*局|${PET_NAMES}`);
 
 // 克制扫描（docs/COMPANION-DESIGN.md §3.5 的五条，落地为可失败、可回退的检查）。
 // 复述屏幕 / 自我中心的情绪 / 空泛安慰 / 水平羞辱 / 说教 / 战术越界 / 没有记录支撑的过去，任何声线下都拦。
 // 注意第三条：拦的是「情绪落在陪练自己身上」，不是情绪本身——落在事件上的
 // 可惜/漂亮/悬/憋屈/松口气必须放行，否则「有情绪」这一项又被这条扫描做成 0。
-export function checkCompanionRestraint(text,{register='R2',facts={},previousAssistant='',voice='companion',emptyLedger=false}={}){
+// greeting 有两种给法：直接给布尔值，或者给 playerMessage 让它自己判（coach/client.js 走后者，
+// 它手里有玩家原话）。默认不打开，所以既有的调用点一个都不受影响。
+export function checkCompanionRestraint(text,{register='R2',facts={},previousAssistant='',voice='companion',emptyLedger=false,greeting=false,playerMessage=null}={}){
  const t=String(text??''),reasons=[],registerInfo=REGISTERS[register]||REGISTERS.R2;
+ const greetingTurn=Boolean(greeting)||(playerMessage!==null&&isGreetingTurn(playerMessage));
  if(!t.trim())return {valid:false,reasons:['empty-text'],register,limit:registerInfo.limit,voice};
  if(t.length>registerInfo.limit)reasons.push(`over-limit:${t.length}>${registerInfo.limit}`);
  const questions=(t.match(/[？?]/g)||[]).length;
@@ -1921,10 +2045,13 @@ export function checkCompanionRestraint(text,{register='R2',facts={},previousAss
  if(/菜|太弱|你错了|你不行|水平不够|速度意识差|手残|瞎打|乱打|不会玩|没天赋|水平差/.test(t))reasons.push('skill-insult');
  if(PREACH.test(t))reasons.push('preach');
  if(TACTICAL_OVERREACH.test(t))reasons.push('tactical-overreach');
+ // 问候轮：上面那些都是「说得对不对」，这一条是「该不该说」——玩家只打了个招呼，
+ // 回合数、胜负、血线、速度比较、战术词一个都不该出现（见文件头第九次修正）。
+ if(greetingTurn&&GREETING_TALK.test(t))reasons.push('greeting-turn-talk');
  if(/(记得|上次|之前|上回|我们已经|上一场|那一局|连着|最近)/.test(t)&&!facts.allowPast)reasons.push('unsupported-past-claim');
  if(/速度判断/.test(t)&&!(facts.lessons||[]).includes('速度判断'))reasons.push('lesson-not-recorded');
  if(register!=='R3'&&register!=='R0'&&/[？?]\s*$/.test(t.trim())&&/[？?]\s*$/.test(String(previousAssistant||'').trim()))reasons.push('consecutive-questions');
- return {valid:reasons.length===0,reasons:[...new Set(reasons)],register,limit:registerInfo.limit,voice};
+ return {valid:reasons.length===0,reasons:[...new Set(reasons)],register,limit:registerInfo.limit,voice,greeting:greetingTurn};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

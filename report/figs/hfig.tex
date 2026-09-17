@@ -1,0 +1,35 @@
+% 第 2 章专用的截图宏：[H] 版 \shot 与 \shotpair。
+%
+% 为什么另起一份，而不是改 preamble.tex：preamble 里的 \shot / \shotpair 用的是
+% [htbp]——浮动体会自己找位置，用户实测到「图跑到小节外面去了」。第 3、5 章还在用
+% 那两个宏，所以这里不动它们，只在本章 input 一份同构的 [H] 版本：
+% **正文讲到哪一句，图就钉在哪一句下面**（float 宏包已在 preamble 里加载）。
+%
+% 与 \shot / \shotpair 保持完全一致的三件事，改这个文件时别改掉：
+%   1) 一个 figure 环境 = 一个编号（\shotcaption 的 \refstepcounter{shot}），
+%      \shot 与 \shotpair 共用同一个计数器，所以全文图号连续、不重号；
+%   2) 引用一律走 \ref{fig:<文件名>}，不手写数字。\shotpair 的标签取的是**第一张**的名字，
+%      正文引用并排的两张时用同一个编号 +（a）（b）区分；
+%   3) 宽度按「印出来读得清」定：本报告正文栏宽 453.5pt，一张 680 CSS px 视口下拍的
+%      一栏文字图，插到 0.46 栏宽时 13px 的字约 7.3pt；插到 0.8 栏宽时约 12.7pt。
+\newcommand{\shotH}[3][0.72]{%
+  \begin{figure}[H]\centering
+    \includegraphics[width=#1\linewidth]{figs/#2}%
+    \shotcaption{#3}\label{fig:#2}%
+  \end{figure}}
+
+% 并排两张。开头的 \vspace{0pt} 不是装饰：minipage 的 [t] 对齐的是**第一行的基线**，
+% 而图片那一行的基线在图片底边，两张不一样高的图于是变成底对齐，一高一低。
+% 加一个零高的空行把基线提到顶端，才是真的顶对齐（这条是从 preamble 的 \shotpair 抄的，
+% 那里踩过一次）。
+\newcommand{\shotpairH}[6][0.46]{%
+  \begin{figure}[H]\centering
+  \begin{minipage}[t]{#1\linewidth}\vspace{0pt}\centering
+    \includegraphics[width=\linewidth]{figs/#2}\\[3pt]{\small（a）#3}%
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[t]{#1\linewidth}\vspace{0pt}\centering
+    \includegraphics[width=\linewidth]{figs/#4}\\[3pt]{\small（b）#5}%
+  \end{minipage}%
+  \shotcaption{#6}\label{fig:#2}%
+  \end{figure}}

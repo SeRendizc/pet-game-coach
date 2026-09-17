@@ -1,5 +1,5 @@
 import {observe,feedback,archiveRound,reverseRounds,markdown,concise,attentionState,trackAttention,releaseAttention,decisiveOpportunity,assessDecision,watchCandidate,readArchive,taskStamp,taskIsCurrent,strategistSession,strategistTrigger,dwellIntervention,incidentInfo} from './coach/experience.js';
-import {requestCoach,connectionStatus,invalidateCoachRequests,requestOpponentAction,resolveEnemyChoice,legalEnemyActions,enemyFallbackAction,OPPONENT_TIMEOUT_MS} from './coach/client.js';
+import {requestCoach,connectionStatus,invalidateCoachRequests,requestOpponentAction,resolveEnemyChoice,legalEnemyActions,enemyFallbackAction,OPPONENT_TIMEOUT_MS,readChatStore,serializeChatStore,activeChatSession,chatConversation,chatTitle,appendChatTurn,startChatSession,selectChatSession,seedChatStoreFromDialogue,emptyChatStore,CHAT_LIMITS} from './coach/client.js';
 import {teacher,reviewMatch,dropRepeatedLead} from './coach/teacher.js';
 import {rosterAdvice,strategist} from './coach/strategist.js';
 import {buildContext,MATCH_REVIEW_REQUEST} from './coach/runtime.js';
@@ -35,6 +35,36 @@ function liveCoachStale(key){return key===liveCoachKey&&Date.now()-liveCoachShow
 let coachMemory=freshMemory(),coachRole='auto',asking=false,conversation=[],contextEpoch=0;try{coachMemory=readMemory(localStorage.getItem('xiaoya-memory-v1'));}catch{}
 function advanceContext(){contextEpoch++;invalidateCoachRequests();}
 function saveCoachMemory(){if(preview)return;try{localStorage.setItem('xiaoya-memory-v1',JSON.stringify(coachMemory));}catch{}}
+
+// ── 小芽的对话记录（会话列表）────────────────────────────────────────────────
+// 用户问的是「每次刷新能不能清空一下小芽对话记录？或者做成对话式保存一下可以选回去」。
+// 选了后者：刷新就清空是丢数据，而「存下来 + 能选回去」是同一件事的超集——
+// 默认什么都不做就接着看，想开一段新的按「新对话」，想翻旧的从下拉里选。
+// **这个存储和跨局账本（xiaoya-memory-v1）是两个键，互不影响**：
+// 「新对话」只换会话，账本（events / lessons / goal / favorite / journal）一个字段都不动。
+// 上限：会话 8 条、每条 40 轮、整包 180KB（见 coach/client.js 的 CHAT_LIMITS）。
+const CHAT_KEY='xiaoya-chats-v1';
+let chatStore=emptyChatStore();
+function saveChats(){if(preview)return;try{localStorage.setItem(CHAT_KEY,serializeChatStore(chatStore));}catch{}}
+function applyChatSession(session,{render=true}={}){
+ conversation=chatConversation(session);
+ if(!render)return;
+ $('chat-log').replaceChildren();
+ for(const turn of (session?.turns||[]))appendChatEntry(turn.role==='user'?'你':'小芽',turn.content);
+}
+// 会话列表：标题取这段对话里玩家说的第一句。数量与长度都已经被 CHAT_LIMITS 截过。
+function refreshChatThreads(){
+ const select=$('chat-threads');
+ if(!select)return;
+ const active=chatStore.activeId;
+ select.replaceChildren(...chatStore.sessions.map(session=>{
+  const option=document.createElement('option');
+  option.value=session.id;
+  option.textContent=chatTitle(session);
+  option.selected=session.id===active;
+  return option;
+ }));
+}
 let roundArchive=null,currentHint=null,lastFeedback=null,autoCalls=0,lastAutoReason=null,hintEpoch=0,visibleHintReason=null,visibleHintTurn=-10,coachMuted=false;try{roundArchive=readArchive(localStorage.getItem('xiaoya-last-round'));}catch{}
 let attention=attentionState(Date.now()),nudgeTimer=null,tacticalShown=new Set(),tacticalCount=0,lastTacticalTurn=-10;let growthDismissed=null;
 // 局内主动提示由军师负责（陪练只管闲聊、情绪与记忆）：
@@ -221,19 +251,35 @@ function renderSides(state){$('player').innerHTML=sideView(state,'player');$('en
 function matchContext(message){const c=buildContext(game,profile,focus,roundArchive,stageId,message);c.coachAllowed=true;return c;}
 
 // 双方的行动面板用同一个渲染器，保证 UI 完全一致；只是数据取各自那一侧。
+
+// 补位这一步到底轮到谁。PVP（manualReplace）用 replaceSide 显式标出；PVE 只可能是玩家
+// ——引擎会替对手自动补位（engine.js 的 else 分支）。
+//
+// 这个区分是玩家实测卡死的核心：对手的宠物倒下后，引擎停在 replace 等**对手**补位，
+// 而界面上凡是问"谁在补位"的地方以前都当成"玩家在补位"，于是出现
+// 「请选择下一只出场」+ 三张写着「免费补位」却全部点不动的牌。
+function replaceOwner(g){return g&&g.phase==='replace'?(g.replaceSide||'player'):null;}
+const enemyReplacing=()=>replaceOwner(game)==='enemy';
+function phaseText(){
+ if(busy)return '正在出招…';
+ if(game.result)return '本场结束';
+ if(enemyReplacing())return '对手正在补位…';
+ if(game.phase==='replace')return '请选择补位伙伴';
+ return enemyThinking()?'对手正在思考…':'等待行动';
+}
 function actionPanelHtml(side,whichTab){
  const g=game,s=g[side],p=active(g,side),legal=legalActions(g,side);
  // 对手一侧固定由 AI 出招：面板保留（界面与真人对战一致）但明确只读。
  const ok=a=>(side==='player'||humanOpponent())&&!busy&&!g.result&&legal.some(b=>a.kind===b.kind&&a.id===b.id&&a.target===b.target);
  const btn=(a,title,desc,extra='')=>`<button class="action" data-side="${side}" data-action='${JSON.stringify(a)}' ${ok(a)?'':'disabled'}><div class="action-heading"><span>${escape(title)}</span>${extra?`<em>${escape(extra)}</em>`:''}</div><small>${escape(desc)}</small></button>`;
  if(whichTab==='skill')return p.skills.map(id=>{const sk=SKILLS[id];return btn({kind:'skill',id},sk.name,sk.desc,`${sk.power?'威力 '+sk.power+' · ':''}${sk.priority===1?'先制 · ':''}消耗 ${sk.cost} 豆`);}).join('');
- if(whichTab==='switch')return s.pets.map((q,target)=>btn({kind:'switch',target},q.name,`${TYPES[q.type]}系 · ${q.hp}/${q.maxHp} HP · ${q.energy} 能量`,target===s.active?'正在场上':q.hp<=0?'已倒下':g.phase==='replace'?'免费补位':'换宠占用整回合')).join('');
+ if(whichTab==='switch')return s.pets.map((q,target)=>btn({kind:'switch',target},q.name,`${TYPES[q.type]}系 · ${q.hp}/${q.maxHp} HP · ${q.energy} 能量`,target===s.active?'正在场上':q.hp<=0?'已倒下':(g.phase==='replace'&&replaceOwner(g)===side)?'免费补位':'换宠占用整回合')).join('');
  if(whichTab==='item')return Object.entries(ITEMS).map(([id,item])=>`<div class="item-group"><p>${item.name} ×${s.items[id]}<br><span class="muted">${escape(item.desc)}</span></p><div class="targets">${s.pets.map((q,target)=>`<button data-side="${side}" data-action='${JSON.stringify({kind:'item',id,target})}' ${ok({kind:'item',id,target})?'':'disabled'}>${escape(q.name)}</button>`).join('')}</div></div>`).join('');
  // 认输只对本地玩家开放：对手认输会走另一条结算（引擎的 escape 语义属于我方撤退）。
  return `<div class="item-group"><p>认输立即结束本场，不获得经验与训练点。</p><button data-side="${side}" data-action='{"kind":"escape"}' ${side==='player'&&ok({kind:'escape'})?'':'disabled'}>确认撤退</button></div>`;
 }
 function render(){$('round-coach').textContent=game.result?'✦ 整局复盘':'✦ 回合回顾';renderSides(game);$('environment-info').textContent=game.environment?`${game.environment.name} · 剩${game.environment.turns}回合：${game.environment.desc}`:'无场地环境';$('enemy-difficulty').textContent=game.mode==='pvp-local'?('本地对战 · 对手 Lv.'+game.enemy.pets[0].level):DIFFICULTIES[game.difficulty]?.name+(game.stageName?' · '+game.stageName:' · 预制场景');const roundLabel=game.phase==='replace'?'免费补位':`第 ${Math.min(game.turn,ruleFacts().turnLimit)} 回合`;
-if($('turn').textContent!==roundLabel){$('turn').textContent=roundLabel;$('turn').classList.remove('round-pulse');void $('turn').offsetWidth;$('turn').classList.add('round-pulse');} $('phase').textContent=busy?'正在出招…':game.result?'本场结束':game.phase==='replace'?'请选择补位伙伴':enemyThinking()?'对手正在思考…':'等待行动';$('restart').disabled=busy;$('camp-tab').disabled=busy;$('preview-exit').disabled=busy;$('preview-again').disabled=busy;$('export').disabled=busy;
+if($('turn').textContent!==roundLabel){$('turn').textContent=roundLabel;$('turn').classList.remove('round-pulse');void $('turn').offsetWidth;$('turn').classList.add('round-pulse');} $('phase').textContent=phaseText();$('restart').disabled=busy;$('camp-tab').disabled=busy;$('preview-exit').disabled=busy;$('preview-again').disabled=busy;$('export').disabled=busy;
 $('result').hidden=!game.result;if(game.result)$('result').innerHTML=`<strong>${{win:'训练胜利',loss:'本场失利',draw:'本场平局',escaped:'已认输'}[game.result]}</strong>${reward?`全队经验 +${reward.xp} · 训练点 +${reward.tokens}${reward.swift?' · 首次'+ruleFacts().swiftTurnLimit+'回合内速胜 +1点（已计入）':''}${reward.levels.length?' · '+reward.levels.join('，'):''}`:game.preview?'预制体验，不计入成长':'本场无成长奖励'} · ${game.preview?'退出体验可恢复原对战':'返回营地继续培养'}`;
 const forceSwitch=game.phase==='replace';
  if(forceSwitch){tab='switch';enemyTab='switch';}
@@ -277,12 +323,18 @@ function renderSplitPanels(){
  if(!split)return;
  const replacing=game.phase==='replace';
  const rs=replacing?(game.replaceSide||'player'):null;
- $('enemy-side-note').textContent=humanOpponent()?(replacing&&rs!=='enemy'?'等待对方补位':(pvpPicks.enemy?'已锁定':'对手选择行动')):(replacing?(rs==='enemy'?'轮到你补位':'对手正在补位'):enemyThinking()?'对手正在思考…':'已独立出招（看不到你的选择）');
+ // 「对方行动」这一栏说的永远是对手的状态，所以 rs==='enemy' 就是**对手**在补位。
+ // 这两句话以前是反的：对手补位时写「轮到你补位」，玩家补位时写「对手正在补位」——
+ // 玩家点不动牌的时候抬头看到的正是「轮到你补位」，于是只能理解成"界面坏了"。
+ $('enemy-side-note').textContent=replacing?(rs==='enemy'?(humanOpponent()?'等待对方补位':'对手正在补位'):'轮到你补位'):(humanOpponent()?(pvpPicks.enemy?'已锁定':'对手选择行动'):enemyThinking()?'对手正在思考…':'已独立出招（看不到你的选择）');
+ // 玩家这一栏也要说明白：对手补位期间牌是故意点不动的，不是坏了。
+ $('player-side-note').textContent=replacing&&rs!=='player'?'等待对手补位，你不用操作':'';
  const locked=!!pvpPicks.enemy||busy||!!game.result||(replacing&&rs!=='enemy');
  if(locked)document.querySelectorAll('#enemy-actions [data-action]').forEach(b=>b.disabled=true);
  const mineLocked=!!pvpPicks.player||busy||!!game.result||(replacing&&rs!=='player');
  if(mineLocked)document.querySelectorAll('#actions [data-action]').forEach(b=>b.disabled=true);
- $('message').textContent=pvpPicks.player?'已锁定，等对方选择…':'';
+ // 补位这一段只有一侧能点，所以牌被禁用时必须说清楚等的是谁。
+ $('message').textContent=pvpPicks.player?'已锁定，等对方选择…':(replacing&&rs!=='player'?'对手正在选择补位伙伴，稍等（补位不消耗回合）':'');
 }
 // 每回合先让对手独立做决定（只看回合前的公开局面），然后才轮到我选。
 // 决定的时刻早于我的选择，所以它不可能参考我的行动——这就是隔离。
@@ -327,7 +379,7 @@ async function planEnemyAction(snapshot,plan){
  plan.advice=answer?.advice||null;
  plan.agreedWithEngineScore=!!answer?.agreedWithEngineScore;
  // 局面已经换了（新回合、重开、回营地）就丢掉这个答案，绝不写进新对局。
- if(plan.token!==enemyPlanToken||game!==snapshot)return null;
+ if(plan.token!==enemyPlanToken||game!==snapshot){armReplaceWatchdog();return null;}  // 答案被丢掉=这一步没人提交了，重新找人兜底
  pvpEnemyLocked=resolved.action;
  updateEnemyNote();
  // 敌方补位时玩家点不了（pvpPick 会因为 replaceSide 不是他而直接返回），
@@ -337,13 +389,49 @@ async function planEnemyAction(snapshot,plan){
  if(splitMode()){renderSplitPanels();commitPvpPick();}
  return resolved.action;
 }
+// 对手补位这一步的看门狗。
+//
+// 为什么光靠上面那句 act(resolved.action) 不够：那一步依赖 planEnemyAction 真的走到最后。
+// 它中途有一个过期闸门（上一行的 plan.token!==enemyPlanToken||game!==snapshot），命中就
+// return null——**没有任何重试**。对手的补位就这样被丢掉时，引擎永远停在 replace、
+// replaceSide='enemy'，而玩家这一侧的所有牌都被 renderSplitPanels 禁用，
+// pvpPick 又会因为 replaceSide 不是他而直接 return：界面彻底不动，也没有任何报错。
+// 请求本身虽然有 4 秒超时兜底，但那 4 秒里玩家同样什么都做不了，看起来就是死机。
+//
+// 所以补位这里不看 plan，只看**局面**：只要还停在"对手该补位"，到点就用引擎自己的补位
+// 语义替他提交（engine.js 的强制补位不消耗回合，与 PVE 里引擎自动补位是同一套规则，
+// 不改任何数值，也不是替对手做战术选择——只是不让一步补位把整局卡住）。
+//
+// 期限分两档，这样看门狗不会抢走对手 agent 的决定权：
+//   · 请求还在飞（plan 仍是 pending）→ 给足它自己的预算：OPPONENT_TIMEOUT_MS 再加 0.6 秒余量。
+//     正常回答永远先到，看门狗只负责"本来就没有人会提交"的那一类故障。
+//   · 已经没有人在提交（请求被过期闸门丢掉、或压根没建起来）→ 1.5 秒内替他补位。
+const ENEMY_REPLACE_DEADLINE_MS=1500;
+const ENEMY_REPLACE_PENDING_GRACE_MS=OPPONENT_TIMEOUT_MS+600;
+let replaceWatchdog=null;
+function enemyReplacePending(){return !!game&&!game.result&&enemyReplacing();}
+function clearReplaceWatchdog(){clearTimeout(replaceWatchdog);replaceWatchdog=null;}
+function armReplaceWatchdog(){
+ clearReplaceWatchdog();
+ // 真人同机时对面是活人，等多久由他们决定，不能替他落子。
+ if(!enemyReplacePending()||humanOpponent())return;
+ const snapshot=game;
+ const pending=!!enemyPlan&&enemyPlan.match===snapshot&&enemyPlan.source==='pending';
+ replaceWatchdog=setTimeout(()=>{
+  replaceWatchdog=null;
+  if(game!==snapshot||busy||!enemyReplacePending())return;
+  enemyPlanToken++;enemyPlan=null;pvpEnemyLocked=null;  // 丢掉可能还在飞的那次请求，避免它回来再交一次
+  const action=enemyFallbackAction(game);
+  if(action)act(action);else render();                  // 理论上一定有牌可换（否则本场已结束）
+ },pending?ENEMY_REPLACE_PENDING_GRACE_MS:ENEMY_REPLACE_DEADLINE_MS);
+}
 function enemyThinking(){return !!enemyPlan&&enemyPlan.match===game&&!pvpEnemyLocked&&!humanOpponent()&&!!game&&!game.result;}
 // 只改状态文字，不重绘按钮：对手答案到达时玩家可能正按着某个按钮，
 // 整块重绘会让他的点击落空（render() 会重建所有 [data-action] 节点）。
 function updateEnemyNote(){
  if(!game)return;
  const enemyNote=$('enemy-side-note');if(enemyNote&&splitMode())renderSplitPanels();
- const phase=$('phase');if(phase&&!busy&&!game.result)phase.textContent=game.phase==='replace'?'请选择补位伙伴':enemyThinking()?'对手正在思考…':'等待行动';
+ const phase=$('phase');if(phase&&!busy&&!game.result)phase.textContent=phaseText();
 }
 // act() 里等对手答案的地方：只等到"预算用完"为止，到点立刻用引擎兜底，
 // 所以单回合被对手拖住的上限是恒定的，不会随网络状况变成无限。
@@ -469,8 +557,8 @@ game=next;
 // 结算后不再复述最后一帧——那句话刚在动画里念过，也已经写进战斗记录，
     // 再放在横幅上是同一信息出现两遍。动画过程中仍然逐帧叙述（见上面的 frames 循环），
     // 这里只留「接下来做什么」。
-    $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':'下一回合由你决定。';
-}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
+    $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':enemyReplacing()?'对手倒下了，正在选择下一只出场；补位不消耗回合，你先不用操作。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':'下一回合由你决定。';
+}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();armReplaceWatchdog();updateSideCoaches();updateCoach();}}
 function notify(event){if(preview)return null;const text=coachEvent(event,coachContext(game,profile,coachMemory),coachSession);if(text)queueCompanionCue(text);return text||null;}
 
 // —— 陪练的在场方式（#coach-bubble）─────────────────────────────────────────────
@@ -603,7 +691,27 @@ function strategistCue(trigger){
  return strategistHint;
 }
 function openCoach(){connectionStatus().then(s=>{$('coach-status').textContent=s.configured?(s.verified?'DeepSeek 已连接':'DeepSeek 已配置，尚未验证'):'本地模式 · 未配置密钥';}).catch(()=>{$('coach-status').textContent='后端未启动，请运行 npm start';});$('coach-panel').hidden=false;$('coach-bubble').hidden=true;}
-function addChat(role,text){conversation.push({role:role==='你'?'user':'assistant',content:text});conversation=conversation.slice(-8);const e=document.createElement('div');e.className='chat-entry'+(role==='你'?' user':'');e.innerHTML=`<strong>${role}</strong>${markdown(text)}`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
+// 只在面板里画一条（不落存储、不动会话）：恢复历史会话时用它逐条重画。
+function appendChatEntry(role,text){
+ const e=document.createElement('div');e.className='chat-entry'+(role==='你'?' user':'');e.innerHTML=`<strong>${role}</strong>${markdown(text)}`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;
+}
+// 说一句就同时做三件事：进模型上下文（最近 8 轮）、进当前会话的存档、画到面板上。
+// 存档这一步是「刷新后还在」的全部来源；上限与裁剪在 coach/client.js 里统一做。
+function addChat(role,text){conversation.push({role:role==='你'?'user':'assistant',content:text});conversation=conversation.slice(-8);chatStore=appendChatTurn(chatStore,role==='你'?'user':'assistant',text);saveChats();refreshChatThreads();appendChatEntry(role,text);}
+// 「新对话」：只开一段新的，旧的那段留在下拉里能选回去。**账本不动**。
+function newChat(){advanceContext();chatStore=startChatSession(chatStore);saveChats();conversation=[];$('chat-log').replaceChildren();refreshChatThreads();$('coach-status').textContent='新开了一段对话；跨局记忆（战绩、偏好、课程）都还在。';}
+// 「清除记忆」与「删掉某条行为依据」会连带丢掉旧摘要，所以那时把会话也换一段新的，
+// 免得旧上下文继续被送进模型。它们和「新对话」不是一回事：那两个按钮清的确实是记忆。
+function resetChats(){chatStore=startChatSession(emptyChatStore());saveChats();conversation=[];$('chat-log').replaceChildren();refreshChatThreads();}
+function restoreChats(){
+ let raw=null;try{raw=localStorage.getItem(CHAT_KEY);}catch{}
+ chatStore=raw?readChatStore(raw):seedChatStoreFromDialogue(coachMemory.dialogue);
+ const session=activeChatSession(chatStore);
+ if(session&&session.turns.length){applyChatSession(session);refreshChatThreads();return;}
+ chatStore=session?chatStore:startChatSession(chatStore);
+ saveChats();refreshChatThreads();
+ addChat('小芽','我是小芽。你先玩，有需要我会简短提醒。想问规则、培养或复盘，也可以直接说。');
+}
 // 等待指示：请求发出后立刻出现，收到回答或失败时移除。
 function showThinking(label){hideThinking();const e=document.createElement('div');e.className='chat-entry thinking';e.id='chat-thinking';e.innerHTML=`<strong>小芽</strong><span class="thinking-text">${escape(label)}</span><span class="dots"><i></i><i></i><i></i></span>`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
 function hideThinking(){document.getElementById('chat-thinking')?.remove();}
@@ -635,7 +743,7 @@ function rerollSeed(){
  const el=$('seed');
  el.value=Math.floor(Math.random()*4294967295);
 }
-function startMatch(){advanceContext();
+function startMatch(){advanceContext();clearReplaceWatchdog();
  // 第三道保险：队伍必须是三只。上限曾经失效过（能选到 7 只），
  // 与其相信界面上那两道，这里直接挡住。
  if(selected.length!==3){document.getElementById('save-message').textContent='请选择三只伙伴再开始。';return;}
@@ -646,7 +754,7 @@ function startMatch(){advanceContext();
  const battlePets=capped?Object.fromEntries(Object.entries(profile.pets).map(([id,v])=>[id,{...v,level:LEVEL_CAP}])):profile.pets;
  game=createGame(seed,selected,versus?{pets:battlePets,difficulty:$('difficulty').value,mode:'pvp-local',...buildVersusOpponent(seed,{level:capped?LEVEL_CAP:avgLv,team:pvpOpponent==='human'&&enemySelected.length===3?enemySelected:null})}:{pets:profile.pets,difficulty:$('difficulty').value,mode:'pve',...stageOptions(stageId)});$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';attention=attentionState(Date.now());coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;$('camp-home').hidden=true;$('deploy').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?('本地对战：对手由 AI 扮演一位真人——自动配队、独立出招，界面与真人对战一致。双方各选一招后同时结算。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;decideEnemyFirst();updateSideCoaches();updateCoach();}
 $('start').onclick=()=>startMatch();
-function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':matchMode==='pve'?'训练 · PVE · v0.11':'营地 · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('battle').hidden=true;companionPending=null;hideCompanionCue();$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
+function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':matchMode==='pve'?'训练 · PVE · v0.11':'营地 · v0.11';pvpPicks={player:null,enemy:null};$('panel-enemy').hidden=true;$('bottom-grid').classList.remove('versus');cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);clearReplaceWatchdog();game=null;$('battle').hidden=true;companionPending=null;hideCompanionCue();$('camp-tab').classList.add('selected');$('deploy').hidden=true;$('camp-home').hidden=false;camp();}
 function syncMode(){
  const pvp=matchMode==='pvp';
  $('stage-step').hidden=pvp;$('stage-picker').hidden=pvp;$('stage-detail').hidden=pvp;
@@ -672,7 +780,12 @@ function renderRules(){const el=$('rules-body');if(!el)return;el.innerHTML=rules
 $('difficulty').innerHTML=Object.entries(DIFFICULTIES).map(([id,d])=>`<option value="${id}"${id==='normal'?' selected':''}>${escape(d.name)}</option>`).join('');
 $('difficulty').onchange=()=>{$('difficulty-help').textContent=DIFFICULTIES[$('difficulty').value].description;if(!$('deploy').hidden)deployView();};
 $('difficulty-help').textContent=DIFFICULTIES[$('difficulty').value].description;renderRules();
-if(coachMemory.dialogue?.length){for(const item of coachMemory.dialogue)addChat(item.role==='user'?'你':'小芽',item.content);}else addChat('小芽','我是小芽。你先玩，有需要我会简短提醒。想问规则、培养或复盘，也可以直接说。');camp();
+// 对话记录在这里恢复：先读会话存档，读不到就把 memory.dialogue 里那 8 轮收成第一段会话
+//（老存档升级时一条都不丢）。恢复完才挂「新对话 / 历史会话」两个控件。
+restoreChats();
+$('chat-new').onclick=newChat;
+$('chat-threads').onchange=()=>{advanceContext();chatStore=selectChatSession(chatStore,$('chat-threads').value);saveChats();applyChatSession(activeChatSession(chatStore));refreshChatThreads();$('coach-status').textContent='已切回选中的那段对话；跨局记忆不受影响。';};
+camp();
 
 function renderStages(){
  $('stage-picker').innerHTML=STAGES.map(stage=>`<button data-stage="${stage.id}" class="${stage.id===stageId?'selected':''}" ${preview?'disabled':''}><strong>${stage.name}</strong><small>Lv.${stage.level} ${(profile.clearedStages||[]).includes(stage.id)?'· 已通关':''}</small></button>`).join('');
@@ -690,7 +803,7 @@ function presentScene(){
 }
 function startPreview(id){
  if(busy)return;advanceContext();
- hintEpoch++;$('live-coach').hidden=true;if(!preview)suspended={game,matchId,reward,tab,coachSession,companionSaid,focus,coachMemory:structuredClone(coachMemory),conversation:structuredClone(conversation)};
+ hintEpoch++;$('live-coach').hidden=true;if(!preview)suspended={game,matchId,reward,tab,coachSession,companionSaid,focus,coachMemory:structuredClone(coachMemory),conversation:structuredClone(conversation),chatStore:structuredClone(chatStore)};
  preview=id;game=createScenario(id);matchId='preview';reward=null;tab='skill';coachSession=companionSession(coachMemory);companionSaid=new Set();companionPending=null;hideCompanionCue();strategistHint=strategistSession();turnIncident=null;strategistPanel=null;
  $('scenes-dialog').close();$('preview-bar').hidden=false;$('preview-title').textContent='预制体验 · '+SCENARIOS.find(x=>x.id===id).title+' · 不保存进度';
  $('camp-home').hidden=id!=='growth';$('deploy').hidden=id!=='growth';$('battle').hidden=id==='growth';
@@ -699,7 +812,7 @@ function startPreview(id){
 }
 function exitPreview(){
  if(busy||!preview)return;advanceContext();clearScene();preview=null;
- ({game,matchId,reward,tab,coachSession,companionSaid,focus,coachMemory,conversation}=suspended);suspended=null;$('preview-bar').hidden=true;
+ ({game,matchId,reward,tab,coachSession,companionSaid,focus,coachMemory,conversation,chatStore}=suspended);suspended=null;$('preview-bar').hidden=true;
  $('camp-home').hidden=!!game;$('deploy').hidden=!!game;$('battle').hidden=!game;
  if(game){render();updateCoach();$('action-banner').textContent='已恢复体验前的对战。';}else camp();
 }
@@ -710,8 +823,8 @@ $('inline-expand').onclick=()=>{$('inline-copy').hidden=false;$('inline-expand')
 $('scene-rest').onclick=exitPreview;$('scene-retry').onclick=()=>startPreview('risk');
 
 document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{advanceContext();coachRole=b.dataset.role;document.querySelectorAll('[data-role]').forEach(x=>x.classList.toggle('selected',x===b));});
-$('show-memory').onclick=()=>{addChat('小芽',memorySummary(coachMemory)+'\n'+`交流偏好：${coachMemory.preference==='brief'?'简短':coachMemory.preference==='detailed'?'详细':'未设置'}。记住 ${coachMemory.events.length} 场对战、${coachMemory.lessons.length} 条学习记录（讲过的课与答对过的练习，不等于熟练掌握）。`);const details=document.createElement('details');const title=document.createElement('summary');title.textContent='查看最近的行为依据';details.append(title);for(const event of (coachMemory.journal||[]).slice(-8).reverse()){const row=document.createElement('p');row.textContent=`第${event.turn}回合 · ${{hint:'显示提示',dismiss:'主动关闭',decision:event.prompted?'提示后的行动':'独立行动',teach:'主动讲过这一课',relearn:'这一课标回未掌握'}[event.kind]||event.kind} · ${event.time.slice(0,10)}`;const remove=document.createElement('button');remove.textContent='删除这条';remove.onclick=()=>{advanceContext();coachMemory=deleteMemoryEvidence(coachMemory,event.id);conversation=[];$('chat-log').replaceChildren();saveCoachMemory();addChat('小芽','已删除这条记录和引用它的习惯判断，也清掉了可能含旧摘要的会话。游戏成长保留。');};row.append(remove);details.append(row);}$('chat-log').lastElementChild.append(details);};
-$('clear-memory').onclick=()=>{advanceContext();conversation=[];$('chat-log').replaceChildren();coachMemory=freshMemory();roundArchive=null;try{localStorage.removeItem('xiaoya-last-round');}catch{}saveCoachMemory();addChat('小芽','已清除小芽的偏好、对战记忆和学习记录，游戏成长保持不变。');};
+$('show-memory').onclick=()=>{addChat('小芽',memorySummary(coachMemory)+'\n'+`交流偏好：${coachMemory.preference==='brief'?'简短':coachMemory.preference==='detailed'?'详细':'未设置'}。记住 ${coachMemory.events.length} 场对战、${coachMemory.lessons.length} 条学习记录（讲过的课与答对过的练习，不等于熟练掌握）。`);const details=document.createElement('details');const title=document.createElement('summary');title.textContent='查看最近的行为依据';details.append(title);for(const event of (coachMemory.journal||[]).slice(-8).reverse()){const row=document.createElement('p');row.textContent=`第${event.turn}回合 · ${{hint:'显示提示',dismiss:'主动关闭',decision:event.prompted?'提示后的行动':'独立行动',teach:'主动讲过这一课',relearn:'这一课标回未掌握'}[event.kind]||event.kind} · ${event.time.slice(0,10)}`;const remove=document.createElement('button');remove.textContent='删除这条';remove.onclick=()=>{advanceContext();coachMemory=deleteMemoryEvidence(coachMemory,event.id);resetChats();saveCoachMemory();addChat('小芽','已删除这条记录和引用它的习惯判断，也清掉了可能含旧摘要的会话。游戏成长保留。');};row.append(remove);details.append(row);}$('chat-log').lastElementChild.append(details);};
+$('clear-memory').onclick=()=>{advanceContext();resetChats();coachMemory=freshMemory();roundArchive=null;try{localStorage.removeItem('xiaoya-last-round');}catch{}saveCoachMemory();addChat('小芽','已清除小芽的偏好、对战记忆和学习记录，游戏成长保持不变。');};
 
 let reviewedMatch=null,reviewAnswer=null;
 function showMatchReview(){

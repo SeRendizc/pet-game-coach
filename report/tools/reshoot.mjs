@@ -25,6 +25,13 @@
 //   node report/tools/reshoot.mjs coach        # 军师条：短提示 + 展开的计算依据
 //   node report/tools/reshoot.mjs review       # 老师的整局复盘
 //   node report/tools/reshoot.mjs static       # 其余没被引用/待核对的那几张
+//   node report/tools/reshoot.mjs measure      # 只量不拍：每个元素多大、最小的字印出来几 pt
+// 环境变量：SHOT_WIDTH / SHOT_HEIGHT 换视口，SHOT_OUT 换输出目录（自检时写到 tmp/，
+// 不动 report/figs），SHOT_FORCE_SLICE=140 强制走切片拼接那条路。
+//
+// 每张图截完都会回读像素自检（verify）：高度必须等于元素盒子 + pad，底部不许有厚废白。
+// 没过的会打 ⚠ 并在收尾时集中列出、进程退出码非零——断图不许悄悄留在 report/figs 里。
+// 另外 report/tools/fig-audit.mjs 可以离线体检整个目录（不启浏览器）。
 import {writeFileSync, mkdirSync, statSync, rmSync, existsSync, readFileSync} from 'node:fs';
 import {decodePng, decodePngBuffer, pixel, rowProfile, stackPng, writePng} from './png.mjs';
 
@@ -35,13 +42,20 @@ const OUT = process.env.SHOT_OUT || 'report/figs';
 // 带着旧数据跑，陪练会先说「这套阵容你打过几次」「隔了几天」这类跨局的话，
 // 把这一局真正该说的那句挤掉。
 const PORT = Number(process.env.CDP_PORT || (9500 + (process.pid % 400)));
-// 军师／复盘这两张原来在 1000px 视口拍，按栏宽印出来正文只有 4.9/5.2pt（糊）。
-// 680px 视口下同样是 12~13px 的字，印出来是 7.2/7.7pt。视口窄，字就相对大。
-const WIDTH = Number(process.env.SHOT_WIDTH || 680);
+// **视口宽度按阶段分**，这个默认值不是随便定的：
+//   · 军师条 / 复盘 / 陪练气泡是「一栏文字」，原来在 1000px 视口拍，按栏宽印出来正文只有
+//     4.9/5.2pt（糊）。680px 视口下同样是 12~13px 的字，印出来是 7.2/7.7pt——
+//     视口窄了，字相对整幅图就大了。
+//   · 其余的图（营地、出征、对战、PVP）是整页版式，680px 会掉进 max-width:850px 那套
+//     单栏布局，构图全变。它们保持 1000px。
+const STAGE = process.argv[2] || 'probe';
+const WIDTH = Number(process.env.SHOT_WIDTH ||
+  (['coach', 'review', 'bubble', 'probe', 'chat', 'quiz', 'lesson'].includes(STAGE) ? 680 : 1000));
 const HEIGHT = Number(process.env.SHOT_HEIGHT || 1080);
 // 自检用：强制切片高度，验证「一屏装不下就往下滚、拼回整张」那条路真的通。
 const FORCE_SLICE = Number(process.env.SHOT_FORCE_SLICE || 0);
-const STAGE = process.argv[2] || 'probe';
+// measure 阶段：只量不拍（走同一套导航代码，见 shot 里的 DRY 分支）。
+const DRY = STAGE === 'measure';
 const ROUNDS = Number(process.argv[3] || 8);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -134,6 +148,11 @@ const scrollTo = y => js(`(()=>{const m=Math.max(0,document.documentElement.scro
 
 // 截完立刻回读像素：元素底边那几行还在不在、底下有没有多出废白。
 // 这一步是机械拦截——「看着像截全了」正是当初那张断图混过去的方式。
+// 两条判据：
+//   · okH：图片高度必须等于「元素高 + 上下 pad」。对不上就是没截全，硬指标。
+//   · okDead：底部那片页面底色不能太厚。阈值带一个按图高算的比例，因为有的面板
+//     底下本来就是空的（#cultivation 是 height:100% 撑满侧栏，内容不满），按固定
+//     px 判会误报；而 teacher-review 那次的废白占了整幅图 24%，按比例一定拦得住。
 function verify(file, {h, pad, scale}) {
   const img = decodePng(file);
   const base = pixel(img, 1, 1).slice(0, 3);
@@ -143,7 +162,7 @@ function verify(file, {h, pad, scale}) {
   const dead = img.height - 1 - last;                       // 设备像素
   const expected = Math.round((h + pad * 2) * scale);
   const okH = Math.abs(img.height - expected) <= Math.max(2, scale * 2);
-  const okDead = dead <= (pad + 6) * scale;
+  const okDead = dead <= Math.max((pad + 6) * scale, img.height * 0.15);
   return {img, deadCss: +(dead / scale).toFixed(1), ok: okH && okDead, okH, okDead};
 }
 
@@ -152,6 +171,16 @@ async function shot(selector, name, {pad = 8, scale = 2, minText = 0, all = fals
   if (!rect) { console.log(`  ✗ 跳过 ${name}：找不到 ${selector}`); return false; }
   if (rect.text < minText) { console.log(`  ✗ 跳过 ${name}：正文只有 ${rect.text} 字（要求 ${minText}），元素还没说话`); return false; }
 
+  // measure 阶段：只报尺寸和字号，不按快门。字号算的是**已经印在纸上**的那号字：
+  // pt = (最小 CSS 字号 / 元素 CSS 宽) × 插入栏宽 × 正文栏宽 453.5pt。
+  if (DRY) {
+    const at = f => (rect.fontPx / rect.w) * f * 453.5;
+    const lo = frac ?? 0.46, hi = frac ?? 0.94;
+    console.log(`  ${name.padEnd(26)} ${String(Math.round(rect.w)).padStart(4)}×${String(Math.round(rect.h)).padStart(4)} css  ` +
+      `最小字号 ${rect.fontPx ?? '?'}px  →  ${(frac ? `${frac} 栏宽 ` : '46%~94% 栏宽 ')}` +
+      `${at(lo).toFixed(1)}${frac ? '' : '~' + at(hi).toFixed(1)}pt`);
+    return true;
+  }
   const geom = r => ({clipX: Math.max(0, r.x - pad), top: Math.max(0, r.y - pad),
     width: r.w + pad * 2, height: r.h + pad * 2,
     inView: Math.max(0, r.y - pad) >= r.scrollY - 0.5 && Math.max(0, r.y - pad) + r.h + pad * 2 <= r.scrollY + r.innerH});
@@ -483,8 +512,142 @@ if (STAGE === 'review') {
   writeFileSync('tmp/sheet/review-text.txt', text);
 }
 
+// ── 陪练：聊天面板（闲聊就在这一块里）─────────────────────────────────────
+// 拍的是最后两条 .chat-entry（玩家问 + 小芽答），不是整块 #coach-panel：
+// 面板自己有 620px 高（style.css: #coach-panel），按栏宽印下去要占掉大半页，
+// 而图上大半是设置区与输入框，跟正文讲的那件事无关。
+const openPanel = async () => {
+  await js(`(()=>{const p=document.getElementById('coach-panel');if(p&&!p.hidden)return true;
+    document.getElementById('coach-open')?.click();return true;})()`);
+  await sleep(900);
+};
+const entries = () => js(`[...document.querySelectorAll('#chat-log .chat-entry:not(.thinking)')].map(e=>e.innerText.trim())`);
+// 说一句、等小芽那句落地。等的是**条数**（玩家一条 + 小芽一条），不是固定秒数：
+// 本地那类路由立刻回，走模型那条要好几秒，两边都不能靠 sleep 猜。
+const say = async (text, tries = 40) => {
+  const before = (await entries()).length;
+  await js(`(()=>{const i=document.getElementById('chat-input');i.value=${JSON.stringify(text)};
+    document.getElementById('chat-form').requestSubmit();return true;})()`);
+  for (let i = 0; i < tries; i++) {
+    await sleep(900);
+    const list = await entries();
+    if (list.length >= before + 2) return list.at(-1);
+  }
+  return (await entries()).at(-1) || '';
+};
+// 框最后 n 条之前先滚到底，并回报这几条合起来装不装得进 chat-log 的可视高度。
+// chat-log 是 overflow:auto 的滚动容器，露出去的部分会被它自己裁掉——
+// 那和老师复盘那张「被折叠线切开」是同一类错，所以装不下就退回只框最后一条。
+const frameLast = async (n = 2) => js(`(()=>{
+  const log=document.getElementById('chat-log');
+  const es=[...log.querySelectorAll('.chat-entry:not(.thinking)')].slice(-${n});
+  if(!es.length)return null;
+  log.scrollTop=log.scrollHeight;
+  const top=es[0].offsetTop,bottom=es.at(-1).offsetTop+es.at(-1).offsetHeight,vis=log.clientHeight;
+  return {h:Math.round(bottom-top),vis:Math.round(vis),fits:bottom-top<=vis};})()`);
+const shotLastEntries = async (name, n = 2) => {
+  const f = await frameLast(n);
+  const use = f && f.fits ? n : 1;
+  if (f) console.log(`  最后 ${n} 条共 ${f.h}px，可视 ${f.vis}px${f.fits ? '' : '（装不下，退回只框最后一条）'}`);
+  return shot(`#chat-log .chat-entry:not(.thinking):nth-last-child(-n+${use})`, name,
+    {pad: 8, scale: 3, minText: 12, frac: 0.46, all: true});
+};
+
+// 打完一局再回营地、开面板：跨局那两句（问候轮的第二句、闲聊轮的第二句）在
+// 「有记录」和「一条记录都没有」两种状态下不一样（chatReply 的 fresh 分支），
+// 报告引的是有记录那一版。
+const warmChat = async () => {
+  await enterBattle();
+  console.log('  先打一局攒一条本机记录:', await playOut(60));
+  await sleep(2000);
+  await go(); await dismiss();
+  await openPanel();
+  await click('[data-role="companion"]', 400);       // 这一轮问的是陪练，角色钉死，不靠 auto 猜
+};
+
+// 闲聊：报告引的那一句「今天累了啊——那就先歇着，不用急着做什么」出在**开场**那一轮
+//（续说那一轮的接话句是另一套：「还累着啊——」，见 companion.js 的 MOOD_ECHO_MORE），
+// 所以它必须是这次会话的第一句。
+if (STAGE === 'chat') {
+  await warmChat();
+  const mood = await say('今天有点累');
+  console.log('  「今天有点累」→', JSON.stringify(mood));
+  console.log('  聊天记录:', JSON.stringify(await entries()));
+  await shotLastEntries('companion-chat', 2);
+  writeFileSync('tmp/sheet/chat-text.txt', (await entries()).join('\n---\n'));
+}
+
+// 问候：同一块面板的另一种开场。这个阶段只核对正文引的那句「你好」回什么——
+// 报告 2.2 末尾写的是「你好，我是小芽。你打过的那 3 局我都留着底」，
+// 而 companion.js 第九次修正把问候轮的第二句改成了「在场的陪伴」，得看实际说了什么。
+if (STAGE === 'greet') {
+  await warmChat();
+  console.log('  「你好」→', JSON.stringify(await say('你好')));
+  console.log('  追问「你还记得我打过几局吗」→', JSON.stringify(await say('你还记得我打过几局吗')));
+  console.log('  聊天记录:', JSON.stringify(await entries()));
+  writeFileSync('tmp/sheet/greet-text.txt', (await entries()).join('\n---\n'));
+}
+
+// 小测：报告里那组数（面板速度 38、培养一次敏捷 +3 得 41、对手 41、答案「无法确定」）
+// 是 makeQuiz 里 offset=3 的那一版，而 offset=[2,4,3][variant%3]、variant=quizCount——
+// 也就是**第三道**（coach/runtime.js 的 quizRequest + coach/teacher.js 的 makeQuiz）。
+// 前两道分别问「先出手」「后出手」，所以连着问三道，拍最后一道。
+if (STAGE === 'quiz') {
+  await go(); await dismiss();                        // 每个阶段都从 about:blank 起步，先导航
+  await openPanel();
+  for (let i = 1; i <= 3; i++) console.log(`  第 ${i} 道 →`, JSON.stringify((await say('出一道小测验')).slice(0, 240)));
+  await shotLastEntries('teacher-quiz', 2);
+  writeFileSync('tmp/sheet/quiz-text.txt', (await entries()).join('\n---\n'));
+}
+
+// 老师的单回合讲解：玩家长时间停在**同一个**技能上不动（coach/experience.js 的 dwellSignal）。
+// 整段只能碰一个按钮——中途换到别的技能会把 dwell 游标重开（actionKey 一变就重开），
+// 那就永远攒不够 10 秒。谁开口由 dwellVerdict 决定：停的是推荐解（或分差 ≤5）才轮到老师，
+// 停在明显更差的一项上军师会委婉建议换掉，所以这里回读 #live-provider 认人。
+const holdHover = async (idx, ms) => {
+  const start = Date.now(); let label = null;
+  while (Date.now() - start < ms) {
+    const t = await js(`(()=>{const bs=[...document.querySelectorAll('#actions button[data-action]')].filter(b=>!b.disabled);
+      const b=bs[${idx}];if(!b)return null;
+      const r=b.getBoundingClientRect(),o={bubbles:true,clientX:r.left+5,clientY:r.top+5};
+      b.dispatchEvent(new PointerEvent('pointerover',o));b.dispatchEvent(new PointerEvent('pointerenter',o));
+      return b.innerText.trim().split('\\n')[0];})()`);
+    if (t) label = t;
+    await sleep(700);
+  }
+  return label;
+};
+if (STAGE === 'lesson') {
+  const only = process.env.LESSON_IDX;
+  const order = only !== undefined ? [Number(only)] : [0, 1, 2, 3];
+  let done = false;
+  for (const idx of order) {
+    if (done) break;
+    await enterBattle();
+    const label = await holdHover(idx, 12500);
+    await sleep(1500);
+    const role = await js(`(document.getElementById('live-provider')?.textContent||'').trim()`);
+    console.log(`  技能 #${idx} ${JSON.stringify(label)} → 开口者 ${JSON.stringify(role)}`);
+    if (!/讲解/.test(role)) { console.log('    这一项不是推荐解（dwellVerdict 判给了军师），换下一项'); continue; }
+    // 规则文案先落地，模型那句随后替换掉它（与 coach 阶段同一条理由）。
+    // 两张都拍，收尾时按正文需要留一张。
+    console.log('  规则文案:', JSON.stringify(await js(`document.getElementById('live-copy').textContent.trim()`)));
+    await shot('#live-coach', 'teacher-lesson-raw', {pad: 6, scale: 2, minText: 60, frac: 0.8});
+    await click('#live-coach details summary', 700);
+    await sleep(5200);
+    const final = await js(`(document.getElementById('live-coach')?.innerText||'').trim()`);
+    console.log('  模型落地后开头:', JSON.stringify(final.slice(0, 160)));
+    console.log('  末尾还有「出不出它由你决定」:', /出不出它由你决定/.test(final));
+    console.log('  陪练气泡收掉:', await hideBubble());
+    await shot('#live-coach', 'teacher-lesson', {pad: 6, scale: 2, minText: 60, frac: 0.8});
+    writeFileSync('tmp/sheet/lesson-text.txt', final);
+    done = true;
+  }
+  if (!done) console.log('  ✗ 这一轮四个技能都不是推荐解，没拍到老师的单回合讲解');
+}
+
 // ── 其余几张：只重拍，不判断（判断在报告里做）────────────────────────────
-if (STAGE === 'static') {
+if (STAGE === 'static' || DRY) {
   await go(); await dismiss();
   await shot('#camp-roster .pet-option:first-child', 'camp-card', {pad: 6, scale: 3, minText: 30, frac: 0.46});
   await shot('#cultivation', 'camp-cultivation', {pad: 8, scale: 2, minText: 30, frac: 0.46});
@@ -527,6 +690,7 @@ if (STAGE === 'static') {
 }
 
 // 收尾：把没通过像素校验的图集中报一次。断图不许悄悄留在 report/figs 里。
+if (DRY) { console.log('\n（measure 阶段：只量不拍，report/figs 没有被改动。）'); process.exit(0); }
 if (BAD_SHOTS.length) {
   console.log(`\n⚠ 有 ${BAD_SHOTS.length} 张没通过像素校验（底部废白或高度对不上）：${BAD_SHOTS.join('、')}`);
   console.log('  这些图先别用；对照 tmp/sheet/ 里的文字记录，多半是元素在拍之前变了。');

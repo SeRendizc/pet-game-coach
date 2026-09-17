@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {createGame,step,legalActions,rankEnemyActions,SKILLS,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,readingsFor,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,EMPTY_LEDGER_ECHO,EMPTY_LEDGER_MENU,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,PERMISSION_REQUIRED,checkCompanionPermission,DAY_PARTS,dayPartOf,dayPartAt,SESSION_GAP,LONG_SESSION,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords} from './coach/companion.js';
+import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,readingsFor,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,EMPTY_LEDGER_ECHO,EMPTY_LEDGER_MENU,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,PERMISSION_REQUIRED,checkCompanionPermission,DAY_PARTS,dayPartOf,dayPartAt,SESSION_GAP,LONG_SESSION,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords,isGreetingTurn,GREETING_TALK,TACTICAL_OVERREACH} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {strategistTrigger,strategistSession,attentionState} from './coach/experience.js';
 import {coachEvent,coachContext} from './coach.js';
@@ -1017,11 +1017,19 @@ test('fresh memory: the three greetings get three different answers, and the sec
   // 第二轮问的如果是「今天有点累」，接话必须落在这件事上（不是换一件毫不相干的事）
   if(/累/.test(second))assert(/累/.test(two.answer.text),`说累却没有接住：${two.answer.text}`);
  }
- // ③ 有历史时：接话里带一条真的记得的事，而不是硬塞一句战绩播报
+ // ③ 有历史时：问候轮**照样不带记录**（第九次修正把这条断言反过来了）。
+ // 旧断言是「有记录时必须出现『你打过的那2局我都留着底』」。那句话本身没有一个数字，
+ // 但它把这一轮定性成「可以聊账本的一轮」——模型拿到的那份「事实草稿」就是它，
+ // 照着扩写就成了用户实测的「哈喽。记得你最近三局都赢了，回合数是10、11、12。」。
+ // 现在问候轮说的话在有记录与没有记录时**一模一样**（只有「第一次见面」才多一个名字），
+ // 记录、回合数、胜负一个字都不出现。详见下面「问候轮」那一组。
  const withRecord=companion({mode:'camp'},history([winGame(),lossGame()]),'你好');
  assert.equal(withRecord.register,'R1');
- assert.match(withRecord.text,/你打过的那2局我都留着底/,withRecord.text);
+ assert(withRecord.text.includes(greetWordNow()),`有记录时问候照旧：${withRecord.text}`);
+ assert(!RECORD_TALK.test(withRecord.text),`问候轮不许带战绩：${withRecord.text}`);
+ assert(!/\d/.test(withRecord.text),`问候轮里不该出现任何数字：${withRecord.text}`);
  assert(!FAKE_PAST.test(withRecord.text),withRecord.text);
+ assert.deepEqual(checkCompanionRestraint(withRecord.text,{register:'R1',facts:{allowPast:true,lessons:[]},playerMessage:'你好'}).reasons,[],withRecord.text);
 });
 
 // ── 负向验证：改回「一律 R0／一律『我在。』」，上面的验收必须变红 ──────────────
@@ -1222,9 +1230,11 @@ test('空账本闲聊：不播报「我这儿是空的」，不推人走，不�
  // 「想找人聊两句」和「你好」一样是闲聊意图：判成 other 时模型那一侧的措辞没底
  for(const text of ['我们聊聊呗','随便聊聊','聊聊呗','陪我聊两句','说说话','唠两句','我们聊聊天'])assert.equal(intentOf(text),'chat',`「${text}」应当判成闲聊意图`);
  for(const text of ['这局怎么打','聊聊配招'])assert.notEqual(intentOf(text),'chat',`「${text}」不是闲聊，别被接话通道截走`);
- // 有记录时那条真记得的事一个字都不能弄坏
+ // 有记录时那条真记得的事一个字都不能弄坏——**但它不该出现在问候轮里**。
+ // 旧断言要求这里出现「你打过的那2局我都留着底」，那正是第九次修正要拆掉的那一句。
  const withRecord=companion({mode:'camp'},history([winGame(),lossGame()]),'你好');
- assert.match(withRecord.text,/你打过的那2局我都留着底/,withRecord.text);
+ assert(!/你打过的那|我都留着底/.test(withRecord.text),`问候轮不许带战绩：${withRecord.text}`);
+ assert(!RECORD_TALK.test(withRecord.text),withRecord.text);
  assert(!EMPTY_LEDGER_ECHO.test(withRecord.text),withRecord.text);
  assert(!EMPTY_LEDGER_MENU.test(withRecord.text),withRecord.text);
 });
@@ -1989,9 +1999,18 @@ test('接住状态⑤：模型那一侧的约束同步改口径（不再要战�
  assert(mood.replyConstraints.instruction.includes('不需要'),mood.replyConstraints.instruction);
  assert(mood.replyConstraints.forbid.some(f=>/对局、记录、回合数或胜负/.test(f)),mood.replyConstraints.forbid.join(' | '));
  assert(mood.replyConstraints.maxChars>=mood.text.length);
- // 反面对照：寒暄那一轮的口径一个字都没动（记录兜底那条验收还在）
+ // 第九次修正把「早啊」也归进问候轮了，所以这一条反过来钉：
+ // **问候那一轮不许再要跨局记录**（「寒暄要有记录兜底」正是用户要修的那处口径），
+ // 而真正往下聊一句家常的那一轮照旧要——豁免是有范围的，不是把记录这条纪律废掉。
  const chat=companion({mode:'camp'},memory,'早啊',atClock(9,20));
- assert(chat.replyConstraints.instruction.includes('至少一句要来自跨局记录'),'寒暄那一轮照旧要有记录兜底');
+ assert(!chat.replyConstraints.instruction.includes('至少一句要来自跨局记录'),
+  '问候那一轮不该再要跨局记录——模型会照着这句把一声招呼扩写成一段战报');
+ assert(chat.replyConstraints.forbid.some(f=>/这一轮只是问候/.test(f)),chat.replyConstraints.forbid.join(' | '));
+ assert(chat.replyConstraints.forbid.some(f=>/速度对比与先手判断/.test(f)),chat.replyConstraints.forbid.join(' | '));
+ const small=companion({mode:'camp'},memory,'今天随便聊聊',atClock(9,20));
+ assert(!small.replyConstraints.instruction.includes('不需要'),
+  '不是问候的那一轮，记录兜底这条口径一个字都没动');
+ assert(small.replyConstraints.instruction.includes('至少一句要来自跨局记录'),small.replyConstraints.instruction);
 });
 
 test('接住状态⑥：走引擎那条路（runCoach）拿到的是同一段话',async()=>{
@@ -2026,13 +2045,148 @@ test('negative verification: 把行为改回去（先说问候再拿记录收尾
   assert(problems.includes('lands-on-records')||problems.includes('match-talk-in-first-turn'),
    `「${message}」的旧回答拐回了对局／记录：${text} → ${problems.join(',')}`);
  }
- // ② 把状态词从这一句里拿掉——等价于改之前的词表（那时它一个字都不认识），
- //    引擎立刻回到旧的顺序：问候在前、记录收尾。同一把尺子必须判红。
+ // ② 问候轮现在**不落记录**了，所以「改回去」这件事要照旧能判红：
+ //    把旧实现那一段（问候 + 记录收尾）逐字拼出来，同一把尺子必须命中 lands-on-records。
+ //    这一条同时钉住新行为：真的问候轮输出里不许出现记录，也不该凭空冒出接词句。
  const now=atClock(9,20),masked=companion({mode:'camp'},calmHistory(),'好早啊，',now);
- assert(masked.text.includes(dayPartAt(now).greet.replace(/。$/,'')),`对照组的问候必须真的出现：${masked.text}`);
- const problems=stateProblems(masked.text,'没睡');
- assert(problems.includes('no-mimic'),`改回去之后必须变红：${masked.text} → ${problems.join(',')}`);
- assert(problems.includes('lands-on-records'),`改回去之后落点又回到记录上：${masked.text} → ${problems.join(',')}`);
+ const greetNow=dayPartAt(now).greet.replace(/。$/,'');
+ assert(masked.text.includes(greetNow),`问候必须真的出现：${masked.text}`);
+ assert.equal(stateProblems(masked.text,'没睡').includes('lands-on-records'),false,
+  `问候轮不该落在记录上：${masked.text}`);
+ assert(!RECORD_TALK.test(masked.text),`问候轮里不该有记录／回合／胜负：${masked.text}`);
+ const legacyGreeting=`${greetNow}，我是小芽。你打过的那3局我都留着底。`;
+ assert(stateProblems(legacyGreeting,'没睡').includes('lands-on-records'),true,
+  `旧写法（问候 + 记录收尾）必须被同一把尺子拦下：${legacyGreeting}`);
  // ③ 反过来：现在的实现把同一条消息判成「通过」（对照组成立，不是因为扫得太松）
  assert.deepEqual(stateProblems(companion({mode:'camp'},calmHistory(),'好早啊，今天没睡好',now).text,'没睡'),[]);
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 第九次修正：问候就回应问候（两个病，来源不同，分别钉住）
+//
+// 用户实测（role=auto，走页面真实入口，有跨局记录）：
+//   「哈喽」→「哈喽。记得你最近三局都赢了，回合数是10、11、12。眼前这场对溪刃獭，
+//             你首发烬尾狐，速度38比它34快，可以先动。」
+// 查清的两个来源：
+//   ① 「问候换回战绩」的素材来自**本地**。`哈喽` 原来一张问候词表都没进
+//      （SOCIAL_ONLY / GREETING_LINE / CHAT_THREADS.self 都不认它），于是这一轮被判成
+//      「没有明确意图」，chatReply 让开、观察通道接手，本机模板给模型的那份「事实草稿」
+//      是「上一局你碰的就是这套阵容。那局打到第26回合，拿下了…」；退一步说，就算是
+//      「你好」，有记录时本机模板的第二句也是「你打过的那N局我都留着底。」，
+//      它把这一轮定性成「可以聊账本的一轮」，模型照着扩写就成了那段战绩。
+//   ② 「速度38比它34快，可以先动」**不是本地模板给的**：陪练的任何模板里都没有
+//      「速度」与「先手」（全库检索：这两个词只出现在 TACTICAL_HINT 这个**输入**分类器里）。
+//      它是模型自己从 game_evidence.publicState 里算出来的——公开局面里本来就带着双方速度。
+//      所以它自认为在复述看得见的事实，`replyConstraints` 的「复述屏幕上已经写着的事」
+//      拦不住它，`TACTICAL_OVERREACH` 也拦不住它（下面第一段就是这条现场复核）。
+// ══════════════════════════════════════════════════════════════════════════════
+// 用户实测的那一整段（逐字）。
+const REPORTED_GREETING_REPLY='哈喽。记得你最近三局都赢了，回合数是10、11、12。眼前这场对溪刃獭，你首发烬尾狐，速度38比它34快，可以先动。';
+// 问候轮里一个都不许出现的东西，按用户点名的四类分组（外加「把话拐回战斗」的名词）。
+// 分组是为了失败信息能说清是哪一类漏了，而不是只报一句「文本不匹配」。
+const GREETING_LEAK={
+ '回合数':/回合数|第\s*\d+\s*回合|\d+\s*回合/,
+ '胜负':/\d+\s*胜|\d+\s*负|胜率|连胜|连败|赢|输|拿下/,
+ '血线':/血线|血量|\d+\s*点血|\bHP\b/i,
+ '速度比较':/速度|先手|先动|先出手|出手顺序|抢先|比[^。，；]{0,6}(快|慢)/,
+ '战术词':/换上|换成|换掉|别用|不要用|建议|集火|留着|克制|技能|能量|加点|培养|阵容|出招/,
+ '战绩名词':/记录|账本|这几局|\d+\s*局|对战|对局/,
+};
+// 问候词表三处同源：判意图的 SOCIAL_ONLY、判「这一句是问候」的 GREETING_LINE、
+// 判「整句只是问候」的 isGreetingTurn。这三处原来各写各的，`哈喽` 一个都没进。
+test('问候轮①：哈喽／你好／在吗的回答里不许出现回合数、胜负、血线、速度比较与任何战术词',()=>{
+ const ledger=history([winGame(),lossGame(),play(7)]);
+ const greetings=['哈喽','哈喽哈喽','你好','你好呀','在吗','嗨','早啊','你好哦'];
+ for(const [label,memory] of [['有记录',ledger],['空账本',freshMemory()]]){
+  for(const message of greetings){
+   assert.equal(isGreetingTurn(message),true,`「${message}」必须被判成问候轮`);
+   const answer=companion({mode:'camp'},memory,message,atClock(9,20));
+   assert.equal(answer.register,'R1',`${label}「${message}」应当接住，而不是降档：${answer.text}`);
+   assert.equal(answer.chatThread,'self',
+    `${label}「${message}」没走接话通道——问候不认，就会掉回观察通道去念战绩：${answer.text}`);
+   assert(answer.text.includes(dayPartAt(atClock(9,20)).greet.replace(/。$/,'')),
+    `${label}「${message}」的问候没有落在当前时段上：${answer.text}`);
+   for(const [what,re] of Object.entries(GREETING_LEAK))
+    assert(!re.test(answer.text),`${label}「${message}」的问候里出现了${what}：${answer.text}`);
+   assert(!/\d/.test(answer.text),`${label}「${message}」的问候里出现了数字：${answer.text}`);
+   // 本机输出自己也要过同一把尺（把玩家原话带上，扫描才认得出这是问候轮）
+   const restraint=checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:true,lessons:[]},playerMessage:message});
+   assert.deepEqual(restraint.reasons,[],`${label}「${message}」：${answer.text}`);
+   // 模型那一侧的口径必须与本机同源，否则模型会一直踩线、玩家拿到的一直是回退文案
+   const c=answer.replyConstraints;
+   assert(!c.instruction.includes('至少一句要来自跨局记录'),`${label}「${message}」：还在要跨局记录`);
+   assert(c.instruction.includes('这一轮玩家只是打了个招呼'),c.instruction);
+   assert(c.forbid.some(f=>/这一轮只是问候/.test(f)),c.forbid.join(' | '));
+   assert(c.forbid.some(f=>/速度对比与先手判断/.test(f)),c.forbid.join(' | '));
+   assert(c.allow.every(a=>!/跨局记录/.test(a)),`问候轮的 allow 里不该还留着跨局记录：${c.allow.join(' | ')}`);
+  }
+ }
+ // 有记录与没有记录时，问候轮说出来的话**一模一样**（名字除外）：
+ // 「问候的效果不该由账本决定」是这一条的可执行版本。
+ const withRecord=companion({mode:'camp'},ledger,'你好',atClock(9,20)).text;
+ const without=companion({mode:'camp'},freshMemory(),'你好',atClock(9,20)).text;
+ assert.equal(withRecord,without.replace('，我是小芽',''),`两边不一样：${withRecord} / ${without}`);
+});
+
+test('问候轮②：模型那一侧的同一条硬线——实测那句整段过不了扫描',()=>{
+ // 现场复核：这一整段在**打开 greeting 之前**是 valid:true（原因见文件头第九次修正）。
+ // 现在它必须同时命中两条：战术越界（速度／先手）与问候轮内容禁令（回合数／胜负）。
+ for(const message of ['哈喽','你好','在吗']){
+  const scan=checkCompanionRestraint(REPORTED_GREETING_REPLY,{register:'R1',facts:{allowPast:true,lessons:[]},playerMessage:message});
+  assert.equal(scan.valid,false,`「${message}」的模型改写没被拦下：${REPORTED_GREETING_REPLY}`);
+  assert(scan.reasons.includes('tactical-overreach'),scan.reasons.join(','));
+  assert(scan.reasons.includes('greeting-turn-talk'),scan.reasons.join(','));
+ }
+ // 逐句拆开也要拦得住：模型换个说法就过的，正是这次修之前的状态。
+ for(const line of ['可以先动。','速度38比它34快。','你比它快，先手在你。','换上潮甲龟更稳。','留着回复药。',
+  '别用火花。','建议你先动。','它更快，可以先出手。','抢到先手就能收。','出手顺序上看是你先。','把回复药吃了。'])
+  assert(checkCompanionRestraint(line,{register:'R1',facts:{allowPast:true,lessons:[]}}).reasons.includes('tactical-overreach'),line);
+ // 而陪练**回看**刚刚那一手是允许的：夸一句不等于替他决定下一步。
+ // 这一条防的是「刀磨得太快」——把「先手」整词拦掉会误伤合法的情绪句。
+ for(const fine of ['这一手先手抢得漂亮，它还没来得及回血。','那个收尾机会差8点血，可惜了。'])
+  assert.deepEqual(checkCompanionRestraint(fine,{register:'R4',facts:{allowPast:true,lessons:[]}}).reasons,[],fine);
+});
+
+// ── 负向验证：把三条约束分别撤掉，上面两条验收必须变红 ────────────────────────
+// 不是「人工比对」，是可执行的对照组：每一条都先证明「撤掉之后真的会漏过去」，
+// 再证明「现在拦得住」。三处各修一层：本地模板、本地扫描、模型约束。
+test('negative verification: 拆掉问候轮的三道约束，上一条验收必须变红',()=>{
+ // ① 拆掉「问候轮」这个开关（等价于改之前那条扫描：它只拦战术动词，不知道有问候轮）。
+ //    「记得你最近三局都赢了，回合数是10、11、12」里一个战术词都没有，于是整段放行。
+ const recap='哈喽。记得你最近三局都赢了，回合数是10、11、12。';
+ assert.equal(GREETING_TALK.test(recap),true,'前提：这张表认得战绩播报');
+ assert.deepEqual(checkCompanionRestraint(recap,{register:'R1',facts:{allowPast:true,lessons:[]}}).reasons,[],
+  '不打开 greeting 时这一段确实放行——这正是「问候轮」这条开关存在的理由');
+ assert(checkCompanionRestraint(recap,{register:'R1',facts:{allowPast:true,lessons:[]},greeting:true})
+  .reasons.includes('greeting-turn-talk'),'打开之后必须判红');
+ assert(checkCompanionRestraint(recap,{register:'R1',facts:{allowPast:true,lessons:[]},playerMessage:'哈喽'})
+  .reasons.includes('greeting-turn-talk'),'给玩家原话时也要自己认出来');
+
+ // ② 拆掉「速度／先手那一类说法」：用逐字复刻的旧表当对照组。
+ //    旧表对这句一个字都拦不住——这就是它当初从模型嘴里完整穿过去的原因。
+ const LEGACY_TACTICAL=/建议(你)?(换|用|改|选|出)|不如(换|用|选)|最好(换|用|选|是)|换(掉|上|成)|改用|别用|不要用|先(出|放|上)[^。，]{0,4}(技能|招)|集火|先打|留着(技能|药)|把(药|回复药)(吃|用)了/;
+ const tactical='眼前这场对溪刃獭，你首发烬尾狐，速度38比它34快，可以先动。';
+ assert.equal(LEGACY_TACTICAL.test(tactical),false,'对照组：旧表对这句一个字都拦不住');
+ assert.equal(TACTICAL_OVERREACH.test(tactical),true,'新表必须拦得住');
+ assert(checkCompanionRestraint(tactical,{register:'R1',facts:{allowPast:true}}).reasons.includes('tactical-overreach'));
+ assert.equal(LEGACY_TACTICAL.test(REPORTED_GREETING_REPLY),false,'旧表对整段也拦不住（实测就是这样漏过去的）');
+ assert(checkCompanionRestraint(REPORTED_GREETING_REPLY,{register:'R1',facts:{allowPast:true}}).reasons.includes('tactical-overreach'));
+
+ // ③ 拆掉「本地模板不拿记录收尾」：旧模板那一句（逐字）在问候轮里必须判红，
+ //    也就是说上面「问候轮不许带战绩」那组断言真的会变红，而不是碰巧通过。
+ const now=atClock(9,20),greetNow=dayPartAt(now).greet.replace(/。$/,'');
+ const legacyLocal=`${greetNow}。你打过的那2局我都留着底。`;
+ assert.equal(RECORD_TALK.test(legacyLocal),true,`旧模板那一句必须命中记录词：${legacyLocal}`);
+ assert.equal(GREETING_TALK.test(legacyLocal),true,`旧模板那一句必须命中问候轮禁令：${legacyLocal}`);
+ assert(checkCompanionRestraint(legacyLocal,{register:'R1',facts:{allowPast:true,lessons:[]},playerMessage:'你好'})
+  .reasons.includes('greeting-turn-talk'),`旧模板那一句必须判红：${legacyLocal}`);
+ // 而且旧路径拿得到的素材是**真的存在**的（对照组不是凭空写的）：
+ // 观察通道里那条「最近一局」的读数就是模型收到的「事实草稿」。
+ const ledger=history([winGame(),lossGame(),play(7)]);
+ const draft=companionReadings({cross:companionLedger(ledger),signals:companionSignals(null),context:{goal:null,turn:null},now:Date.now()})
+  .find(r=>r.klass==='last');
+ assert(draft,'对照组：观察通道确实有一条「最近一局」的读数可用');
+ assert(/回合/.test(draft.sentences[0].text),`它就是实测里那份「事实草稿」：${draft.sentences[0].text}`);
+ assert(!RECORD_TALK.test(companion({mode:'camp'},ledger,'哈喽',now).text),'问候轮不许用这条读数');
+});
+
