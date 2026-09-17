@@ -81,7 +81,8 @@ export function verifyCitations(ids,rulesVersion=RULES_VERSION){return {valid:id
 
 export function buildKnowledgePacket(query, game=null, options={}) {
   // Deny before retrieving or calculating tactical evidence.
-  if (game && game.mode!=='pve') return {blocked:true, reason:'Live tactical evidence is restricted to PVE'};
+  // 训练与本地对战都可以取证据；是否允许在对局中开口由 policy 层决定。
+  if (game && !['pve','pvp-local'].includes(game.mode)) return {blocked:true, reason:'Live tactical evidence is restricted to PVE and local versus'};
   if (game && game.version!==RULES_VERSION) return {blocked:true, reason:'Unverified rules version'};
   const retrieved=searchKnowledge(query, {...options, game, rulesVersion:game?.version || options.rulesVersion || RULES_VERSION});
   const comparisons=[];

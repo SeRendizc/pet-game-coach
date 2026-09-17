@@ -62,6 +62,11 @@ function sideView(state,side){const s=state[side],p=active(state,side);return `<
 const available=a=>!busy&&legalActions(game).some(b=>a.kind===b.kind&&a.id===b.id&&a.target===b.target);
 function button(a,title,desc,extra=''){return `<button class="action" data-action='${JSON.stringify(a)}' ${available(a)?'':'disabled'}><div class="action-heading"><span>${title}</span>${extra?`<em>${extra}</em>`:''}</div><small>${desc}</small></button>`;}
 function renderSides(state){$('player').innerHTML=sideView(state,'player');$('enemy').innerHTML=sideView(state,'enemy');}
+
+// 对局中是否允许教练：真人同机默认关闭（对面坐着人，给了就是作弊）；
+// 电脑对手没有第三方，教练照常——这正是题目要的「军师在对战场景给建议」。
+function coachAllowedInMatch(){return !(pvpMode()&&pvpOpponent==='human');}
+function matchContext(message){const c=buildContext(game,profile,focus,roundArchive,stageId,message);c.coachAllowed=coachAllowedInMatch();return c;}
 function render(){$('round-coach').textContent=game.result?'✦ 整局复盘':'✦ 回合回顾';renderSides(game);$('environment-info').textContent=game.environment?`${game.environment.name} · 剩${game.environment.turns}回合：${game.environment.desc}`:'无场地环境';$('enemy-difficulty').textContent=game.mode==='pvp-local'?('本地对战 · '+(game.pvpOpponent==='human'?'真人同机':'电脑对手（本地引擎）')):DIFFICULTIES[game.difficulty]?.name+(game.stageName?' · '+game.stageName:' · 预制场景');const roundLabel=game.phase==='replace'?'免费补位':`第 ${Math.min(game.turn,80)} 回合`;
 if($('turn').textContent!==roundLabel){$('turn').textContent=roundLabel;$('turn').classList.remove('round-pulse');void $('turn').offsetWidth;$('turn').classList.add('round-pulse');} $('phase').textContent=busy?'正在出招…':game.result?'本场结束':game.phase==='replace'?'请选择补位伙伴':'等待行动';$('restart').disabled=busy;$('camp-tab').disabled=busy;$('preview-exit').disabled=busy;$('preview-again').disabled=busy;$('export').disabled=busy;
 $('result').hidden=!game.result;if(game.result)$('result').innerHTML=`<strong>${{win:'训练胜利',loss:'本场失利',draw:'本场平局',escaped:'已撤退'}[game.result]}</strong>${reward?`全队经验 +${reward.xp} · 训练点 +${reward.tokens}${reward.swift?' · 首次10回合内速胜 +1点（已计入）':''}${reward.levels.length?' · '+reward.levels.join('，'):''}`:game.preview?'预制体验，不计入成长':'本场无成长奖励'} · ${game.preview?'退出体验可恢复原对战':'返回营地继续培养'}`;
@@ -131,7 +136,7 @@ function hideThinking(){document.getElementById('chat-thinking')?.remove();}
 async function ask(text){
  if(!text.trim()||asking)return;if(busy){$('coach-status').textContent='请等本回合出招结束，再分析当前战况';return;}asking=true;addChat('你',text);$('coach-status').textContent='正在读取游戏状态…';const remote=!['policy'].includes(coachRole);showThinking('正在读取局面与依据…');$('chat-send').disabled=true;$('chat-input').disabled=true;
  const epoch=contextEpoch,stamp=taskStamp({epoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'});
- try{const answer=await requestCoach({message:text,role:coachRole,context:buildContext(game,profile,focus,roundArchive,stageId,text),memory:coachMemory,conversation:conversation.slice(0,-1),stateToken:epoch});if(!taskIsCurrent(stamp,{epoch:contextEpoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'})||answer.stateToken!==epoch){hideThinking();$('coach-status').textContent='局面已变化或建议已过期，本次旧建议已丢弃，请重新提问';return;}coachMemory=answer.memory;if(answer.fallbackReason&&game)coachMemory=recordCoachEvent(coachMemory,{id:matchId+':'+game.turn+':fallback:'+Date.now(),kind:'coach-fallback',reason:answer.fallbackReason,matchId,turn:game.turn,rulesVersion:game.version});saveCoachMemory();if(!game)cultivation();addChat('小芽',answer.text);
+ try{const answer=await requestCoach({message:text,role:coachRole,context:matchContext(text),memory:coachMemory,conversation:conversation.slice(0,-1),stateToken:epoch});if(!taskIsCurrent(stamp,{epoch:contextEpoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'})||answer.stateToken!==epoch){hideThinking();$('coach-status').textContent='局面已变化或建议已过期，本次旧建议已丢弃，请重新提问';return;}coachMemory=answer.memory;if(answer.fallbackReason&&game)coachMemory=recordCoachEvent(coachMemory,{id:matchId+':'+game.turn+':fallback:'+Date.now(),kind:'coach-fallback',reason:answer.fallbackReason,matchId,turn:game.turn,rulesVersion:game.version});saveCoachMemory();if(!game)cultivation();addChat('小芽',answer.text);
  const entry=$('chat-log').lastElementChild;if(answer.choices){const controls=document.createElement('div');controls.className='quiz-choices';for(const choice of answer.choices){const b=document.createElement('button');b.textContent=choice;b.onclick=()=>{controls.remove();ask(choice);};controls.append(b);}entry.append(controls);}
  if(answer.evidence.length){const details=document.createElement('details');details.className='coach-evidence';details.innerHTML='<summary>依据 · '+escape({strategist:'军师',teacher:'老师',companion:'陪练',auto:'偏好',policy:'场景限制',guide:'游戏说明'}[answer.route]||answer.route)+'</summary>'+answer.evidence.map(x=>'<p>'+escape(x)+'</p>').join('');entry.append(details);}
  if(answer.toolTrace?.length){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='小芽查了什么';details.append(summary);const names={read_state:'当前局面',search_rules:'规则和战术',compare_actions:'行动分支',inspect_training:'培养面板',read_last_turn:'上一回合记录',read_match:'整局记录',read_evidence:'指定回合原始证据',simulate_branch:'假设行动分支'};for(const receipt of answer.toolTrace){const line=document.createElement('p');line.textContent=names[receipt.tool]||receipt.tool;details.append(line);}entry.append(details);}
@@ -140,7 +145,7 @@ async function ask(text){
 }
 $('start').onclick=()=>{advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}matchMode=$('match-mode').value==='pvp'?'pvp':'pve';pvpOpponent=$('pvp-opponent').value;pvpStage=null;pvpPending=null;game=createGame(seed,selected,{pets:profile.pets,difficulty:$('difficulty').value,mode:matchMode==='pvp'?'pvp-local':'pve',...stageOptions(stageId)});game.pvpOpponent=pvpOpponent;$('mode-badge').textContent=(matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11');matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};$('coach-bubble').hidden=true;$('setup').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent=matchMode==='pvp'?(pvpOpponent==='human'?'本地对战：双方各自选招后同时结算。请轮流操作，先由我方选择。':'本地对战（电脑对手）：双方各自选招后同时结算。电脑由引擎本地出招，不走模型。'):'选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;updateCoach();};
 function toCamp(){if(busy)return;$('mode-badge').textContent=matchMode==='pvp'?'对局 · PVP · v0.11':'训练 · PVE · v0.11';closePvpOverlay();pvpStage=null;pvpPending=null;cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('setup').hidden=false;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');camp();}
-$('match-mode').onchange=()=>{const pvp=$('match-mode').value==='pvp';$('opponent-row').hidden=!pvp;$('start').textContent=pvp?'开始对战':'开始训练';$('mode-badge').textContent=(pvp?'对局 · PVP · v0.11':'训练 · PVE · v0.11');$('mode-note').textContent=pvp?'对局中教练不会给出战术提示；真人对战保证公平，电脑对手只是同一套规则下的单人替身。':'训练中教练会主动提示并可以随时提问。';};
+$('match-mode').onchange=()=>{const pvp=$('match-mode').value==='pvp';$('opponent-row').hidden=!pvp;$('start').textContent=pvp?'开始对战':'开始训练';$('mode-badge').textContent=(pvp?'对局 · PVP · v0.11':'训练 · PVE · v0.11');$('mode-note').textContent=pvp?'对局中教练照常工作；只有当对手是真人同机时才会闭麦，避免给一方不公平的优势。':'训练中教练会主动提示并可以随时提问。';};
 $('restart').onclick=toCamp;$('camp-tab').onclick=toCamp;$('rules-toggle').onclick=()=>$('rules').showModal();
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render();});
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify(game,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`pet-battle-${game.initialSeed}-turn-${game.turn}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
@@ -191,7 +196,7 @@ $('clear-memory').onclick=()=>{advanceContext();conversation=[];$('chat-log').re
 
 let reviewedMatch=null,reviewAnswer=null;
 function showMatchReview(){
- const box=$('live-coach'),context=buildContext(game,profile,focus,roundArchive,stageId,'复盘本局'),packet=reviewMatch(context),quiet=profile.coach.mode==='quiet';
+ const box=$('live-coach'),context=matchContext('复盘本局'),packet=reviewMatch(context),quiet=profile.coach.mode==='quiet';
  box.hidden=false;box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ 小芽 · 本局回顾</span><span id="result-copy">'+escape(quiet?'本局分析已备好，需要时展开。':concise(packet.brief||packet.text,110))+'</span><button id="result-review">整局分析</button></div><details><summary>关键回合与依据</summary>'+packet.evidence.map(x=>'<p>'+escape(x)+'</p>').join('')+'</details><small id="result-provider">本局记录分析</small>';
  $('result-review').onclick=()=>{openCoach();ask('总结整局：这局发生了什么，有什么值得记住的选择？');};
  if(reviewAnswer?.id===game.id&&!quiet){$('result-copy').textContent=concise(reviewAnswer.text,100);$('result-provider').textContent=reviewAnswer.source;}
@@ -202,12 +207,11 @@ function showMatchReview(){
 }
 function updateCoach(force=false){
  if(game?.result&&!preview){showMatchReview();return;}
- // 本地对战进行中：教练不介入。两位玩家同机，任何一方看到战术提示都不公平；
- // 这条规则绑定「对局模式」而不是「对手是不是人」，所以 AI 代打时同样静默。
- // 对局结束后上面的分支会走整局复盘。
- if(pvpMode()&&game&&!game.result){for(const id of ['live-coach','attention-cue','coach-bubble','scene-inline','scene-result'])$(id).hidden=true;return;}
+ // 真人同机对局进行中：教练不介入。两位玩家共用一块屏幕，任何一方拿到战术提示
+ // 都是不公平的。对电脑时没有第三方，教练照常工作（coachAllowedInMatch）。
+ if(pvpMode()&&game&&!game.result&&!coachAllowedInMatch()){for(const id of ['live-coach','attention-cue','coach-bubble','scene-inline','scene-result'])$(id).hidden=true;return;}
  const box=$('live-coach');const token=++hintEpoch;
- box.hidden=!!preview||(!force&&profile.coach.mode==='quiet')||game?.mode!=='pve';if(box.hidden)return;
+ box.hidden=!!preview||!game||(!force&&profile.coach.mode==='quiet')||!coachAllowedInMatch();if(box.hidden)return;
  if(showTacticalCue()){box.hidden=true;return;}
  currentHint=observe(game);const hint=currentHint;
  const significant=hint&&(hint.turn===1||profile.coach.mode==='mentor'&&hint.turn-visibleHintTurn>=3||hint.reason!=='回合结束，重新评估局面'&&hint.reason!==visibleHintReason&&hint.turn-visibleHintTurn>=2);
@@ -228,7 +232,7 @@ function updateCoach(force=false){
  if($('live-review'))$('live-review').onclick=()=>{openCoach();ask('回顾上一回合');};
  if($('live-quiz'))$('live-quiz').onclick=()=>{const quiz=lastFeedback.quiz;const area=document.createElement('div');area.className='live-quiz';area.innerHTML='<p>'+escape(quiz.question)+'</p><button data-answer="yes">'+escape(quiz.yes)+'</button> <button data-answer="no">'+escape(quiz.no)+'</button><p class="quiz-feedback"></p>';box.querySelector('.live-quiz')?.remove();$('live-detail').append(area);area.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{const correct=b.dataset.answer==='yes';area.querySelector('.quiz-feedback').textContent=(correct?'答对了。':'再想一想。')+quiz.explanation;if(correct&&!preview&&!coachMemory.lessons.includes(quiz.id)){coachMemory.lessons.push(quiz.id);saveCoachMemory();}});};
  if(force||!hint||autoCalls>=(profile.coach.mode==='mentor'?6:3)||asking||hint.reason===lastAutoReason&&profile.coach.mode!=='mentor'||(profile.coach.mode!=='mentor'&&game.turn>1&&hint.reason==='回合结束，重新评估局面'))return;
- lastAutoReason=hint.reason;const context=buildContext(game,profile,focus,roundArchive,stageId);
+ lastAutoReason=hint.reason;const context=matchContext();
  connectionStatus().then(status=>{if(hintEpoch!==token)return null;if(!status.configured){speakCue(hint.text);return null;}autoCalls++;$('live-provider').textContent='小芽正在组织解释…';return requestCoach({message:'这回合怎么打？直接对玩家说一句有用的话：结合当前宠物、血量、能量点出最值得注意的一件事；有合适行动就解释缘由，不强求每回合纠错。最多60字。',role:'strategist',context,memory:coachMemory,conversation:[],cache:true,stateToken:token});}).then(answer=>{if(!answer||hintEpoch!==token)return;const explanation=document.createElement('p');explanation.textContent=concise(answer.text,180);$('live-detail').querySelector('p')?.replaceWith(explanation);$('live-copy').textContent=concise(answer.text,90);speakCue(answer.text);$('live-provider').textContent=answer.provider==='deepseek'?'DeepSeek · 结合局面解释':answer.fallbackReason||'本地教练';}).catch(()=>{if(hintEpoch===token){$('live-provider').textContent='模型暂不可用 · 保留规则建议';speakCue(hint.text);}});
 }
 
@@ -248,7 +252,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){advanceCon
 setInterval(()=>{
  if(!game)return;const now=Date.now(),turn=game.turn+':'+game.phase;
  trackAttention(attention,turn,null,now);
- const allowed=!busy&&!asking&&!preview&&!game.result&&game.mode==='pve'&&!document.hidden&&document.hasFocus()&&$('coach-panel').hidden;
+ const allowed=!busy&&!asking&&!preview&&!game.result&&coachAllowedInMatch()&&!document.hidden&&document.hasFocus()&&$('coach-panel').hidden;
  if(allowed&&showWatchCue())return;
  if(allowed&&showTacticalCue())return;
  if(!$('attention-cue').hidden)return;
@@ -362,7 +366,7 @@ function playVoice(text,{test=false}={}){
  setTimeout(fire,wait);
  setTimeout(()=>{if(utterance&&!synth.speaking&&!synth.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},wait+1500);
 }
-function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||game?.mode!=='pve')return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
+function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||!game||!coachAllowedInMatch())return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
 function saveVoice(){try{localStorage.setItem('xiaoya-voice',JSON.stringify({enabled:voiceEnabled,volume:voiceVolume,voice:voiceName}));}catch{}}
 $('voice-test').onclick=()=>playVoice('我是小芽。有需要时，我会简短提醒。',{test:true});
 $('voice-enabled').onchange=()=>{voiceEnabled=$('voice-enabled').checked;cancelVoice();saveVoice();if(voiceEnabled)playVoice('语音已开启，我会按你的陪伴风格提醒。',{test:true});else voiceStatus('语音已关闭（已开口的一句会读完，不再有新的）');};

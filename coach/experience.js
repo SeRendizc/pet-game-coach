@@ -1,7 +1,7 @@
 import {strategist} from './strategist.js';
 import {active,multiplier,actionName,legalActions,SKILLS,damage,effectiveSpeed} from '../engine.js';
 export function observe(game){
- if(!game||game.mode!=='pve'||game.result)return null;
+ if(!game||!['pve','pvp-local'].includes(game.mode)||game.result)return null;
  const p=active(game,'player'),q=active(game,'enemy'),packet=strategist({battle:game,mode:game.mode});
  const reason=game.phase==='replace'?'伙伴倒下，需要补位':multiplier(q.type,p.type)>1?'当前处于属性劣势':p.energy<=1?'能量不足，留意恢复节奏':game.turn===1?'开场对位分析':'回合结束，重新评估局面';
  return {...packet,reason,turn:game.turn,action:packet.actions?.[0],title:packet.actions?.[0]?`可考虑：${actionName(game,'player',packet.actions[0])}`:'先选择补位伙伴',lesson:game.phase==='replace'||reason==='当前处于属性劣势'?'换宠承伤':p.energy<=1?'能量管理':'行动取舍'};
@@ -46,7 +46,7 @@ export function shouldNudge(state,{now,turn,mode='gentle',active=true,risk=false
  return scanning||now-state.since>=20000;
 }
 export function attentionText(game,action){
- if(!game||game.mode!=='pve'||game.result)return null;
+ if(!game||!['pve','pvp-local'].includes(game.mode)||game.result)return null;
  const p=active(game,'player');
  if(action?.kind==='switch')return game.phase==='replace'?'这次是免费补位，不占回合。选好后再决定下一步。':'换宠会用掉这回合，新伙伴还可能挨一下；先看看它的血量。';
  if(action?.id==='guard')return '防御能减伤、额外回2豆，但挡不住已有中毒或灼烧，也不能连用。';
@@ -58,7 +58,7 @@ export function attentionText(game,action){
 }
 
 export function decisiveOpportunity(game){
- if(!game||game.mode!=='pve'||game.result||game.phase!=='battle')return null;
+ if(!game||!['pve','pvp-local'].includes(game.mode)||game.result||game.phase!=='battle')return null;
  const p=active(game,'player'),q=active(game,'enemy');
  if(p.hp<=0||q.hp<=0||p.hp/p.maxHp>.35||q.hp/q.maxHp>.35)return null;
  const attacks=legalActions(game).filter(a=>a.kind==='skill'&&SKILLS[a.id].power).map(a=>({action:a,hit:damage(p,q,SKILLS[a.id]),cost:SKILLS[a.id].cost})).filter(x=>x.hit>=q.hp).sort((a,b)=>a.cost-b.cost);
@@ -75,7 +75,7 @@ export function assessDecision(before,action,ranked){
 }
 
 export function watchCandidate(game,watches=[]){
- if(!game||game.mode!=='pve'||game.result||game.phase!=='battle')return null;
+ if(!game||!['pve','pvp-local'].includes(game.mode)||game.result||game.phase!=='battle')return null;
  const p=active(game,'player'),q=active(game,'enemy');
  for(const w of watches){if(w.matchId!==game.id||w.expiresTurn<game.turn)continue;
   if(w.kind==='energy'&&p.energy<=1)return {id:w.id,text:`你让我留意豆数：${p.name}现在${p.energy}豆。零消耗招式也能行动，防御可额外回能，但不能连用。`};
