@@ -330,3 +330,15 @@
 .deploy-side h2{margin-bottom:10px}
 .deploy-side .side-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid #24313f;color:#bcc9d6}
 .deploy-side .side-row b{color:#e6cf8a;font-weight:600}
+
+/* 营地页两个醒目入口 */
+.launch-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:4px 0 15px}
+.launch-card{display:flex;flex-direction:column;gap:5px;align-items:flex-start;padding:15px 18px;border-radius:12px;background:linear-gradient(180deg,#1f3040,#182533);border:1px solid #46617c;text-align:left}
+.launch-card:hover:not(:disabled){background:linear-gradient(180deg,#26405a,#1c2c3d);border-color:#7ea8c9}
+.launch-card strong{font-size:17px;color:#dff0e4}
+.launch-card small{font-size:12px;color:#9fb3c4;line-height:1.5}
+#go-pvp{border-color:#6f8f5f}
+#go-pvp strong{color:#d8f0c2}
+.mode-chip{display:inline-flex;align-items:center;font-size:12px;color:#152c24;background:var(--accent);border-radius:6px;padding:3px 10px;font-weight:700;margin-right:auto}
+.launch-controls{align-items:center}
+@media(max-width:760px){.launch-cards{grid-template-columns:1fr}}
