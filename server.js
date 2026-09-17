@@ -15,7 +15,7 @@ async function body(req){let chunks=[],size=0;for await(const chunk of req){size
 function validateChat(b){
  if(!b||typeof b.message!=='string'||b.message.length<1||b.message.length>1000||!['auto','strategist','teacher','companion'].includes(b.role))throw fail(400,'消息或角色无效');
  const c=b.context,m=b.memory;
- if(!c||!['camp','pve','pvp-live'].includes(c.mode)||!c.profile?.pets||!m||m.version!==1)throw fail(400,'教练上下文无效');
+ if(!c||!['camp','pve','pvp-local','pvp-live'].includes(c.mode)||!c.profile?.pets||!m||m.version!==1)throw fail(400,'教练上下文无效');
  // Local sandbox accepts client snapshots; this is not authoritative competitive-game state.
  if(c.battle){for(const side of ['player','enemy']){const s=c.battle[side];if(!s||!Array.isArray(s.pets)||s.pets.length!==3||!Number.isInteger(s.active)||s.active<0||s.active>2)throw fail(400,'战况无效');for(const p of s.pets){if(!Array.isArray(p.skills)||p.skills.length>6||![p.hp,p.maxHp,p.atk,p.def,p.speed,p.energy].every(Number.isFinite))throw fail(400,'宠物状态无效');}}}
 }

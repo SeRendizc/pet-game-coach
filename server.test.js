@@ -37,3 +37,17 @@ test('client disconnect aborts the upstream model request',async t=>{
  }));await x.connect();const controller=new AbortController();const pending=x.post('/api/coach',chat(),{}, {signal:controller.signal}).catch(e=>e.name);
  await ready;controller.abort();assert.equal(await pending,'AbortError');await Promise.race([cancelled,new Promise((_,reject)=>setTimeout(()=>reject(Error('upstream not aborted')),2000))]);
 });
+test('every local mode the client can send is accepted by the coach endpoint',async t=>{
+ const {post,connect}=await setup(t,async()=>ok());
+ await connect();
+ // 客户端会发这几种 mode；服务端曾经漏掉 pvp-local，导致本地对战里模型解释
+ // 永远被 400「教练上下文无效」挡掉，而规则建议照常返回，所以界面看不出错。
+ for(const mode of ['camp','pve','pvp-local','pvp-live']){
+  const payload=chat();
+  payload.context={...payload.context,mode};
+  if(mode!=='camp')payload.context.battle={...payload.context.battle,mode};
+  const r=await post('/api/coach',payload);
+  const body=await r.json();
+  assert.notEqual(body.error,'教练上下文无效',`服务端必须接受 mode=${mode}`);
+ }
+});
