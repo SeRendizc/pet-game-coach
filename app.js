@@ -227,10 +227,19 @@ function renderGrowthCoach(){
 
 function logCoachEvent(kind,channel){if(!game||preview)return;coachMemory=recordCoachEvent(coachMemory,{id:`${matchId}:${game.turn}:${kind}:${channel}`,kind,channel,matchId,turn:game.turn,rulesVersion:game.version,confidence:1});saveCoachMemory();}
 
+// 语音总开关。浏览器语音在本机 macOS Chrome 上不稳定：无论指定哪个 zh-CN 声音，
+// 都会播成粤语并在结尾爆音，触发点是 speechSynthesis.cancel()，且无法恢复。
+// 原因未查明前整体停用；代码与设置项保留，把下面改成 true 即可恢复。
+const VOICE_FEATURE=false;
 let voiceEnabled=false,voiceVolume=.5,lastSpoken='';
-try{const setting=JSON.parse(localStorage.getItem('xiaoya-voice')||'{}');voiceEnabled=setting.enabled===true;voiceVolume=Number.isFinite(setting.volume)?Math.max(0,Math.min(1,setting.volume)):.5;voiceName=typeof setting.voice==='string'?setting.voice:'';}catch{}
+try{const setting=JSON.parse(localStorage.getItem('xiaoya-voice')||'{}');voiceEnabled=VOICE_FEATURE&&setting.enabled===true;voiceVolume=Number.isFinite(setting.volume)?Math.max(0,Math.min(1,setting.volume)):.5;voiceName=typeof setting.voice==='string'?setting.voice:'';}catch{}
 $('voice-enabled').checked=voiceEnabled;$('voice-volume').value=voiceVolume;
-if(!('speechSynthesis' in window)){$('voice-enabled').disabled=true;$('voice-status').textContent='当前浏览器不支持语音，仍可查看文字';}
+if(!VOICE_FEATURE){
+ // 隐藏全部语音控件，只留一行说明；同时把已保存的开启状态改回关闭。
+ for(const id of ['voice-enabled','voice-volume','voice-test','voice-pick']){const el=$(id),row=el&&el.closest('.coach-pref');if(row)row.hidden=true;}
+ $('voice-status').textContent='语音已暂停使用 · 文字提示与其余功能不受影响';
+ try{const raw=localStorage.getItem('xiaoya-voice');if(raw){const setting=JSON.parse(raw);setting.enabled=false;localStorage.setItem('xiaoya-voice',JSON.stringify(setting));}}catch{}
+}else if(!('speechSynthesis' in window)){$('voice-enabled').disabled=true;$('voice-status').textContent='当前浏览器不支持语音，仍可查看文字';}
 let utterance=null,chosenVoice=null,voiceName='',lastCancelAt=0;
 function voiceStatus(text){$('voice-status').textContent=text;}
 // 只挑普通话。zext 的 startsWith('zh') 会命中 zh-HK（粤语）与 zh-TW，
@@ -272,6 +281,7 @@ if(window.speechSynthesis){
 // 代价：已经开口的那一句会读完（提示都很短），无法中途掐断。
 function cancelVoice(){utterance=null;lastCancelAt=Date.now();}
 function playVoice(text,{test=false}={}){
+ if(!VOICE_FEATURE){voiceStatus('语音功能已暂停使用，文字提示不受影响');return;}
  if(!window.speechSynthesis){voiceStatus('当前浏览器不支持语音，请使用文字');return;}
  if(voiceVolume===0){voiceStatus('音量为0，请调高后试听');return;}
  const synth=window.speechSynthesis;
@@ -302,7 +312,8 @@ $('voice-test').onclick=()=>playVoice('我是小芽。有需要时，我会简�
 $('voice-enabled').onchange=()=>{voiceEnabled=$('voice-enabled').checked;cancelVoice();saveVoice();if(voiceEnabled)playVoice('语音已开启，我会按你的陪伴风格提醒。',{test:true});else voiceStatus('语音已关闭（已开口的一句会读完，不再有新的）');};
 $('voice-pick').onchange=()=>{voiceName=$('voice-pick').value;cancelVoice();saveVoice();const v=resolveVoice();voiceStatus(voiceName?('已选择 '+voiceName+'（'+(v?v.lang:'')+'）'):('自动选择：'+(v?v.name+'（'+v.lang+'）':'无可用中文声音')));if(voiceEnabled)playVoice('这是当前的播报声音。',{test:true});};
 $('voice-volume').oninput=()=>{voiceVolume=Number($('voice-volume').value);cancelVoice();saveVoice();voiceStatus(voiceVolume===0?'音量为0':voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');};
-if('speechSynthesis' in window)voiceStatus(voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');
+if(!VOICE_FEATURE)voiceStatus('语音已暂停使用 · 文字提示与其余功能不受影响');
+else if('speechSynthesis' in window)voiceStatus(voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');
 $('reset-habits').onclick=()=>{coachMemory.journal=[];coachMemory.reflections={};saveCoachMemory();addChat('小芽','已清除行动观察和提醒习惯。你设置的提醒档位、游戏成长和战报都保留。');};
 
 function showWatchCue(){if(profile.coach.mode==='quiet'||coachMuted||attention.dismissed)return false;const cue=watchCandidate(game,coachMemory.watches);if(!cue)return false;coachMemory.watches=coachMemory.watches.filter(w=>w.id!==cue.id);logCoachEvent('hint','watch');saveCoachMemory();$('attention-text').textContent=cue.text;$('attention-cue').hidden=false;attention.shownTurn=game.turn+':'+game.phase;attention.lastShown=Date.now();speakCue(cue.text);clearTimeout(nudgeTimer);nudgeTimer=setTimeout(()=>$('attention-cue').hidden=true,10000);return true;}

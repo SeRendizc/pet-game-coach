@@ -5,6 +5,7 @@
 - 两条训练已实际执行：5类模拟用户Q-learning；SmolLM2两个输出头行的工具选择REINFORCE。实验数值与边界见EXPERIMENTS.md。
 - 114项自动测试通过；真实DeepSeek五条调用与PVP拦截完成，发现命名/解释质量仍有不足。结果在reports/live-model-v10.json。
 - 未完成项继续保留：完整UI慢响应/长局语音验收、真人学习迁移、独立大样本质量评测、生产权威状态与完整组合平衡。
+- 语音已停用（v0.11）：`app.js` 的 `VOICE_FEATURE=false`。用户实测首次播报正常、此后一律粤语+结尾爆音，触发点是 `speechSynthesis.cancel()`；隐藏控件、保留代码，不再对外宣称具备语音能力。
 
 下面是历史记录，不代表当前待办或运行版本。
 
