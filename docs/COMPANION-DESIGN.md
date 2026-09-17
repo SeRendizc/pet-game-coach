@@ -2,7 +2,10 @@
 
 > 配套文档：`docs/DIFFICULTY-AND-SOLUTIONS.md`（实现难点与方案）、`docs/COACH-PLAN.md`（整体方案）、`docs/IMPLEMENTATION-STATUS.md`（当前状态）。
 >
-> 代码基线：UI v0.10 / 游戏规则 v0.6，**commit `849e131`（2026-09-17 14:25）**。该提交新增了同机轮流对战模式（`pvp-local`）与 `coach/policy.js`；本文所有行号与该提交一致。
+> 代码基线：UI v0.10（写作时）/ 当前 v0.11，游戏规则 v0.6，**commit `849e131`（2026-09-17 14:25）**。该提交新增了本地对战模式（`pvp-local`）与 `coach/policy.js`；本文行号以该提交为准，后续提交可能已漂移。
+
+> **v0.11 变更提示（重要）**：本文写作于 commit `849e131`。此后 `121411d` 起，教练策略已反转——**只有线上竞技 `pvp-live` 闭麦，本地对战 `pvp-local` 一律允许教练**（`coach/policy.js` 的 `RANKED_MODES=['pvp-live']`）。本文中凡称「`pvp-local` 也被拒」「本地与正式 PVP 同一策略」「对局中陪练被压到 R0」的段落均已过时，请以 `docs/CHECKLIST.md` 的 X02/X03 为准。
+
 >
 > 同批实测：`npm test` → `tests 122 / pass 122 / fail 0`（`reports/test-output.txt` 仍是更早一次 114 项运行的产物，尚未重新生成）。
 >

@@ -28,7 +28,7 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  const situational=/咋办|怎么办|怎么救|救一下|救命|分析|输了|输在哪|打不过|damn/i.test(message);
  const matchRequest=/整局|整场|上一局|一整局/.test(message)||/复盘|回顾/.test(message)&&!/回合/.test(message)||(situational||followup)&&!!(context.battle?.result||!context.battle&&context.lastMatch);
  const quizRequest=/小测|练习题|出.{0,5}题/.test(message);
- if(isLiveMatch(context))return {text:'本地与正式 PVP 赛中不提供战术分析或教学，结束后我们再聊。',evidence:[],memory:next,route:'policy',provider:'local'};
+ if(isLiveMatch(context))return {text:'线上竞技 PVP 赛中不提供战术分析或教学，结束后我们再聊。',evidence:[],memory:next,route:'policy',provider:'local'};
  if(next.goal!==memory.goal){next.lastTopic='preference';packet={text:`记住了，你更想${next.goal==='稳健'?'打得稳一些，培养时我会优先比较生存空间':'打得主动些，培养时我会优先比较输出和先手'}。这个偏好随时可以改。`,evidence:['来源：你明确表达的玩法目标。']};locked=true;}
  else if(next.preference!==memory.preference)packet={text:'记住了，以后'+(next.preference==='brief'?'简短说。':'多解释一点。'),evidence:['来源：你刚才明确表达的偏好。']};
  else if(followup&&memory.lastTopic==='watch'){packet={text:next.watches?.length?'刚才的委托只在当前对局有效，未来10回合内符合条件时提醒一次。静默设置仍优先，也可以说“取消提醒”。':'刚才的条件提醒已经取消或触发完成，不会继续等待。',evidence:[]};locked=true;route='guide';}

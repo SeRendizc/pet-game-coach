@@ -14,7 +14,7 @@ export function coachEvent(event,context,session){
   session.count++;session.lastTurn=context.turn;return text;
 }
 export function localReply(question,context){
-  if(isLiveMatch(context))return '本地与正式 PVP 赛中不提供战术分析，结束后我们再聊。';
+  if(isLiveMatch(context))return '线上竞技 PVP 赛中不提供战术分析，结束后我们再聊。';
   if(/培养|成长|训练|加点/.test(question))return '营地里每花 1 训练点，可选 +12 生命、+4 攻击或 +3 速度。先想让伙伴承担什么职责；升级会增加培养格，重置会返还点数。';
   if(/狐|狮/.test(question))return '烬尾狐用火花挂灼烧，再用余烬追猎增伤，疾爪还能先制。炽鬃狮不挂灼烧，破甲重击能穿过防御，但舍身烈焰会反伤。它们现在走两种打法。';
   if(/输|烦|难|菜/.test(question))return '可以先缓一缓，不用马上再开一局。你想回看，我会从具体回合聊起。';

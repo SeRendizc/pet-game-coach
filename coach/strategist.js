@@ -6,7 +6,7 @@ export const cards=[...TACTIC_CARDS,...REFERENCE_CARDS];
 import {rankEnemyActions,active,actionName,SKILLS,damage,legalActions,effectiveSpeed,TYPES,TYPE_ADVANTAGES} from '../engine.js';
 export function strategist(context){
  const g=context.battle;
- if(isLiveMatch(context))return {text:'本地与正式 PVP 赛中不提供战术建议，结束后再复盘。',evidence:[]};
+ if(isLiveMatch(context))return {text:'线上竞技 PVP 赛中不提供战术建议，结束后再复盘。',evidence:[]};
  if(!g||g.result)return {text:'进入一场 PVE 对战后，我可以结合当前生命、能量和队伍比较行动。',evidence:[]};
  if(g.phase==='replace'){
   const candidates=legalActions(g).filter(a=>a.kind==='switch').map(action=>{
