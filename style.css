@@ -433,3 +433,7 @@
 .pick-split.split .pet-option .buttons{display:block}
 .pick-split.split .pet-option .buttons button{width:100%;margin:0}
 .pick-split.split .pet-option .buttons button+button{display:none}
+
+/* 筛选按钮：不带数量、不换行。八个属性要能排在一行里。 */
+.pick-head nav button{white-space:nowrap;min-width:0}
+#camp-pages button{white-space:nowrap}

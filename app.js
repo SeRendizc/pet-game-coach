@@ -73,7 +73,9 @@ function renderTypeFilter(navId,rerender,which='rosterType'){
  // 从引擎取属性表，不再手写。加普通系宠物时忘了把 normal 加进这个列表，
  // 结果玩家筛不出那两只——写了写死清单却没同步的又一次。
  const filters=['all',...Object.keys(TYPES).filter(t=>t!=='normal'),'normal'];
- $(navId).innerHTML=filters.map(t=>{const n=t==='all'?SPECIES.length:SPECIES.filter(p=>p.type===t).length;return `<button data-roster-type="${t}" class="${cur===t?'selected':''}">${t==='all'?'全部':TYPES[t]}·${n}</button>`;}).join('');
+ // 按钮上不再带数量。八个属性挤在一行里，带数字就会换行——「全部」和「14」被拆成两行，
+    // 火/水/草被挤成竖排单字。数量对选宠没有帮助（本来也没几只），去掉后每个按钮只占两三个字。
+    $(navId).innerHTML=filters.map(t=>`<button data-roster-type="${t}" class="${cur===t?'selected':''}">${t==='all'?'全部':TYPES[t]}</button>`).join('');
  document.querySelectorAll(`#${navId} [data-roster-type]`).forEach(b=>b.onclick=()=>{if(which==='enemyRosterType')enemyRosterType=b.dataset.rosterType;else rosterType=b.dataset.rosterType;rerender();});
 }
 // 出征页 = 选关卡、选三只、选难度，然后开始。
