@@ -1,4 +1,5 @@
 import {CoachScheduler} from './scheduler.js';
+import {chooseEnemy,legalActions} from '../engine.js';
 export const RESPONSE_INSTRUCTIONS='\n回答要求：不要向玩家报内部局面评分，用可见的宠物、技能和状态解释。游戏按回合结算，不按秒；不要编造技能冷却。道具名称只能使用回复药、净化药、能量果，不要把它们叫作解药或以太。双方同时决定，不能先看对手本回合出招再决定自己的行动。复盘中hpBefore是回合开始、hpAfter是结束，不能把行动前生命称作打完还剩。逐回合核对实际事件：行动取消不能说成打出了伤害，事前预测和事后结算必须分开。';
 import {runCoach,assembleContext,checkGroundedAnswer} from './runtime.js';
 import {checkCompanionRestraint} from './companion.js';
@@ -49,4 +50,54 @@ function companionRestraint(data,payload){
  const memory=payload.memory||{},dialogue=Array.isArray(memory.dialogue)?memory.dialogue:[];
  const previousAssistant=[...dialogue].reverse().find(x=>x?.role==='assistant'&&typeof x.content==='string')?.content||'';
  return checkCompanionRestraint(data.text,{register:data.register||data.companionState?.register||'R2',facts:{allowPast:Boolean((memory.events||[]).length||(memory.lessons||[]).length||dialogue.length),lessons:memory.lessons||[]},previousAssistant});
+}
+
+// ── 对手 agent 的浏览器侧 ────────────────────────────────────────────────────
+// 这一层只做三件事，且都必须能在没有后端、没有密钥、模型超时的前提下工作：
+//   1. 把局面裁成一个小快照发给 /api/opponent（不带 log/frames/history，几 KB）
+//   2. 拿回来的选择**必须**再用 legalActions 校验一次（agent 说的不算数，引擎才算数）
+//   3. 任何失败都退回 engine.js 的 chooseEnemy()——它是合法行动的权威来源
+// 注意：不走 CoachScheduler。调度器是"同一时刻只发一个上游请求"的串行闸门，
+// 对手决策走进去就会排在玩家教练后面（或反过来），延迟直接叠加成两倍。
+export const OPPONENT_TIMEOUT_MS=4000;
+const sameAction=(a,b)=>!!a&&!!b&&a.kind===b.kind&&a.id===b.id&&a.target===b.target;
+
+export function legalEnemyActions(game){
+ if(!game||game.result)return [];
+ try{return legalActions(game,'enemy').filter(a=>a.kind!=='escape');}catch{return [];}
+}
+
+// 引擎兜底。补位阶段 chooseEnemy() 会抛"当前行动不可用"（它回答的是"出什么招"，
+// 而不是"换上谁"），所以那一步单独按引擎自己的补位语义挑：活着且不在场上的最高血量。
+export function enemyFallbackAction(game){
+ if(!game||game.result)return null;
+ try{
+  if(game.phase==='replace'&&(game.replaceSide||'player')==='enemy'){
+   const bench=game.enemy.pets.map((p,i)=>({p,i})).filter(x=>x.p.hp>0&&x.i!==game.enemy.active);
+   return bench.length?{kind:'switch',target:bench.sort((a,b)=>b.p.hp-a.p.hp)[0].i}:null;
+  }
+  return chooseEnemy(game);
+ }catch{return null;}
+}
+
+// 合法性闸门：模型给的东西先过这里，过不去就用引擎。
+export function resolveEnemyChoice(game,candidate){
+ const legal=legalEnemyActions(game);
+ if(candidate&&legal.some(a=>sameAction(a,candidate)))return {action:candidate,source:'agent',verified:true,engineFallback:false};
+ const action=enemyFallbackAction(game);
+ return {action,source:candidate?'illegal-choice-fallback':'engine-fallback',verified:false,engineFallback:true,rejected:candidate||null};
+}
+
+// 只发一个回合的局面 + 难度。超时由 AbortSignal 保证：到点一定 reject，绝不悬挂。
+export async function requestOpponentAction(payload){
+ const timeoutMs=payload.timeoutMs||OPPONENT_TIMEOUT_MS;
+ const body=JSON.stringify({difficulty:payload.difficulty,battle:payload.battle,goal:payload.goal??null});
+ const signal=AbortSignal.timeout(timeoutMs);
+ if(!session?.csrf)await connectionStatus();
+ const send=async()=>{const r=await fetch('/api/opponent',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json','X-Coach-CSRF':session.csrf},body,signal});let d;try{d=await r.json();}catch{throw Error('后端响应异常');}return {r,d};};
+ let {r:response,d:data}=await send();
+ // 和教练请求同源的问题：重启后端会清空内存里的会话，第一个请求必然 403，重建后原样重试一次。
+ if(response.status===403){session=null;await connectionStatus();({r:response,d:data}=await send());}
+ if(!response.ok)throw Error(data.error||('对手请求失败（HTTP '+response.status+'）'));
+ return data;
 }

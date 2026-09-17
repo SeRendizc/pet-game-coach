@@ -1,11 +1,11 @@
 import {observe,feedback,archiveRound,reverseRounds,markdown,concise,attentionState,trackAttention,releaseAttention,decisiveOpportunity,assessDecision,watchCandidate,readArchive,taskStamp,taskIsCurrent,strategistSession,strategistTrigger,dwellIntervention,incidentInfo} from './coach/experience.js';
-import {requestCoach,connectionStatus,invalidateCoachRequests} from './coach/client.js';
+import {requestCoach,connectionStatus,invalidateCoachRequests,requestOpponentAction,resolveEnemyChoice,legalEnemyActions,enemyFallbackAction,OPPONENT_TIMEOUT_MS} from './coach/client.js';
 import {teacher,reviewMatch} from './coach/teacher.js';
 import {rosterAdvice,strategist} from './coach/strategist.js';
 import {buildContext,MATCH_REVIEW_REQUEST} from './coach/runtime.js';
 import {freshMemory,readMemory,rememberBattle,recordCoachEvent,rememberDecision,adaptiveGate,memorySummary,deleteMemoryEvidence,markTaught,observeStruggle} from './coach/memory.js';
 import {STAGES,SCENARIOS,stageOptions,createScenario} from './content.js';
-import {DIFFICULTIES,SPECIES,SKILLS,ITEMS,TYPES,HELD_ITEMS,createGame,step,resolveTurn,chooseEnemy,buildVersusOpponent,legalActions,active,effectiveSpeed,rankEnemyActions} from './engine.js';
+import {DIFFICULTIES,SPECIES,SKILLS,ITEMS,TYPES,HELD_ITEMS,createGame,resolveTurn,chooseEnemy,buildVersusOpponent,legalActions,active,effectiveSpeed,rankEnemyActions} from './engine.js';
 import {companionEvents} from './coach/companion.js';
 import {newProfile,loadProfile,TRAINING,trainingCapacity,MAX_STAT_TRAINING,train,resetTraining,settle,configurePet} from './progression.js';
 import {coachEvent,coachContext} from './coach.js';
@@ -22,12 +22,18 @@ let attention=attentionState(Date.now()),nudgeTimer=null,tacticalShown=new Set()
 let strategistHint=strategistSession(),turnIncident=null,strategistPanel=null,cueRole='strategist';
 let rosterType='all',loadoutDraft=null,loadoutOpen=false;
 // 本地对战：真人对手走分屏同屏（双方各选一招，都锁定后一起结算）；
-// 电脑对手单人玩，由引擎 chooseEnemy 出招。pvpPicks 由分屏逻辑维护。
+// 电脑对手单人玩，由对手 agent（服务端 /api/opponent + 它自己的教练）出招，
+// 拿不到答案时退回 engine.js 的 chooseEnemy。pvpPicks 由分屏逻辑维护。
 // null = 还没出征，营地不替玩家宣称他选了哪种模式。
 let matchMode=null,pvpOpponent='ai',enemyTab='skill';
 // 对局的对手有两种：AI 扮演真人（单人演示，自动配队、先手独立决定），
 // 或真人同机（分屏，两侧面板都可操作）。界面两者一致。
+// pvpEnemyLocked 现在两种模式共用：它装的就是对手这一回合的行动，
+// 在玩家还在思考时就已经由 agent 定好（决定用的是回合前的公开局面，看不到玩家待执行的选择）。
 let pvpEnemyLocked=null,pvpEnemyRevealed=false;
+// 对手 agent 的进行中决策。enemyPlan.match 是它当时看到的那个 game 对象——
+// 任何一个新回合、重开、退出营地都会换掉 game，旧答案据此自动作废。
+let enemyPlan=null,enemyPlanToken=0;
 let bubbleTimer,stageId='meadow',preview=null,suspended=null;
 let selected=['fox','turtle','deer'],focus='fox',game=null,tab='skill',busy=false,matchId='',reward=null,coachSession={count:0,lastTurn:null,dismissed:false},faintShown=false,resultAnnounced=false;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -125,7 +131,7 @@ function actionPanelHtml(side,whichTab){
  return `<div class="item-group"><p>撤退立即结束本场，不获得经验与训练点。</p><button data-side="${side}" data-action='{"kind":"escape"}' ${side==='player'&&ok({kind:'escape'})?'':'disabled'}>确认撤退</button></div>`;
 }
 function render(){$('round-coach').textContent=game.result?'✦ 整局复盘':'✦ 回合回顾';renderSides(game);$('environment-info').textContent=game.environment?`${game.environment.name} · 剩${game.environment.turns}回合：${game.environment.desc}`:'无场地环境';$('enemy-difficulty').textContent=game.mode==='pvp-local'?('本地对战 · 对手 Lv.'+game.enemy.pets[0].level):DIFFICULTIES[game.difficulty]?.name+(game.stageName?' · '+game.stageName:' · 预制场景');const roundLabel=game.phase==='replace'?'免费补位':`第 ${Math.min(game.turn,ruleFacts().turnLimit)} 回合`;
-if($('turn').textContent!==roundLabel){$('turn').textContent=roundLabel;$('turn').classList.remove('round-pulse');void $('turn').offsetWidth;$('turn').classList.add('round-pulse');} $('phase').textContent=busy?'正在出招…':game.result?'本场结束':game.phase==='replace'?'请选择补位伙伴':'等待行动';$('restart').disabled=busy;$('camp-tab').disabled=busy;$('preview-exit').disabled=busy;$('preview-again').disabled=busy;$('export').disabled=busy;
+if($('turn').textContent!==roundLabel){$('turn').textContent=roundLabel;$('turn').classList.remove('round-pulse');void $('turn').offsetWidth;$('turn').classList.add('round-pulse');} $('phase').textContent=busy?'正在出招…':game.result?'本场结束':game.phase==='replace'?'请选择补位伙伴':enemyThinking()?'对手正在思考…':'等待行动';$('restart').disabled=busy;$('camp-tab').disabled=busy;$('preview-exit').disabled=busy;$('preview-again').disabled=busy;$('export').disabled=busy;
 $('result').hidden=!game.result;if(game.result)$('result').innerHTML=`<strong>${{win:'训练胜利',loss:'本场失利',draw:'本场平局',escaped:'已撤退'}[game.result]}</strong>${reward?`全队经验 +${reward.xp} · 训练点 +${reward.tokens}${reward.swift?' · 首次'+ruleFacts().swiftTurnLimit+'回合内速胜 +1点（已计入）':''}${reward.levels.length?' · '+reward.levels.join('，'):''}`:game.preview?'预制体验，不计入成长':'本场无成长奖励'} · ${game.preview?'退出体验可恢复原对战':'返回营地继续培养'}`;
 const forceSwitch=game.phase==='replace';
  if(forceSwitch){tab='switch';enemyTab='switch';}
@@ -176,35 +182,112 @@ function renderSplitPanels(){
 }
 // 每回合先让对手独立做决定（只看回合前的公开局面），然后才轮到我选。
 // 决定的时刻早于我的选择，所以它不可能参考我的行动——这就是隔离。
+//
+// 对手 agent 的时序：上一回合刚结算完（或刚开局）就立刻发请求，玩家还在想要出什么招时，
+// 请求已经在飞了。这叫"并行发起"——等待时间被玩家的思考时间吸收掉，而不是加在回合上。
+// 请求本身有 4 秒硬超时（coach/client.js 的 AbortSignal.timeout），到点返回 null，
+// act() 再用 chooseEnemy() 兜底，所以这条链路不存在"永远等下去"的状态。
 function decideEnemyFirst(){
- if(humanOpponent()){pvpEnemyLocked=null;return;}
+ if(humanOpponent()){pvpEnemyLocked=null;enemyPlan=null;return;}
  pvpEnemyRevealed=false;
- if(!game||game.result){pvpEnemyLocked=null;return;}
- // 补位阶段要选的是「换上谁」，不是这一回合出什么招。交给 chooseEnemy 会拿到一个
- // 普通行动，resolveTurn 直接判非法（实测 48 场里 55 次「当前行动不可用」）。
- // 这里按引擎已有的补位语义挑：活着且不在场上的伙伴里血量最高的那只。
- if(game.phase==='replace'&&(game.replaceSide||'player')==='enemy'){
-  const bench=game.enemy.pets.map((p,i)=>({p,i})).filter(x=>x.p.hp>0&&x.i!==game.enemy.active);
-  const pick=bench.length?{kind:'switch',target:bench.sort((a,b)=>b.p.hp-a.p.hp)[0].i}:null;
-  pvpEnemyLocked=pick;
-  // 敌方补位时玩家点不了（pvpPick 会因为 replaceSide 不是他而直接返回），
-  // 所以必须由这里把 AI 的补位提交掉。少了这一步，AI 决定了却没人交，
-  // 界面就停在「正在出招…」永远不动——这就是玩家实测到的卡死。
-  if(pick)act(pick);
-  return;
+ const snapshot=game,token=++enemyPlanToken;
+ if(!snapshot||snapshot.result){pvpEnemyLocked=null;enemyPlan=null;return;}
+ // 玩家补位期间对手不需要出招（补位那一步 resolveTurn 根本不看对方行动），
+ // 别为此花掉一次模型调用。
+ if(snapshot.phase==='replace'&&(snapshot.replaceSide||'player')!=='enemy'){pvpEnemyLocked=null;enemyPlan=null;return;}
+ pvpEnemyLocked=null;
+ const plan={token,match:snapshot,startedAt:performance.now(),latencyMs:null,waitedMs:null,source:'pending',advice:null};
+ enemyPlan=plan;
+ plan.promise=planEnemyAction(snapshot,plan);
+ updateEnemyNote();
+}
+// 把局面裁成一个小快照：agent 只需要公开局面，不需要 log/frames/history
+// （history 里有每一回合的 before/after 快照，整局能到几百 KB）。
+function opponentBattle(g){
+ const side=s=>({active:s.active,items:{...s.items},pets:s.pets.map(p=>({id:p.id,name:p.name,icon:p.icon,type:p.type,level:p.level,hp:p.hp,maxHp:p.maxHp,atk:p.atk,def:p.def,speed:p.speed,energy:p.energy,skills:[...p.skills],status:p.status?{...p.status}:null,lastGuard:!!p.lastGuard,buffs:p.buffs?structuredClone(p.buffs):{},speedDown:p.speedDown?{...p.speedDown}:null,heldItem:p.heldItem,heldUsed:!!p.heldUsed}))});
+ return {version:g.version,mode:g.mode,difficulty:g.difficulty,phase:g.phase,result:g.result,turn:g.turn,seed:g.seed,environment:g.environment?structuredClone(g.environment):null,replaceSide:g.replaceSide||null,player:side(g.player),enemy:side(g.enemy)};
+}
+async function planEnemyAction(snapshot,plan){
+ let source='engine',candidate=null,answer=null;
+ try{
+  answer=await requestOpponentAction({battle:opponentBattle(snapshot),difficulty:snapshot.difficulty,goal:coachMemory.goal||null,timeoutMs:OPPONENT_TIMEOUT_MS});
+  source=answer?.source||'model';
+  candidate=answer?.action||null;
+ }catch(error){
+  source=error?.name==='TimeoutError'||error?.name==='AbortError'?'timeout':'request-failed';
  }
- // 难度就是对手「教练」的水平：easy/normal 刻意做弱，hard 用完整枚举。
- // 详情见 updateSideCoaches 上方的说明。
- pvpEnemyLocked=chooseEnemy(game);
+ // 闸门：agent 的选择必须出现在合法行动列表里，否则算没答。
+ const resolved=resolveEnemyChoice(snapshot,candidate);
+ plan.latencyMs=Math.round(performance.now()-plan.startedAt);
+ plan.source=resolved.engineFallback?(source==='model'?'invalid-choice':source):'agent';
+ plan.advice=answer?.advice||null;
+ plan.agreedWithEngineScore=!!answer?.agreedWithEngineScore;
+ // 局面已经换了（新回合、重开、回营地）就丢掉这个答案，绝不写进新对局。
+ if(plan.token!==enemyPlanToken||game!==snapshot)return null;
+ pvpEnemyLocked=resolved.action;
+ updateEnemyNote();
+ // 敌方补位时玩家点不了（pvpPick 会因为 replaceSide 不是他而直接返回），
+ // 所以必须由这里把 AI 的补位提交掉。少了这一步，AI 决定了却没人交，
+ // 界面就停在「正在出招…」永远不动——这就是玩家实测到的卡死。
+ if(snapshot.phase==='replace'&&(snapshot.replaceSide||'player')==='enemy'){if(resolved.action)act(resolved.action);return resolved.action;}
+ if(splitMode()){renderSplitPanels();commitPvpPick();}
+ return resolved.action;
+}
+function enemyThinking(){return !!enemyPlan&&enemyPlan.match===game&&!pvpEnemyLocked&&!humanOpponent()&&!!game&&!game.result;}
+// 只改状态文字，不重绘按钮：对手答案到达时玩家可能正按着某个按钮，
+// 整块重绘会让他的点击落空（render() 会重建所有 [data-action] 节点）。
+function updateEnemyNote(){
+ if(!game)return;
+ const note=humanOpponent()?'对手选择行动':enemyThinking()?'对手正在思考…':'已独立出招（看不到你的选择）';
+ const enemyNote=$('enemy-side-note');if(enemyNote&&splitMode())enemyNote.textContent=note;
+ const phase=$('phase');if(phase&&!busy&&!game.result)phase.textContent=game.phase==='replace'?'请选择补位伙伴':enemyThinking()?'对手正在思考…':'等待行动';
+}
+// act() 里等对手答案的地方：只等到"预算用完"为止，到点立刻用引擎兜底，
+// 所以单回合被对手拖住的上限是恒定的，不会随网络状况变成无限。
+const OPPONENT_TOTAL_BUDGET_MS=OPPONENT_TIMEOUT_MS+300;
+async function enemyActionFor(old,explicit){
+ if(explicit!==undefined)return explicit;
+ const plan=enemyPlan&&enemyPlan.match===old?enemyPlan:null;
+ if(plan&&!pvpEnemyLocked&&plan.source==='pending'){
+  const budget=Math.max(0,OPPONENT_TOTAL_BUDGET_MS-(performance.now()-plan.startedAt));
+  if(budget>0){
+   $('action-banner').textContent='对手正在思考…';
+   const waitStart=performance.now();
+   try{await Promise.race([plan.promise,pause(budget)]);}catch{}
+   plan.waitedMs=Math.round(performance.now()-waitStart);
+  }
+ }
+ // 只有"这个答案确实是为当前这个局面算出来的"才用它。局面换了、或者它还没落地，
+ // 一律现算引擎兜底——绝不复用上一回合锁定的行动（那会让对手一直重复同一手）。
+ if(plan&&plan.source!=='pending'&&pvpEnemyLocked)return pvpEnemyLocked;
+ return enemyFallbackAction(old);
+}
+// 每回合的实测延迟记在这里（诊断面板与自动化实测都读它），
+// 让"到底等了多久、是 agent 还是引擎兜底"变成可核对的数据而不是感觉。
+function recordOpponentTurn(old,plan,action,engineFallback){
+ const rows=window.__opponentTelemetry||(window.__opponentTelemetry=[]);
+ rows.push({turn:old.turn,phase:old.phase,difficulty:old.difficulty,mode:old.mode,source:plan?.source||'engine',
+  decisionMs:plan?.latencyMs??null,waitedMs:plan?.waitedMs??0,action:action?action.kind+(action.id?':'+action.id:action.target!==undefined?':'+action.target:''):null,
+  engineFallback:!!engineFallback,advice:plan?.advice?plan.advice.slice(0,60):null});
+ return rows;
 }
 function pvpPick(side,a){
  if(busy||game.result||pvpPicks[side])return;
  if(side==='enemy'&&!humanOpponent())return;                 // AI 出招时玩家不能替它选
  if(game.phase==='replace'){if((game.replaceSide||'player')!==side)return;act(a);return;}
  pvpPicks[side]=a;pvpEnemyRevealed=true;
+ commitPvpPick();
+}
+// 双方都锁定才亮牌结算。AI 那边可能还在思考（agent 还没答），那就先显示"已锁定，等对方"，
+// 答案一到 planEnemyAction 会再调一次这里——按钮不会卡在"已锁定"上不动。
+function commitPvpPick(){
+ if(busy||!game||game.result)return;
  const theirs=humanOpponent()?pvpPicks.enemy:pvpEnemyLocked;
- if(pvpPicks.player&&theirs){const mine=pvpPicks.player;pvpOpponent=$('pvp-opponent').value;tab='skill';enemyTab='skill';faintShown=false;resultAnnounced=false;pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;act(mine,theirs);return;}
- renderSplitPanels();
+ if(!pvpPicks.player||!theirs){renderSplitPanels();return;}
+ const mine=pvpPicks.player;tab='skill';enemyTab='skill';faintShown=false;resultAnnounced=false;
+ pvpOpponent=$('pvp-opponent').value;
+ pvpPicks={player:null,enemy:null};pvpEnemyLocked=null;pvpEnemyRevealed=false;
+ act(mine,theirs);
 }
 
 // 双方各一条教练条：同一套引擎、同一套规则，各自只分析自己那一侧。
@@ -240,12 +323,13 @@ async function act(action,enemyAction){if(busy)return;
  // 出招之前先记下当时还有没有收尾机会；结算之后才拿 after 快照判断这一手有没有造成后果。
  const info=old.phase==='battle'?incidentInfo(old,decision):null;
  turnIncident=info?{...info,action:structuredClone(action)}:null;
- render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);// 补位阶段不能走 chooseEnemy：那个函数要的是「这一回合出什么招」，而补位要的是
-// 「换上谁」，它会抛「当前行动不可用」，异常让 busy 一直为 true，界面就此冻结
-// （玩家实测到的卡死）。补位阶段对手的动作来自 decideEnemyFirst 已经定好的
-// pvpEnemyLocked，没有就让 resolveTurn 按 replaceQueue 自己推进。
- const otherAction=old.phase==='replace'?(pvpEnemyLocked||null):chooseEnemy(old);
-const next=pvpMode()?resolveTurn(old,action,enemyAction!==undefined?enemyAction:otherAction,{manualReplace:true}):step(old,action);let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
+ render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);// 对手这一手在玩家思考的时候就已经定好了（见 decideEnemyFirst）：agent 的答案，
+// 超时/未配置/非法时退回 chooseEnemy。这里只等到预算用完为止，等不到就用引擎兜底，
+// 所以"对手在思考"最多让这一回合慢一个固定上限，不会无限期挂住界面。
+ const plan=enemyPlan&&enemyPlan.match===old?enemyPlan:null;
+ const otherAction=await enemyActionFor(old,enemyAction);
+ recordOpponentTurn(old,plan,otherAction,!(plan&&plan.source==='agent'));
+const next=resolveTurn(old,action,otherAction,pvpMode()?{manualReplace:true}:{});let previous=old;const ms=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Number($('speed').value);
 for(const frame of next.frames||[]){if(!frame.text)continue;renderSides(frame.state);$('action-banner').textContent=frame.text;for(const side of ['player','enemy']){const card=$(side+'-card'),floating=$(side+'-float'),p=active(frame.state,side),prev=previous[side].pets.find(x=>x.id===p.id),delta=p.hp-prev.hp;card.classList.remove('hit','act','guarding');floating.className='float-number';void card.offsetWidth;if(delta<0)card.classList.add('hit');else if(frame.side===side)card.classList.add('act');if(frame.text.includes('防御：')&&frame.side===side)card.classList.add('guarding');if(delta){floating.textContent=(delta>0?'+':'')+delta;floating.className='float-number show'+(delta>0?' heal':'');}}previous=frame.state;if(ms)await pause(ms);}
 game=next;
  // 陪练的主动气泡只挂在两个真实事件上：本局第一次有伙伴倒下，以及整局结束——
@@ -267,7 +351,7 @@ game=next;
   if(decision.lesson){const struggle=observeStruggle(coachMemory,{lesson:decision.lesson});if(struggle.relearned){coachMemory=struggle.memory;logCoachEvent('relearn',decision.lesson);}}
   saveCoachMemory();}lastFeedback=pvpMode()?null:feedback(game.history.filter(x=>x.type==='turn').at(-1),currentHint);if(!preview){roundArchive=archiveRound(game,roundArchive);try{localStorage.setItem('xiaoya-last-round',JSON.stringify(roundArchive));}catch{$('save-message').textContent='对局记录保存失败，先导出战报以免刷新丢失。';}}if(old.phase==='replace')tab='skill';if(game.result){const settled=settle(profile,game,matchId);profile=settled.profile;reward=settled.reward;if(!game.preview){save();coachMemory=rememberBattle(coachMemory,game);saveCoachMemory();}/* Completion review is rendered after settlement, without a second generic bubble. */}else if(!faintShown&&game.player.pets.some(p=>p.hp<=0)){faintShown=true;}
 $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':`${next.frames?.filter(f=>f.text).at(-1)?.text||'补位完成。'} 下一回合由你决定。`;
-}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};if(splitMode())decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
+}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
 function notify(event){if(preview)return;const text=coachEvent(event,coachContext(game,profile),coachSession);if(text){$('bubble-text').textContent=text;$('coach-bubble').hidden=false;clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);}}
 
 // —— 军师的局内主动层 ——

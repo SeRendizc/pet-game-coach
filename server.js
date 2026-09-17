@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 import {generateKeyPairSync,privateDecrypt,constants,randomBytes,timingSafeEqual} from 'node:crypto';
 import {runCoach,fitModelMessages} from './coach/runtime.js';
+import {decideOpponentAction,DIFFICULTY_BRIEFING,OPPONENT_TIMEOUT_MS} from './coach/opponent.js';
 const root=dirname(fileURLToPath(import.meta.url));
 const publicAssets=new Set(['index.html','style.css','app.js','engine.js','progression.js','rules.js','content.js','coach.js','connect.html','connect.js','connect.css','coach/experience.js','coach/client.js','coach/scheduler.js','coach/toolbox.js','coach/policy.js','coach/runtime.js','coach/memory.js','coach/strategist.js','coach/teacher.js','coach/companion.js']);
 
@@ -46,6 +47,15 @@ function validateChat(b){
  if(!c||!['camp','pve','pvp-local','pvp-live'].includes(c.mode)||!c.profile?.pets||!m||m.version!==1)throw fail(400,'教练上下文无效');
  // Local sandbox accepts client snapshots; this is not authoritative competitive-game state.
  if(c.battle){for(const side of ['player','enemy']){const s=c.battle[side];if(!s||!Array.isArray(s.pets)||s.pets.length!==3||!Number.isInteger(s.active)||s.active<0||s.active>2)throw fail(400,'战况无效');for(const p of s.pets){if(!Array.isArray(p.skills)||p.skills.length>6||![p.hp,p.maxHp,p.atk,p.def,p.speed,p.energy].every(Number.isFinite))throw fail(400,'宠物状态无效');}}}
+}
+// 对手 agent 的请求校验。和教练上下文分开，字段更少：只有局面 + 难度 + 目标偏好。
+// battle 是浏览器侧裁剪过的快照（没有 log/frames/history），服务端只用它做枚举与检索。
+function validateOpponent(b){
+ if(!b||!Object.hasOwn(DIFFICULTY_BRIEFING,b.difficulty))throw fail(400,'难度无效');
+ const c=b.battle;
+ if(!c||!['pve','pvp-local'].includes(c.mode)||!['battle','replace'].includes(c.phase)||!Number.isInteger(c.turn)||c.turn<1||c.turn>999)throw fail(400,'对手局面无效');
+ if(b.goal!==null&&b.goal!==undefined&&!['稳健','速攻'].includes(b.goal))throw fail(400,'目标偏好无效');
+ for(const side of ['player','enemy']){const s=c[side];if(!s||!Array.isArray(s.pets)||s.pets.length!==3||!Number.isInteger(s.active)||s.active<0||s.active>2)throw fail(400,'战况无效');for(const p of s.pets){if(!Array.isArray(p.skills)||p.skills.length>6||![p.hp,p.maxHp,p.atk,p.def,p.speed,p.energy].every(Number.isFinite))throw fail(400,'宠物状态无效');}for(const [id,count]of Object.entries(s.items||{}))if(!Number.isInteger(count)||count<0||count>99)throw fail(400,'道具数量无效');}
 }
 export function createCoachServer({fetchImpl=fetch,timeoutMs=35000,semantic=false}={}){
  const retriever=semantic?createSemanticRetriever():null;
@@ -127,6 +137,18 @@ export function createCoachServer({fetchImpl=fetch,timeoutMs=35000,semantic=fals
       const answer=await runCoach({message:b.message,role:b.role,context:b.context,memory:b.memory,conversation:historyForModel(b.conversation),provider});
       return json(res,200,{...answer,usage,tokenAudit,stateToken:b.stateToken});
      }finally{inflight=false;}
+    }
+    if(path==='/api/opponent'){
+     // 对手 agent 的入口。它和 /api/coach 是两条独立链路：没有对话、没有记忆、不改玩家教练的
+     // 任何状态，只拿"回合前的公开局面"换一个决定。玩家教练那边说什么都不会传到这里。
+     validateOpponent(b);
+     if(!credential)return json(res,200,{action:null,source:'unconfigured',difficulty:b.difficulty,legalCount:0,latencyMs:0});
+     // 故意**不**使用 inflight 串行闸门：对手的决策必须能和玩家教练的请求并行。
+     // 用闸门的话，玩家一问教练，对手这回合就只剩干等（或者反过来），延迟叠加。
+     const cancelled=new AbortController();res.once('close',()=>{if(!res.writableEnded)cancelled.abort();});
+     const result=await decideOpponentAction({game:b.battle,difficulty:b.difficulty,goal:b.goal||null,timeoutMs:OPPONENT_TIMEOUT_MS,
+      complete:(messages,maxTokens,timeout,signal)=>complete(messages,maxTokens,timeout,signal?AbortSignal.any([signal,cancelled.signal]):cancelled.signal)});
+     return json(res,200,result);
     }
     throw fail(404,'接口不存在');
    }
