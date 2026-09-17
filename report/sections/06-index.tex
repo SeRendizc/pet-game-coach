@@ -1,15 +1,13 @@
 \section{索引与复现}
 
-仓库已发布，公开可克隆：\url{https://github.com/SeRendizc/pet-game-coach}（256 个文件，无第三方运行时依赖）。克隆之后 \code{npm start} 可完整游玩，\code{npm test} 可复现正文里除模型实验之外的全部结论。
+仓库已发布，公开可克隆：\url{https://github.com/SeRendizc/pet-game-coach}（276 个文件，无第三方运行时依赖；数字取自 \code{git ls-files}）。克隆之后 \code{npm start} 可完整游玩，\code{npm test} 可复现正文里除模型实验之外的全部结论。
 
-\begin{itemize}[leftmargin=1.5em,itemsep=0.1em,topsep=0.2em]
-\item \code{npm start}：启动，默认 \texttt{127.0.0.1:8765}
-\item \code{npm test}：286 项自动测试，19 个测试文件（数字随代码增长，以实际运行输出为准）
-\item \code{npm run test:smoke}：无头浏览器真打一局
-\item \code{npm run build:knowledge}：从引擎重新生成知识卡
-\item \code{npm run eval:retrieval}：检索四臂对照
+\begin{itemize}[leftmargin=1.5em,itemsep=0em,topsep=0.15em]
+\item \code{npm start}：启动，默认 \texttt{127.0.0.1:8765}；\code{npm run test:smoke}：无头浏览器真打一局
+\item \code{npm test}：305 项自动测试，20 个测试文件（数字随代码增长，以实际运行输出为准）
+\item \code{npm run build:knowledge}：重新生成知识卡；\code{npm run eval:retrieval}：检索四臂对照
 \end{itemize}
 
-正文数字的来源：规模与测试数取自 \code{npm test} 的现场输出；检索对照、工具决策三轮、平衡矩阵与对手 agent 实测分别见 \path{reports/} 下的 \code{retrieval-extended.json}、\code{live-model-eval*.json}、\code{balance-matrix.json} 与 \code{opponent-agent.json}。宠物数、属性数与知识卡数都能用一行命令现场复算，README 里写明了命令；模型实验需要自己的密钥。
+正文数字的来源：规模与测试数取自 \code{npm test} 的现场输出；检索对照、工具决策三轮、多步链路核查、平衡矩阵与对手 agent 实测的产物都在 \path{reports/} 下。宠物数、属性数与知识卡数都能用一行命令现场复算，README 里写明了命令；模型实验需要自己的密钥。
 
 

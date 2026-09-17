@@ -22,6 +22,8 @@
 \usepackage{array}
 \usepackage{enumitem}
 \usepackage{xurl}              % 允许 URL 任意位置断行
+\usepackage{tikz}              % 只用来画第四节的执行链框图；不引 decorations 这类可选库
+\usetikzlibrary{arrows.meta,positioning}
 \usepackage[hidelinks]{hyperref}
 
 \linespread{1.16}
@@ -49,29 +51,47 @@
 % 定宽表格列：内容短，不设 \sloppy 也不会溢出
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 
-% 截图：只给图，不给标题，图注写在正文里。宽度留出余量避免 overfull。
-% 默认宽度按「读得清」定，不按「省地方」定：本报告正文栏宽 453pt，
-% 一个整栏宽的界面元素在 1000 CSS px 视口下有 956 px，缩到 45% 栏宽时
-% 12px 的依据正文只剩 2.9pt——那种图放进 PDF 等于没有。
+% 截图：每张图带编号与一行短标题，图注写在正文里，正文用 \ref 引用编号。
 %
-% 用浮动体而不是行内 center：行内的整栏大图一旦在本页放不下，就会把整页剩下的
-% 空白一起带走（第一版 9 张图直接把报告从 9 页顶到 12 页，多出来的三页几乎全是空隙）。
-% 浮动体让正文继续填满当前页，图挪到能放下的地方。
-\newcommand{\shot}[2][0.72]{%
-  \begin{figure}[htbp]\centering\includegraphics[width=#1\linewidth]{figs/#2}\end{figure}}
+% 宽度仍按「读得清」定，不按「省地方」定：本报告正文栏宽 453pt，一个整栏宽的界面元素
+% 在 1000 CSS px 视口下有 956 px，缩到 45% 栏宽时 12px 的依据正文只剩 2.9pt——
+% 那种图放进 PDF 等于没有。用浮动体而不是行内 center：行内的整栏大图一旦在本页放不下，
+% 就会把整页剩下的空白一起带走（第一版 9 张图把报告从 9 页顶到 12 页，多出来的几乎全是空隙）。
+%
+% 编号规则：**一个 figure 环境 = 一个编号**。\shotpair 并排的两张算一张图，
+% 用（a）（b）标明哪张是哪块界面——它们是同一次操作的两半，拆成两个编号反而要多写一句
+% 「图 5 与图 6 是同一次出征」。\shot 与 \shotpair 共用同一个 shot 计数器，所以
+% 正文里的「图 3」在两种图混排时仍然连续，引用一律走 \ref{fig:<文件名>}，不手写数字。
+%
+% 编号写在图下的一行小字里，没有题注框、不加 caption 宏包：本报告的字号、行距与浮动体
+% 间距都是手调的，caption 会再带进一套默认间距与「Figure」样式。
+% \parbox 是给标题留的固定宽度容器，标题长了会自己折行，不会顶出 overfull。
+\newcounter{shot}
+\newcommand{\shotcaption}[1]{%
+  \par\vspace{3pt}%
+  \refstepcounter{shot}%
+  \parbox[t]{0.96\linewidth}{\centering\small 图~\theshot\quad #1}\par}
 
-% 并排两张截图，各配一行小字说明「哪张是哪块界面」。
+% 单张截图。原来只给图不给标题，图注写在正文里，读者在图上找不到它对应正文哪一句。
+\newcommand{\shot}[3][0.72]{%
+  \begin{figure}[htbp]\centering
+    \includegraphics[width=#1\linewidth]{figs/#2}%
+    \shotcaption{#3}\label{fig:#2}%
+  \end{figure}}
+
+% 并排两张截图：各配一行小字说明「哪张是哪块界面」，下面一行是这一张图的编号与短标题。
 % 两块加起来 0.92 栏宽，剩下的留给 \hfill，不会 overfull。
 % 开头的 \vspace{0pt} 不是装饰：minipage 的 [t] 对齐的是**第一行的基线**，
 % 而图片那一行的基线在图片底边，两张不一样高的图于是变成底对齐，一高一低。
 % 加一个零高的空行把基线提到顶端，才是真的顶对齐。
-\newcommand{\shotpair}[5][0.46]{%
+\newcommand{\shotpair}[6][0.46]{%
   \begin{figure}[htbp]\centering
   \begin{minipage}[t]{#1\linewidth}\vspace{0pt}\centering
-    \includegraphics[width=\linewidth]{figs/#2}\\[3pt]{\small #3}%
+    \includegraphics[width=\linewidth]{figs/#2}\\[3pt]{\small（a）#3}%
   \end{minipage}%
   \hfill
   \begin{minipage}[t]{#1\linewidth}\vspace{0pt}\centering
-    \includegraphics[width=\linewidth]{figs/#4}\\[3pt]{\small #5}%
+    \includegraphics[width=\linewidth]{figs/#4}\\[3pt]{\small（b）#5}%
   \end{minipage}%
+  \shotcaption{#6}\label{fig:#2}%
   \end{figure}}

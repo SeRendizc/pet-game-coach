@@ -29,7 +29,12 @@ export function strategist(context){
  // 边界说明保留在 evidence 与「查看原因」里，那里才是想深究的人会看的地方。
  const text=`这一回合优先考虑「${actionName(g,'player',best)}」。${ranked[1]?'可比较的备选是「'+actionName(g,'player',ranked[1].action)+'」。':''}`;
  const knowledge=searchKnowledge(context.query||'换宠 预判 能量 '+(q.status?'灼烧 追猎':'先手'),{limit:3,game:g,rulesVersion:g.version});
- evidence.push(...knowledge.cards.map(c=>`[${c.id}] ${c.principle} 注意：${c.counterexample} 条件：${c.applicability.status}`));
+ // 卡片 ID 与英文状态是内部标识，不该出现在玩家的「计算依据」里。
+ // 用卡片标题代替 ID；条件只在**不满足**时才说，且说人话——正常适用时不必告诉玩家「条件：candidate」。
+ const COND={candidate:null,'conditions-not-met':'这张卡的前提在当前局面不成立',absent:'这张卡的前提在当前局面不成立',
+  'reference-only':'这张卡只作背景参考，不是当前局面的判据','version-mismatch':'这张卡对应的是旧规则版本，仅供参考'};
+ evidence.push(...knowledge.cards.map(c=>{const w=COND[c.applicability?.status];
+  return `${c.title||'规则'}：${c.principle} 注意：${c.counterexample}${w?'（'+w+'）':''}`;}));
  evidence.push('这里是按双方下一步各自可能的选择算过一遍，用来看哪个更划算；不是胜率，也管不了更后面的回合。');
  evidence.push(...ranked.slice(0,2).map(x=>`${actionName(g,'player',x.action)}：把对手各种应对都算一遍，多数情况下是 ${x.expected.toFixed(1)} 分，最糟的一种是 ${x.worst.toFixed(1)} 分（分数只用来排序，不是胜率）。对手换人的话：${x.switchScore===null?'对方没有可换的伙伴':x.switchScore.toFixed(1)+' 分'}。`));
  return {text,evidence,knowledge:knowledge.cards,actions:ranked.slice(0,2).map(x=>x.action),// method 是给日志和证据包用的内部字段，不是玩家可见文案；保留术语是为了排查问题。

@@ -73,7 +73,7 @@ export function skillLesson(game,action){
  const compare=others.length?`手里同时可选：${others.join('、')}。同一回合只能出一手，要抢先后看优先级，要续航看恢复，要压血线就比当前伤害。`:'';
  const text=[head,energy,...notes,compare,'以上只是解释这一招，出不出它由你决定。'].filter(Boolean).join('');
  return {id:`skill:${action.id}`,lesson:decisionLesson(game,action),text,
-  evidence:[`技能字段：${JSON.stringify({name:sk.name,type:sk.type,cost:sk.cost,power:sk.power??null,priority:sk.priority??0})}。`,
+  evidence:[`技能字段：${sk.name}，${TYPES[sk.type]||'普通'}系，消耗 ${sk.cost} 豆${sk.power?`，威力 ${sk.power}`:'，不造成伤害'}${sk.priority?`，优先级 ${sk.priority}`:'，优先级与普通技能相同'}。`,
    `当前局面：${p.name} ${p.hp}HP、${p.energy} 豆；对手 ${q.name} ${q.hp}HP${q.status?`、异常 ${q.status.kind}`:''}。`,
    `伤害来自 engine.damage（不防御 ${hit}／防御 ${guarded}），只按当前面板计算，不预测对手这一回合做什么。`],
   method:'读取技能字段与当前局面 → 解释这一招 → 不替你决定'};
@@ -107,17 +107,60 @@ export function analyzeTurn(h,{rulesVersion='0.6'}={}){
  if(a.kind==='item')return `这一回合用道具取代出招，随后仍给对手行动机会。${p.name}回合前${p.hp}HP，结束时${h.after.player.pets[h.before.player.active].hp}HP；要比较恢复带来的生存空间与放弃进攻的成本。`;
  if(a.id==='guard')return `这次防御用了整回合输出机会换减伤与回能；回合前${p.energy}豆。下回合不能连续防御，要提前留攻击、换宠或道具的接续。`;
  const sk=SKILLS[a.id];if(!sk)return '当前规则已无法识别该技能，保留原始记录，不补造计算。';
- if(sk.power){const hit=damage(p,q,sk),guarded=damage(p,q,sk,true);return `${sk.name}对当时${q.name}的直接伤害：不防御${hit}、防御${guarded}，目标当时${q.hp}HP。${hit>=q.hp?'具备静止目标的收尾条件':'单次直接攻击不足以收尾'}；这是事前条件比较，对方治疗、换宠及先出手都可能改变结果。`;}
+ if(sk.power){const hit=damage(p,q,sk),guarded=damage(p,q,sk,true);return `${sk.name}对当时${q.name}的直接伤害：不防御${hit}、防御${guarded}，目标当时${q.hp}HP，这一下${hit>=q.hp?'够收尾':'不足以收尾'}。`;}
  return `选择${sk.name}时要承担放弃本回合攻击的成本；结合原始记录核对实际恢复与后续承伤。`;
+}
+// 整局统计说成人话。
+//
+// 原始要求来自玩家截图与用户原话：「没有的为0的就不要讲了」，以及展开区里那串
+// {"rounds":14,"counts":{...}} 根本不是给玩家读的。所以：
+//   ① 计数为 0 的类别**整类省略**——不是换个句式把它们列一遍（「全程没用过换宠、道具…」
+//      仍然是把四个 0 念了出来，只是换了说法）；
+//   ② 剩余道具只讲真正影响结论的那一件：输了而且还有回复药，才说明「当时其实有药可吃」。
+//      赢下来的局面剩几瓶药不改变任何结论，列成一串就是用户说的「罗列」。
+// 这也是玩家可见的文案，别把内部字段名（switches/guards/items）带出来。
+export function matchStatsLine(m,{lead=true}={}){
+ const did=[];
+ for(const [key,verb] of [['attacks','出手'],['switches','换宠'],['items','用道具'],['guards','防御'],['escapes','撤退']])
+  if(m.counts?.[key])did.push(`${verb}${m.counts[key]}次`);
+ const potion=m.result==='loss'&&(m.remainingItems?.potion||0)>0?`结束时还剩回复药${m.remainingItems.potion}个。`:'';
+ // lead=false：调用方（结论那句）已经说过回合数，这里再说一遍就是同一句里自我重复。
+ return `${lead?`这一局打了${m.rounds}回合，`:''}${did.length?`你${did.join('、')}。`:''}${potion}`;
 }
 export function reviewMatch(context){
  const m=context.lastMatch;if(!m)return {text:'暂时没有可用的完整对局记录。旧版只存了最后一回合的历史无法还原整局。新版本会保存完整对局；如果当前对局还在页面里，可直接从现有记录复盘。',evidence:[],scope:'match'};
  const outcome={win:'胜利',loss:'失利',draw:'平局',escaped:'撤退',ongoing:'尚未结束'}[m.result]||m.result;
  const key=m.keyTurns.slice().sort((a,b)=>(b.alternatives?.gap||0)-(a.alternatives?.gap||0))[0];
- const lesson=m.result==='loss'&&m.remainingItems?.potion>0?`结束时还剩${m.remainingItems.potion}瓶回复药。下次在伙伴进入危险血线时，先比较吃药、换宠和继续攻击，别等倒下再救；有药不代表那回合吃药一定更好。`:key?.alternatives?.gap>5?`第${key.turn}回合值得回看：当时可比较「${key.alternatives.rows[0].name}」，这是事前一回合评分，不代表改这一手就一定能赢。`:null;
+ const lesson=m.result==='loss'&&m.remainingItems?.potion>0?`下次在伙伴进入危险血线时，先比较吃药、换宠和继续攻击，别等倒下再救；有药不代表那回合吃药一定更好。`:key?.alternatives?.gap>5?`第${key.turn}回合值得回看：当时可比较「${key.alternatives.rows[0].name}」，这是事前一回合评分，不代表改这一手就一定能赢。`:null;
  const theme=lesson|| (m.counts.guards+m.counts.items>m.rounds/2?'这局防御和道具占了一半以上，重点看看哪些回合可以转为进攻。':m.counts.switches>=4?'这局有多次轮换，重点看换入承伤是否换来了后续机会。':'先看造成减员或生命变化较大的回合，比较当时还有哪些选择。');
- return {brief:lesson||`${m.stage}，${outcome}。先回看第${key?.turn||1}回合，比较当时的其他选择。`,textFacts:m,text:`${m.stage}，共${m.rounds}回合，${outcome}。攻击/其他技能${m.counts.attacks}次、防御${m.counts.guards}次、道具${m.counts.items}次、换宠${m.counts.switches}次${m.counts.escapes?`、撤退${m.counts.escapes}次`:""}。${theme}`,scope:'match',matchId:m.id,
-  evidence:[`整局统计：${JSON.stringify({rounds:m.rounds,counts:m.counts,remainingItems:m.remainingItems})}`,...m.keyTurns.map(k=>`[${k.id}] 第${k.turn}回合：${k.events.join(' ')}\n${k.analysis}\n${k.alternatives?.text||''}`)],choices:m.keyTurns.map(k=>`详看第${k.turn}回合`),method:'完整回合统计 → 减员与生命变化选点 → 事前条件分析（不等于全局最优）'};
+ return {brief:lesson||`${m.stage}，${outcome}。先回看第${key?.turn||1}回合，比较当时的其他选择。`,textFacts:m,text:`${m.stage}，共${m.rounds}回合，${outcome}。${matchStatsLine(m,{lead:false})}${theme}`,scope:'match',matchId:m.id,
+  // 展开区只放依据：整局统计一句人话，加上挑出来的关键回合，最后统一交代一句怎么读这些差值。
+  // 回合标识（那份 `对局id:turn:N`）是内部索引，印给玩家没有意义，去掉。
+  evidence:[`整局统计：${matchStatsLine(m)}`,
+   ...m.keyTurns.map(k=>`第${k.turn}回合：${k.events.join(' ')}\n${k.analysis}${k.alternatives?`\n${k.alternatives.line}`:''}`),
+   m.keyTurns.find(k=>k.alternatives)?.alternatives.rule].filter(Boolean),choices:m.keyTurns.map(k=>`详看第${k.turn}回合`),method:'完整回合统计 → 减员与生命变化选点 → 事前条件分析（不等于全局最优）'};
+}
+
+// 同一句话有没有被说两遍：给 app.js 的展开区用（顶部条已经说过的结论不再出现在依据里）。
+// 判据是「同一句」而不是「同一个元素」：模型那句解释会被同时写进顶部条与展开区，
+// 老师的长讲解在本地路径上也是同一个字符串进两处；截断长度不同（90 字与 180 字）
+// 也算重复，所以互为包含同样判真。短于 8 个字的包含判定不算——那种重合多半是巧合。
+export function isRepeatedLead(text,lead){
+ const a=String(text??'').trim(),b=String(lead??'').trim();
+ if(!a||!b)return false;
+ if(a===b)return true;
+ return Math.min(a.length,b.length)>=8&&(a.includes(b)||b.includes(a));
+}
+
+// 展开区的首段一旦与折叠时那句重复就移除，返回是否真的移除了。
+// **只在判为重复时才动 DOM**：展开区第一段本来就可能是有效依据（双方血量与能量、
+// 引用的知识卡），无条件删掉它等于把依据弄丢——本地路径（没有模型回答）就是这种情况：
+// 折叠条写的是「为什么现在说」，展开区写的是完整局面，两者不是同一句，必须留着。
+// 放在这里而不是 app.js 里，是为了让这三类情况能在 node 里直接被测到。
+export function dropRepeatedLead(detail,lead){
+ const p=detail?.querySelector?.('p');if(!p)return false;
+ if(!isRepeatedLead(p.textContent,lead))return false;
+ p.remove();return true;
 }
 
 export function compareTurnAlternatives(h,version='0.6'){
@@ -127,6 +170,21 @@ export function compareTurnAlternatives(h,version='0.6'){
  const actual=ranked.find(x=>JSON.stringify(x.action)===JSON.stringify(h.action));
  if(!actual||!ranked[0])return null;
  const rows=ranked.slice(0,2).map(x=>({action:x.action,name:actionName(g,'player',x.action),expected:x.expected,worst:x.worst,score:x.score}));
- return {rows,actualScore:actual.score,gap:ranked[0].score-actual.score,
-  text:rows.map(x=>`${x.name}：把对手各种应对都算一遍，多数情况 ${x.expected.toFixed(1)} 分、最糟的一种 ${x.worst.toFixed(1)} 分`).join('；')+`。你的选择${ranked[0].score-actual.score<=5?'与最高分接近，不能因排序不同就判错':'在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误'}。只看回合开始时的公开局面，不把对方实际出了什么当成事先就知道的。`};
+ const gap=ranked[0].score-actual.score;
+ // 同一句模板不在一条回顾里重复：原来「把对手各种应对都算一遍…多数情况 X 分、最糟的一种 Y 分」
+ // 逐个备选念一遍，一条回顾里同一句话出现两次（用户截图里正是这两行）。
+ // 现在把「怎么读」这件事拆成三段，各说一次：
+ //   line  每个关键回合只报差值，不带任何模板句（三个关键回合连着印同一句话就是重复）
+ //   rule  「怎么读这些数字」整条回顾只说一次，挂在证据列表末尾
+ //   text  单回合复盘时自成一个完整句子（那条路径只有一次比较，不存在重复）
+ // 同时去掉「-22.1 分、最糟的一种」这类内部评分口吻，改成「比实际这一手好多少」。
+ // 差值超过两位数就不再印绝对值：那是把全队血量一起算进去的估值，玩家读到的
+ // 应该是「好很多」，而不是 1283.6 这种看着精确、其实没有意义的数。
+ const verdict=d=>d>100?'比实际这一手好很多':d>1?`比实际这一手好 ${d.toFixed(1)}`:d<-100?'比实际这一手差很多':d<-1?`比实际这一手差 ${(-d).toFixed(1)}`:'和实际这一手差不多';
+ const list=rows.map(x=>`「${x.name}」${verdict(x.score-actual.score)}`).join('；');
+ const close=gap<=5?'这一手和当时最好的选择接近，不能因为排序不同就判错':'当时还有更好的选择，但换个应对就可能变，不能据此断言长期策略错了';
+ return {rows,actualScore:actual.score,gap,
+  line:`${list}。`,
+  rule:`事后比较怎么读：只看回合开始前的公开局面，对方治疗、换宠、防御或先出手都可能改变结果；上面每个做法的差值都是估值，只用来排序、不是胜率，${close}。`,
+  text:`把当时还能选的做法代进同一套算法各估一遍（只读回合开始前的公开局面）：${list}。差值是估值，只用来排序、不是胜率；${close}。`};
 }

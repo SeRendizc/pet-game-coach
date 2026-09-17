@@ -1,6 +1,6 @@
 import {observe,feedback,archiveRound,reverseRounds,markdown,concise,attentionState,trackAttention,releaseAttention,decisiveOpportunity,assessDecision,watchCandidate,readArchive,taskStamp,taskIsCurrent,strategistSession,strategistTrigger,dwellIntervention,incidentInfo} from './coach/experience.js';
 import {requestCoach,connectionStatus,invalidateCoachRequests,requestOpponentAction,resolveEnemyChoice,legalEnemyActions,enemyFallbackAction,OPPONENT_TIMEOUT_MS} from './coach/client.js';
-import {teacher,reviewMatch} from './coach/teacher.js';
+import {teacher,reviewMatch,dropRepeatedLead} from './coach/teacher.js';
 import {rosterAdvice,strategist} from './coach/strategist.js';
 import {buildContext,MATCH_REVIEW_REQUEST} from './coach/runtime.js';
 import {freshMemory,readMemory,rememberBattle,recordCoachEvent,rememberDecision,adaptiveGate,memorySummary,deleteMemoryEvidence,markTaught,observeStruggle} from './coach/memory.js';
@@ -607,6 +607,10 @@ function addChat(role,text){conversation.push({role:role==='你'?'user':'assista
 // 等待指示：请求发出后立刻出现，收到回答或失败时移除。
 function showThinking(label){hideThinking();const e=document.createElement('div');e.className='chat-entry thinking';e.id='chat-thinking';e.innerHTML=`<strong>小芽</strong><span class="thinking-text">${escape(label)}</span><span class="dots"><i></i><i></i><i></i></span>`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
 function hideThinking(){document.getElementById('chat-thinking')?.remove();}
+// 展开区不复述折叠时那句（判据与移除动作都在 coach/teacher.js，那三行注释解释了为什么
+// 不能无条件删：展开区第一段本身可能就是有效依据）。用户截图里那句重复的成因是：
+// 模型回答被同时写进 $('live-copy') 与 #live-detail 的首个 <p>；老师的长讲解在
+// 纯本地路径上也是同一个字符串进两处。结论已经在折叠状态给过玩家，展开区只留依据。
 async function ask(text){
  if(!text.trim()||asking)return;if(busy){$('coach-status').textContent='请等本回合出招结束，再分析当前战况';return;}asking=true;addChat('你',text);$('coach-status').textContent='正在读取游戏状态…';const remote=!['policy'].includes(coachRole);showThinking('正在读取局面与依据…');$('chat-send').disabled=true;$('chat-input').disabled=true;
  const epoch=contextEpoch,stamp=taskStamp({epoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'});
@@ -614,7 +618,11 @@ async function ask(text){
  const entry=$('chat-log').lastElementChild;if(answer.choices){const controls=document.createElement('div');controls.className='quiz-choices';for(const choice of answer.choices){const b=document.createElement('button');b.textContent=choice;b.onclick=()=>{controls.remove();ask(choice);};controls.append(b);}entry.append(controls);}
  if(answer.evidence.length){const details=document.createElement('details');details.className='coach-evidence';details.innerHTML='<summary>依据 · '+escape({strategist:'军师',teacher:'老师',companion:'陪练',auto:'偏好',policy:'场景限制',guide:'游戏说明'}[answer.route]||answer.route)+'</summary>'+answer.evidence.map(x=>'<p>'+escape(x)+'</p>').join('');entry.append(details);}
  if(answer.toolTrace?.length){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='小芽查了什么';details.append(summary);const names={read_state:'当前局面',search_rules:'规则和战术',compare_actions:'行动分支',inspect_training:'培养面板',read_last_turn:'上一回合记录',read_match:'整局记录',read_evidence:'指定回合原始证据',simulate_branch:'假设行动分支'};for(const receipt of answer.toolTrace){const line=document.createElement('p');line.textContent=names[receipt.tool]||receipt.tool;details.append(line);}entry.append(details);}
- $('coach-status').textContent=answer.fallbackReason?answer.fallbackReason:answer.provider==='deepseek'?'DeepSeek 已回答 · 依据可展开查看':answer.verified?(answer.scope==='match'?'整局记录已读取 · 可展开关键回合':answer.memory.lastTopic==='review'?'原始回合已读取 · 计算条件可核对':'本地规则核验 · 不经模型自由改写'):'本地教练 · 依据可展开查看';
+ // 陪练这一路可能压根不是局面分析（玩家只是来搭话的），所以状态行不能一律写成
+ // 「本局规则分析」——那句话对「你好呀」是错的。只改陪练这一支，其余路由文案不动。
+ $('coach-status').textContent=answer.route==='companion'
+  ?(answer.fallbackReason&&!/未连接模型/.test(answer.fallbackReason)?answer.fallbackReason:(answer.chatThread?'陪练在接话 · 依据可展开查看':'陪练 · 依据可展开查看'))
+  :answer.fallbackReason?answer.fallbackReason:answer.provider==='deepseek'?'DeepSeek 已回答 · 依据可展开查看':answer.verified?(answer.scope==='match'?'整局记录已读取 · 可展开关键回合':answer.memory.lastTopic==='review'?'原始回合已读取 · 计算条件可核对':'本地规则核验 · 不经模型自由改写'):'本地教练 · 依据可展开查看';
  }catch(e){hideThinking();if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{hideThinking();asking=false;$('chat-send').disabled=false;$('chat-input').disabled=false;}
 }
 // 每局开始换一个新编号。
@@ -713,13 +721,16 @@ function showMatchReview(){
  const reviewKey='review|'+game.id;
  armLiveCoach(reviewKey);
  if(liveCoachStale(reviewKey)){box.hidden=true;return;}
- box.hidden=false;box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ 小芽 · 本局回顾</span><span id="result-copy">'+escape(quiet?'本局分析已备好，需要时展开。':concise(packet.brief||packet.text,110))+'</span><button id="result-review">整局分析</button></div><details><summary>关键回合与依据</summary>'+packet.evidence.map(x=>'<p>'+escape(x)+'</p>').join('')+'</details><small id="result-provider">本局记录分析</small>';
+ box.hidden=false;const copy=quiet?'本局分析已备好，需要时展开。':concise(packet.brief||packet.text,110);
+ box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ 小芽 · 本局回顾</span><span id="result-copy">'+escape(copy)+'</span><button id="result-review">整局分析</button></div><details><summary>关键回合与依据</summary>'+packet.evidence.map(x=>'<p>'+escape(x)+'</p>').join('')+'</details><small id="result-provider">本局记录分析</small>';
+ // 与军师条同一条规则：折叠时已经给过的结论不在展开区里再说一遍。
+ dropRepeatedLead(box.querySelector('details'),copy);
  $('result-review').onclick=()=>{openCoach();ask('总结整局：这局发生了什么，有什么值得记住的选择？');};
  if(reviewAnswer?.id===game.id&&!quiet){$('result-copy').textContent=concise(reviewAnswer.text,100);$('result-provider').textContent=reviewAnswer.source;}
  if(reviewedMatch===game.id||quiet||preview)return;reviewedMatch=game.id;
  const epoch=contextEpoch,id=game.id;let entry=null,historyEntry=null;
  if(!$('coach-panel').hidden){addChat('小芽',packet.brief||packet.text);entry=$('chat-log').lastElementChild;historyEntry=conversation.at(-1);}
- connectionStatus().then(status=>{if(!status.configured||contextEpoch!==epoch)return null;$('result-provider').textContent='正在结合整局记录分析…';return requestCoach({message:MATCH_REVIEW_REQUEST,role:'teacher',context,memory:coachMemory,conversation:[],cache:true,stateToken:epoch});}).then(answer=>{if(!answer||epoch!==contextEpoch||game?.id!==id||!$('result-copy'))return;$('result-copy').textContent=concise(answer.text,100);speakCue(answer.text);$('result-provider').textContent=answer.provider==='deepseek'?'DeepSeek · 根据本局记录分析':answer.fallbackReason||'本局规则分析';reviewAnswer={id,text:answer.text,source:$('result-provider').textContent};if(historyEntry&&conversation.includes(historyEntry)){historyEntry.content=answer.text;}else{conversation.push({role:'assistant',content:'本局自动总结：'+answer.text});conversation=conversation.slice(-8);}if(entry&&entry.isConnected){entry.innerHTML='<strong>小芽</strong>'+markdown(answer.text);}}).catch(()=>{if(epoch===contextEpoch&&$('result-provider'))$('result-provider').textContent='模型暂不可用 · 已保留本局分析';});
+ connectionStatus().then(status=>{if(!status.configured||contextEpoch!==epoch)return null;$('result-provider').textContent='正在结合整局记录分析…';return requestCoach({message:MATCH_REVIEW_REQUEST,role:'teacher',context,memory:coachMemory,conversation:[],cache:true,stateToken:epoch});}).then(answer=>{if(!answer||epoch!==contextEpoch||game?.id!==id||!$('result-copy'))return;$('result-copy').textContent=concise(answer.text,100);dropRepeatedLead(box.querySelector('details'),$('result-copy').textContent);speakCue(answer.text);$('result-provider').textContent=answer.provider==='deepseek'?'DeepSeek · 根据本局记录分析':answer.fallbackReason||'本局规则分析';reviewAnswer={id,text:answer.text,source:$('result-provider').textContent};if(historyEntry&&conversation.includes(historyEntry)){historyEntry.content=answer.text;}else{conversation.push({role:'assistant',content:'本局自动总结：'+answer.text});conversation=conversation.slice(-8);}if(entry&&entry.isConnected){entry.innerHTML='<strong>小芽</strong>'+markdown(answer.text);}}).catch(()=>{if(epoch===contextEpoch&&$('result-provider'))$('result-provider').textContent='模型暂不可用 · 已保留本局分析';});
 }
 function updateCoach(force=false){
  if(game?.result&&!preview){showMatchReview();return;}
@@ -761,6 +772,9 @@ function updateCoach(force=false){
  box.innerHTML='<div class="coach-whisper"><span class="whisper-icon">✦ '+(teacher?'老师':'军师')+'</span><span id="live-copy">'+escape(copy)+'</span><button id="live-expand" aria-expanded="false">看看原因</button><button id="live-dismiss" aria-label="收起这条提示">×</button></div><div id="live-detail" hidden>'+
  '<small id="live-provider">'+(teacher?'规则讲解 · 即时':'规则分析 · 即时')+'</small>'+detail+
  (lastFeedback?'<details><summary>上一回合反馈</summary><p>'+escape(concise(lastFeedback.text,180))+'</p></details><div class="coach-detail-actions"><button id="live-review">深入复盘</button> <button id="live-quiz">练一个知识点</button></div>':'<p class="muted">由你决定行动，出招后的事实记录会保留。</p>')+'</div>';
+ // 顶部条拿走了结论，展开区只留依据。老师那条在本地路径上就是把同一段话写了两遍，
+ // 这里当场去掉；军师那条等模型回答落地时再走同一条规则（见下面的 requestCoach 回调）。
+ dropRepeatedLead($('live-detail'),copy);
  $('live-expand').onclick=()=>{const open=$('live-detail').hidden;$('live-detail').hidden=!open;$('live-expand').textContent=open?'收起':'看看原因';$('live-expand').setAttribute('aria-expanded',String(open));};
  // 叉掉面板同样按角色记账，并让军师/老师在本局立刻闭嘴（点掉即静音优先于任何推断）。
  $('live-dismiss').onclick=()=>{cancelVoice();logCoachEvent('dismiss',cueRole);box.hidden=true;hintEpoch++;attention.dismissed=true;coachMuted=true;coachSession.dismissed=true;strategistHint.dismissed=true;$('attention-cue').hidden=true;};
@@ -769,7 +783,16 @@ function updateCoach(force=false){
  if($('live-quiz'))$('live-quiz').onclick=()=>{const quiz=lastFeedback.quiz;const area=document.createElement('div');area.className='live-quiz';area.innerHTML='<p>'+escape(quiz.question)+'</p><button data-answer="yes">'+escape(quiz.yes)+'</button> <button data-answer="no">'+escape(quiz.no)+'</button><p class="quiz-feedback"></p>';box.querySelector('.live-quiz')?.remove();$('live-detail').append(area);area.querySelectorAll('[data-answer]').forEach(b=>b.onclick=()=>{const correct=b.dataset.answer==='yes';area.querySelector('.quiz-feedback').textContent=(correct?'答对了。':'再想一想。')+quiz.explanation;if(correct&&!preview&&!coachMemory.lessons.includes(quiz.id)){coachMemory.lessons.push(quiz.id);saveCoachMemory();}});};
  if(force||!hint||autoCalls>=(profile.coach.mode==='mentor'?6:3)||asking||hint.reason===lastAutoReason&&profile.coach.mode!=='mentor'||(profile.coach.mode!=='mentor'&&game.turn>1&&hint.reason==='回合结束，重新评估局面'))return;
  lastAutoReason=hint.reason;const context=matchContext();
- connectionStatus().then(status=>{if(hintEpoch!==token)return null;if(!status.configured){speakCue(hint.text);return null;}autoCalls++;$('live-provider').textContent='小芽正在组织解释…';return requestCoach({message:'这回合怎么打？直接对玩家说一句有用的话：结合当前宠物、血量、能量点出最值得注意的一件事；有合适行动就解释缘由，不强求每回合纠错。最多60字。',role:'strategist',context,memory:coachMemory,conversation:[],cache:true,stateToken:token});}).then(answer=>{if(!answer||hintEpoch!==token)return;const explanation=document.createElement('p');explanation.textContent=concise(answer.text,180);$('live-detail').querySelector('p')?.replaceWith(explanation);$('live-copy').textContent=concise(answer.text,90);speakCue(answer.text);$('live-provider').textContent=answer.provider==='deepseek'?'DeepSeek · 结合局面解释':answer.fallbackReason||'本地教练';}).catch(()=>{if(hintEpoch===token){$('live-provider').textContent='模型暂不可用 · 保留规则建议';speakCue(hint.text);}});
+ connectionStatus().then(status=>{if(hintEpoch!==token)return null;if(!status.configured){speakCue(hint.text);return null;}autoCalls++;$('live-provider').textContent='小芽正在组织解释…';return requestCoach({message:'这回合怎么打？直接对玩家说一句有用的话：结合当前宠物、血量、能量点出最值得注意的一件事；有合适行动就解释缘由，不强求每回合纠错。最多60字。',role:'strategist',context,memory:coachMemory,conversation:[],cache:true,stateToken:token});}).then(answer=>{if(!answer||hintEpoch!==token)return;
+  // 模型这句直接接管顶部条。展开区那段本地结论只在**与顶部条确实是同一句**时才让位——
+  // 判据与本地路径共用 isRepeatedLead，不能无条件删：展开区第一段本来就可能是有效依据
+  // （双方血量与能量、引用的卡片），删掉它就是把依据弄丢了。
+  // 顶部条从此是结论唯一的落脚处，截断上限因此从 90 放到 140：90 字时句子会被截掉尾巴，
+  // 而展开区不再补全它。（给模型的提示词本来就只要 60 字以内。）
+  const line=concise(answer.text,140);
+  $('live-copy').textContent=line;
+  dropRepeatedLead($('live-detail'),line);
+  speakCue(answer.text);$('live-provider').textContent=answer.provider==='deepseek'?'DeepSeek · 结合局面解释':answer.fallbackReason||'本地教练';}).catch(()=>{if(hintEpoch===token){$('live-provider').textContent='模型暂不可用 · 保留规则建议';speakCue(hint.text);}});
 }
 
 $('round-coach').onclick=()=>{if(!busy){openCoach();ask(game?.result?'回顾上一局':'回顾上一回合');}};

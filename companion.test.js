@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {createGame,step,legalActions,rankEnemyActions,SKILLS,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,FIRST_PERSON_EMOTION} from './coach/companion.js';
+import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,chatReply,chatThread,previousChatThread,CHAT_THREADS} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {strategistTrigger,strategistSession,attentionState} from './coach/experience.js';
 import {coachEvent,coachContext} from './coach.js';
@@ -90,14 +90,17 @@ function replay(seed,memory,{strategy='random',difficulty='normal',smart=false}=
  return {game:g,lines,memory,session};
 }
 // 每一句话的公共要求：长度、句数、不带复述与自我情绪、至少一句跨局/跨回合信息。
+// 注意第三条：拦的是「自我中心的情绪」（我＋感受），不是情绪本身——
+// 落在事件上的可惜/漂亮/悬/憋屈/松口气必须放行，否则「有情绪」又被这条做成 0。
 function assertSpeakable(line,{allow=null}={}){
  const limit=REGISTERS[line.register==='R3'?'R3':line.register]?.limit||REGISTERS.R4.limit;
  assert(line.text.length<=limit,`${line.event} 超长（${line.text.length}>${limit}）：${line.text}`);
  assert(!SCREEN_ECHO.test(line.text),`${line.event} 复述了屏幕上的事：${line.text}`);
- assert(!FIRST_PERSON_EMOTION.test(line.text),`${line.event} 在说陪练自己的情绪：${line.text}`);
+ assert(!SELF_CENTERED_EMOTION.test(line.text),`${line.event} 在说陪练自己的情绪：${line.text}`);
+ assert(!SELF_FOCUS.test(line.text),`${line.event} 把镜头对准了陪练自己：${line.text}`);
  for(const part of line.parts||[]){
   if(allow&&allow.parts)continue;
-  assert(['memory','derived','situation','presence'].includes(part.kind),`句子没有标注来源：${part.text}`);
+  assert(['memory','derived','situation','presence','affect','chat'].includes(part.kind),`句子没有标注来源：${part.text}`);
  }
  if(line.parts){
   const informative=line.parts.filter(p=>p.kind==='memory'||p.kind==='derived').length;
@@ -222,9 +225,13 @@ test('companion facts degrade to null instead of default values',()=>{
  assert.equal(legacyFacts.firstFallen,null);
  assert.equal(legacyFacts.potion,null);
  assert.deepEqual(legacyFacts.faints,[]);
- const text=companion({mode:'camp'},legacy,'随便聊聊').text;
+ // 旧存档读回来仍然只能说记录里真有的东西：一句战术提问走原来的观察通道，
+ // 说清楚的还是「上一局在哪张图打到第几回合」；闲聊通道同样不许把缺失字段补具体。
+ const text=companion({mode:'camp'},legacy,'这局怎么打').text;
  assert.match(text,/青芽草地/);
  assert(!/倒下|回复药|站着/.test(text));
+ const chat=companion({mode:'camp'},legacy,'随便聊聊').text;
+ assert(!/倒下|回复药|站着/.test(chat),chat);
 });
 
 // ── 负向验证：改回「只说屏幕上的事」必须变红 ─────────────────────────────────
@@ -312,7 +319,10 @@ test('register table: silence stays first and engagement never raises the ceilin
  assert.equal(stateFor('烦').register,'R3','真实连败时的倾诉才进收尾陪坐');
  assert.equal(stateFor('烦',{},history([winGame()])).register,'R2','没有连败记录时只做具体关切');
  assert.equal(stateFor('？').register,'R2');
- assert.equal(stateFor('你好').register,'R0');
+ // 寒暄也要接住：有真实记录时「你好」按 R1 接话（先应一声，再落一件记得的事），
+ // 什么都没记过时仍然只回最短承接句 R0——不编。
+ assert.equal(stateFor('你好').register,'R1');
+ assert.equal(stateFor('你好',{},freshMemory()).register,'R0');
  assert.equal(stateFor('这局怎么打').register,'R2');
  assert.equal(stateFor('随便聊聊').register,'R1');
  assert.equal(stateFor('这局怎么打',{},freshMemory()).register,'R0','没有真实记录时不进具体关切');
@@ -329,29 +339,35 @@ test('register table: silence stays first and engagement never raises the ceilin
 });
 test('the register changes the wording and the length ceiling',()=>{
  const memory=history([winGame(),lossGame(),play(7)]);
- const answers=['你好','随便聊聊','这局怎么打','烦'].map(message=>companion({mode:'camp'},memory,message));
- assert.deepEqual(answers.map(a=>a.register),['R0','R1','R2','R3']);
- assert.equal(new Set(answers.map(a=>a.text)).size,4,'四个档位必须给出四种不同的文本');
+ const answers=['你好','这局怎么打','烦'].map(message=>companion({mode:'camp'},memory,message));
+ const [r1,r2,r3]=answers;
+ // R0 是「没有可核对的经历」时的最短承接句，不是在档位表里排第一的那句：
+ // 有记录时寒暄也要接住（R1），所以这里用一个空记忆把 R0 取出来。
+ const r0Empty=companion({mode:'camp'},freshMemory(),'你好');
+ assert.equal(r0Empty.register,'R0');
+ assert.equal(r0Empty.text,'我在。');
+ assert.deepEqual(answers.map(a=>a.register),['R1','R2','R3']);
+ assert.equal(new Set([r0Empty.text,...answers.map(a=>a.text)]).size,4,'四个档位必须给出四段不同的文本');
  for(const answer of answers){
   assert(answer.text.length<=REGISTERS[answer.register].limit,`${answer.register} 超长：${answer.text}`);
   assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:true,lessons:memory.lessons}}).valid,answer.text);
  }
- const [r0,r1,r2,r3]=answers;
- assert.equal(r0.text,'我在。');
  assert(!/[？?]/.test(r1.text+r3.text),'R1/R3 不得使用问句');
  assert.match(r3.text,/到这儿也行/);
  assert.match(r3.text,/连着2局没赢/);
- assert(!/加油|别灰心|你已经很棒/.test(answers.map(a=>a.text).join('')));
+ assert(!/加油|别灰心|你已经很棒/.test([r0Empty,...answers].map(a=>a.text).join('')));
  // 2–3 句：被动通道最长的两档也得真的说到 2 句
  assert(r1.text.split('。').filter(Boolean).length>=2,`R1 只有一句话：${r1.text}`);
  assert(r2.text.split('。').filter(Boolean).length>=2,`R2 只有一句话：${r2.text}`);
  // 模型路径：档位随证据包一起送到服务端，字数上限/问句上限可见
- assert.deepEqual([r0.replyConstraints.maxChars,r1.replyConstraints.maxChars,r2.replyConstraints.maxChars,r3.replyConstraints.maxChars],[8,72,120,64]);
- assert.deepEqual([r0.replyConstraints.maxQuestions,r2.replyConstraints.maxQuestions],[0,1]);
+ assert.deepEqual([r0Empty.replyConstraints.maxChars,r1.replyConstraints.maxChars,r2.replyConstraints.maxChars,r3.replyConstraints.maxChars],[8,72,120,64]);
+ assert.deepEqual([r0Empty.replyConstraints.maxQuestions,r2.replyConstraints.maxQuestions],[0,1]);
  assert.match(r1.replyConstraints.instruction,/R1/);
- assert.deepEqual(r2.replyConstraints.allow,[],'陪练不再被允许播报自己的情绪');
+ // 情绪不是被禁的：allow 里写明「要落在真实事件上」，forbid 里只禁「播报自己的情绪」。
+ assert(r2.replyConstraints.allow.some(a=>/可惜|漂亮|悬|憋屈|松口气/.test(a)),'证据包要告诉模型情绪该落在哪儿');
+ assert(r2.replyConstraints.forbid.some(f=>/播报自己的情绪/.test(f)),'自我中心的情绪仍然禁止');
  assert(r2.replyConstraints.forbid.includes('复述屏幕上已经写着的事'));
- assert.equal(r0.replyConstraints.forbid.includes(''),false);
+ assert.equal(r0Empty.replyConstraints.forbid.includes(''),false);
 });
 test('the passive channel answers with the same cross-match material, not with the live board',()=>{
  const memory=history([winGame(),lossGame(),play(7)]);
@@ -549,8 +565,16 @@ test('restraint scan keeps the hard lines and blocks self-reported feelings',()=
   // 这一版新增的两条硬线：复述屏幕上已经写着的事、播报陪练自己的情绪。
   ['潮甲龟连着2个回合被草系按着打。','restates-screen'],['我看得有点急，你这一步太慢了。','speaker-feeling'],['我在旁边都跟着念出来了。','speaker-feeling']];
  for(const [text,reason] of cases)assert(checkCompanionRestraint(text,{register:'R2',facts}).reasons.some(r=>r.startsWith(reason)),`${text} → ${reason}`);
- // 第一人称情绪在两种声线下都拦：共情是理解对方的处境，不是播报自己的情绪
+ // 自我中心的情绪在两种声线下都拦：共情是理解对方的处境，不是播报自己的情绪
  for(const voice of ['companion','sober'])assert(checkCompanionRestraint('我有点难过，烬尾狐又被克着打了。',{register:'R4',facts,voice}).reasons.includes('speaker-feeling'),voice);
+ // 而落在事件/局面上的情绪必须放行——这正是这一版要修回来的那一项。
+ // 第三句里的「我看着都悬」是**见证**一个局面（悬是对局面的判断），
+ // 与「我看得有点急」（急说的是陪练自己的状态）是同一条界线两侧的两种说法。
+ for(const allowed of ['那个收尾机会差8点血，可惜了。','这一手先手抢得漂亮，它还没来得及回血。','刚才那回合你只剩6点血，我看着都悬。','连着三回合被同一个人压着打，这局是有点憋屈。','撑过来了，这一下能喘口气。'])
+  assert.deepEqual(checkCompanionRestraint(allowed,{register:'R4',facts}).reasons,[],allowed);
+ // 反过来：同一件事，只把落点从局面挪到陪练身上，就必须拦下来
+ for(const banned of ['我看得有点急。','我在旁边都跟着念出来了。','我都有点坐不住了。','我看着有点慌。','我紧张得数着回合。'])
+  assert(checkCompanionRestraint(banned,{register:'R4',facts}).reasons.includes('speaker-feeling'),banned);
  // 说的是玩家的处境、带真实统计，就必须放行
  for(const allowed of ['你最近输的2局，对面都带火系。这一局对面又带了1只火系。','对面打出的230点伤害里，有132点落在潮甲龟身上。它一个人顶了5个回合。','这一局你打出去235点伤害，自己挨了354点。差了119点，你一直在挨打。'])
   assert.deepEqual(checkCompanionRestraint(allowed,{register:'R4',facts}).reasons,[],allowed);
@@ -702,4 +726,174 @@ test('the same fact never comes back wearing different words in one match',()=>{
   }
   memory=rememberBattle(memory,game);
  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// grounded affective stance：情绪必须落在真实事件上
+//
+// 交付审阅判定「有情绪」这一项被做成了 0：上一版把所有第一人称情绪一律判违规，
+// 实际例句几乎全是统计播报，而 README/PDF 又声称「有情绪」。这一组测试守的是新的界线：
+//   自我中心的情绪（我＋自己的状态：我看得有点急、我坐不住）→ 违规；
+//   落在事件/玩家处境上的情绪（可惜／漂亮／悬／憋屈／松口气）→ 合规，而且必须有锚点。
+// 所有例句都由引擎真跑出来的对局驱动，不是手写的。
+// ═══════════════════════════════════════════════════════════════════════════
+const AFFECT_ORDER=['pity','praise','tense','grind','relief'];
+// 一条话里的情绪句：它自己带数字，或与同一条话里的事实共用一个可核对 token。
+function assertAnchoredAffect(line){
+ const affect=(line.parts||[]).find(p=>p.kind==='affect');
+ assert(affect,`这条话没有情绪句：${line.text}`);
+ assert(AFFECT_WORDS.test(affect.text),`情绪句里没有五种立场之一：${affect.text}`);
+ assert(!SELF_CENTERED_EMOTION.test(affect.text),`情绪落在陪练自己身上：${affect.text}`);
+ assert(!SELF_FOCUS.test(affect.text),`情绪句把镜头对准了陪练：${affect.text}`);
+ const stance=checkCompanionStance(line.text,{parts:line.parts});
+ assert(stance.valid,`情绪句没有落点（${stance.reasons.join('、')}）：${line.text}`);
+ assert(stance.anchored,`情绪句没有锚点：${affect.text}`);
+ return affect;
+}
+test('the five stances are all really spoken, and each one lands on a recorded event',()=>{
+ const found={},samples=[];
+ let memory=freshMemory();
+ for(const seed of [1,2,3,5,7,9,11,13,17,19,23])for(const options of [{},{smart:true},{strategy:'guard'}]){
+  const {game,lines}=replay(seed,memory,options);
+  for(const line of lines){
+   assertSpeakable(line);
+   if(!(line.parts||[]).some(p=>p.kind==='affect'))continue;
+   const affect=assertAnchoredAffect(line);
+   found[affect.affect]=(found[affect.affect]||0)+1;
+   samples.push(`${line.event}／${AFFECTS[affect.affect]} → ${line.text}`);
+  }
+  memory=rememberBattle(memory,game);
+ }
+ for(const stance of AFFECT_ORDER)assert(found[stance]>0,`实战里一次都没说出「${AFFECTS[stance]}」：\n${samples.join('\n')}`);
+ // 每一种情绪都不是随手贴的标签：它出现的那些话说的是同一件事
+ assert(samples.length>=8,`带情绪的话太少（${samples.length}），这条不变式没被真的压到`);
+});
+test('the stance belongs to the event class, and removing it makes the line unsayable (negative verification)',()=>{
+ const memory=history([lossGame(),play(2),play(3)]);
+ const {game}=replay(11,memory);
+ const ledger=companionLedger(memory,game,Date.now()),signals=companionSignals(game);
+ // ① 结算与减员这两类，必须有情绪：只播报统计的那一版直接说不出口
+ for(const [klass,context] of [['result',{result:game.result,turn:game.turn,winStreak:0,lossStreak:0}],['faint',{turn:game.turn,faint:{pet:signals.lastFallen?.pet||'烬尾狐',taken:98,most:true,total:300,turns:3}}]]){
+  assert(STANCE_REQUIRED.includes(klass),`${klass} 必须要求情绪落点`);
+  const reading=companionReadings({cross:ledger,signals,context}).find(r=>r.klass===klass);
+  assert(reading,`这一局应当能算出 ${klass} 这条观察`);
+  const affect=reading.sentences.find(s=>s.kind==='affect');
+  assert(affect,`${klass} 这条观察本身必须带情绪句：${reading.sentences.map(s=>s.text).join('')}`);
+  // 同一把发布尺：带情绪 → 说得出；把情绪句剥掉 → 直接沉默
+  const register=eventRegister(klass==='faint'?'first-faint':'result',{lossStreak:0});
+  assert(fitReading(reading,register),`带情绪的同一条话必须说得出：${reading.sentences.map(s=>s.text).join('')}`);
+  const stripped={...reading,sentences:reading.sentences.filter(s=>s.kind!=='affect')};
+  assert.equal(checkCompanionStance(stripped.sentences.map(s=>s.text).join(''),{parts:stripped.sentences,klass}).valid,false,'剥掉情绪之后立场检查必须变红');
+  assert.equal(fitReading(stripped,register),null,`改回统计播报（去掉情绪）之后，${klass} 必须说不出口`);
+ }
+ // ② 把情绪改回自我中心：同一条话必须被克制扫描拦下
+ const reading=companionReadings({cross:ledger,signals,context:{result:game.result,turn:game.turn}}).find(r=>r.klass==='result');
+ const facts=r=>r.sentences.filter(s=>s.kind!=='affect').map(s=>s.text).join('');
+ for(const selfCentered of [`我看得有点急。${facts(reading)}`,`我在旁边都跟着念出来了。${facts(reading)}`]){
+  assert(checkCompanionRestraint(selfCentered,{register:'R1',facts:{allowPast:true}}).reasons.includes('speaker-feeling'),selfCentered);
+  assert.equal(checkCompanionInformation(selfCentered,{parts:[{text:'我看得有点急。',kind:'situation'},...reading.sentences.filter(s=>s.kind!=='affect')]}).valid,false,selfCentered);
+ }
+});
+test('scene 1+2: a real win and a real loss/faint, with the words it actually says',()=>{
+ // 输的那一侧：随机出招必输，减员与结算都在这里出现
+ let memory=history([lossGame(),play(2),play(3)]);
+ const lost=[];
+ for(const seed of [7,11,13]){
+  const {game,lines}=replay(seed,memory);
+  assert.equal(game.result,'loss',`种子 ${seed} 这局应当真的输掉，否则这一条测的不是失利`);
+  for(const line of lines)lost.push({...line,result:game.result});
+  memory=rememberBattle(memory,game);
+ }
+ // 赢的那一侧：按引擎枚举的推荐出招
+ let winMemory=history([lossGame(),play(2),play(3)]);
+ const won=[];
+ for(const seed of [4,5,6,8]){const r=replay(seed,winMemory,{smart:true});for(const line of r.lines)won.push({...line,result:r.game.result});winMemory=rememberBattle(winMemory,r.game);}
+ // ① 胜利：情绪必须与这一场胜利有关，且不是空泛的夸奖
+ const winLine=won.find(l=>l.event==='result'&&l.result==='win');
+ assert(winLine,`没有一句胜利结算：${won.map(l=>l.text).join(' | ')}`);
+ assert(/漂亮/.test(winLine.text),`胜利里没有「漂亮」这类落在这局的评价：${winLine.text}`);
+ assertAnchoredAffect(winLine);
+ assert(!/厉害|真棒|太强了|你已经很棒/.test(winLine.text),'不许变成空泛夸奖');
+ // ② 失利：有关切（可惜），落在真实事件上，且不是空泛安慰
+ const lossLine=lost.find(l=>l.event==='result'||l.event==='streak-loss');
+ assert(lossLine,`没有一句失利结算：${lost.map(l=>l.text).join(' | ')}`);
+ assert(/可惜/.test(lossLine.text),`失利里没有落在这一局上的情绪：${lossLine.text}`);
+ assert(!/加油|别灰心|没关系|下次一定|你已经很棒/.test(lossLine.text));
+ // ③ 减员：关切落在它这一局扛了什么，不是空泛安慰，也不复述屏幕
+ const faintLine=lost.find(l=>l.event==='first-faint');
+ assert(faintLine,`没有一句减员：${lost.map(l=>l.text).join(' | ')}`);
+ assertAnchoredAffect(faintLine);
+ assert(!/倒下了|还剩\s*\d+\s*只/.test(faintLine.text),'减员这一句不许复述屏幕');
+ for(const line of [winLine,lossLine,faintLine]){
+  assert(checkCompanionRestraint(line.text,{register:line.register,facts:{allowPast:true,lessons:[]}}).valid,line.text);
+ }
+});
+test('scene 3: coming back after six days, it remembers where you left off',()=>{
+ const memory=history([lossGame(),play(2),play(3)]);
+ const away=backdate(memory,6);
+ const game=play(9);
+ const cross=companionLedger(away,game,Date.now());
+ assert.equal(cross.session.daysAgo,6);
+ const line=proactiveText('return',{turn:1,signals:companionSignals(game),cross},'R4');
+ assert(line,/6天前/.test(line),line);
+ assert(/那天打了3局|一局/.test(line),line);
+ // 久别这件事本身也带情绪：落在那一晚最后一局的结局上，不是一句「好久不见，想你了」
+ assert(AFFECT_WORDS.test(line),`久别那句没有情绪落点：${line}`);
+ assert(!/想你了|好久不见呀|欢迎回来/.test(line));
+ // 复现旧习惯：最先倒下的还是同一只，这件事只有跨局数得出来
+ const habit=proactiveText('habit',{turn:3,signals:companionSignals(game),cross},'R4');
+ assert(habit,/最先倒下/.test(habit),habit);
+ assert(habit,/局/.test(habit));
+ assert(!/你就是|你总是|又犯/.test(habit),'习惯要说成记录，不能说成对玩家的评价');
+});
+test('scene 4: the player opens the chat, and the second turn continues the same thread',()=>{
+ const memory=backdate(history([lossGame(),play(2),play(4,{smart:true}),play(7)]),6);
+ const say=(m,message)=>{const answer=companion({mode:'camp'},m,message);return {answer,memory:{...m,dialogue:[...(m.dialogue||[]),{role:'user',content:message},{role:'assistant',content:answer.text}].slice(-8)}};};
+ // 第一轮：玩家先搭话
+ const one=say(memory,'你好呀');
+ assert.equal(one.answer.register,'R1','有记录时寒暄要接住，不能只回「我在。」');
+ assert.equal(one.answer.chatThread,'self');
+ assert(checkCompanionInformation(one.answer.text,{parts:[]}).valid,one.answer.text);
+ assert(one.answer.evidence.some(x=>/闲聊线程/.test(x)),'依据里要能看出这是一句接话');
+ // 第二轮：同一件事接着聊，不许换一件毫不相干的事
+ const two=say(one.memory,'今天随便聊聊');
+ assert.equal(two.answer.chatThread,'self','第二轮必须还在同一个话题上');
+ assert.equal(two.answer.chatContinued,true,'第二轮要认得出上一轮的话题');
+ assert.notEqual(two.answer.text,one.answer.text,'两轮不能说同一句');
+ assert(!two.answer.text.startsWith(one.answer.text.split('。')[0]),'第二轮不许把开场那句重说一遍');
+ assert(/还聊/.test(two.answer.text)||/接着/.test(two.answer.text),`第二轮要明说是在接着上一轮：${two.answer.text}`);
+ // 换一个话题：宠物那一轮，续说也留在宠物上
+ const pet=say(memory,'你还记得我最常带哪只吗？');
+ assert.equal(pet.answer.chatThread,'pet');
+ assert(/芽角鹿|烬尾狐|潮甲龟|炽鬃狮|水獭/.test(pet.answer.text),pet.answer.text);
+ const petTwo=say(pet.memory,'它后来怎么样');
+ assert.equal(petTwo.answer.chatThread,'pet','接着问同一只，不能换别的');
+ assert.equal(petTwo.answer.chatContinued,true);
+ assert.notEqual(petTwo.answer.text,pet.answer.text);
+ // 闲聊不等于统计播报：每一句都要有一句是接住玩家这句话的（chat），
+ // 而统计那一条只作为「我记得你」的落点出现
+ for(const {answer} of [one,two,pet,petTwo]){
+  assert(answer.evidence.some(x=>/已结束\s*\d+\s*场/.test(x)),'闲聊也要有真记录兜底');
+  assert(!/[？?]/.test(answer.text),`闲聊不用问句追问：${answer.text}`);
+  assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:true,lessons:[]}}).valid,answer.text);
+ }
+});
+test('small talk never hijacks a tactical question, and never invents a chat thread',()=>{
+ const memory=history([lossGame(),play(2),play(3)]);
+ const facts=companionFacts(memory,{mode:'camp'},Date.now());
+ for(const message of ['这局怎么打','烬尾狐怎么配招','建议我换上潮甲龟','这回合该出什么']){
+  assert.equal(chatReply({message,memory,facts,intent:'ask'}),null,`战术问句不该走闲聊：${message}`);
+ }
+ const answer=companion({mode:'camp'},memory,'这局怎么打');
+ assert.equal(answer.register,'R2');
+ assert.equal(answer.chatThread,null,'战术提问不能被闲聊线程接走');
+ assert(!/小芽，一直跟着你的那只/.test(answer.text),answer.text);
+ // 没有任何记录时不开闲聊：只回最短承接句，不编经历
+ assert.equal(chatReply({message:'你好',memory:freshMemory(),facts:companionFacts(freshMemory(),{},Date.now()),intent:'chat'}),null);
+ assert.equal(companion({mode:'camp'},freshMemory(),'你好').text,'我在。');
+ // 线程识别本身：认出上一轮玩家说过的话题，也认得出陪练回话里的签名
+ assert.equal(chatThread('你还记得我最常带哪只吗？').id,'pet');
+ assert.equal(chatThread('今天随便聊聊').id,'self');
+ assert.equal(previousChatThread({dialogue:[{role:'user',content:'你好呀'},{role:'assistant',content:'（模型改写过的一句）'}]}).id,'self');
+ assert.equal(CHAT_THREADS.length>=4,true,'闲聊线程至少覆盖：陪练自己、久别、伙伴、战绩');
 });

@@ -8,7 +8,7 @@
 
 \begin{itemize}[leftmargin=1.5em,itemsep=0.12em,topsep=0.25em]
 \item 子 agent 改服务端时漏了静态资源白名单里的新模块 \code{rules.js}，\code{/rules.js} 返回 404，\code{app.js} 的 import 图整体失败，页面元素没有渲染出来。
-\item 子 agent 给陪练写了 \code{notify()}，全仓库没有调用点。主动气泡写完了，从不出现。
+\item 子 agent 给陪练写了 \code{notify()}，全仓库没有调用点。主动气泡写完了，从不出现（后来补上了调用点）。
 \item 子 agent 改军师时留下一个未定义变量，每秒抛一次 \code{ReferenceError}，浏览器日志里攒了 75 条。
 \item 敌方补位「决定了却无人提交」：子 agent 选好了合法换宠、存进变量就返回，而玩家那条路径又拒绝替它提交，界面永久冻结在「正在出招…」。
 \end{itemize}
