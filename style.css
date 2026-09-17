@@ -397,11 +397,11 @@
 .pick-side{min-width:0}
 .pick-split.split #pick-side-player{padding-right:14px}
 .pick-split.split #pick-side-enemy{padding-left:14px;border-left:2px solid #4a6a86}
-/* 两侧对称：左栏「筛选 + 我方」，右栏「对方 + 筛选」——以中间分割线为轴镜像。
-   标题固定宽度，两个筛选条各贴自己那一侧的外缘。 */
-.pick-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;min-height:26px}
-#pick-side-player .pick-head{justify-content:flex-start}
-#pick-side-enemy .pick-head{justify-content:flex-end}
+/* 两侧结构一致：标题一行、筛选条一行、建议、网格。筛选条撑满本栏宽度，
+   与下面的宠物网格同宽（和营地页一致）——按钮靠 nav button{flex:1} 等分。 */
+.pick-side-title{display:block;margin:0 0 8px}
+.pick-split.split .pick-side nav{margin:0 0 9px;flex-wrap:nowrap}
+.pick-split.split .pick-side nav button{flex:1 1 0;min-width:0;padding:5px 2px;font-size:12px}
 /* 两侧标题长度不同（「我方」/「对方（已自动配好）」），会把各自的筛选条推到不同的起点，
    看起来就不对称了。给标题固定宽度，两个筛选条便从同一位置开始。 */
 .pick-side-title{margin:0;font-size:13px;color:#9fb3c4;font-weight:600;flex:0 0 7.5em;
