@@ -208,7 +208,7 @@ export function actionLabel(game,side,a){
  if(a.kind==='skill')return a.id==='guard'?'防御':(SKILLS[a.id]?.name||a.id);
  if(a.kind==='switch')return `换上${game?.[side]?.pets?.[a.target]?.name||'伙伴'}`;
  if(a.kind==='item')return ITEMS[a.id]?.name||a.id;
- return '撤退';
+ return '认输';
 }
 function lessonOf(a){
  if(!a)return '行动取舍';

@@ -350,8 +350,7 @@
    所以提示文字必须放在被糊元素之外，否则它自己也糊掉了。 */
 #enemy-coach.blurred{position:relative}
 #enemy-coach.blurred #enemy-coach-text{filter:blur(4.5px);user-select:none;pointer-events:none;display:block}
-#enemy-coach.blurred::after{content:"对方的教练 · 看不清";position:absolute;inset:auto 0 0 0;
- display:flex;align-items:center;justify-content:center;height:20px;font-size:11px;color:#9fb4a8}
+/* 不再加「看不清」那行字：模糊本身已经说明问题了，多一行反而啰嗦。 */
 
 /* 招式卡等高：不同技能的说明行数不同（「防御」三行、「疾爪」两行），
    不约束的话同一行里两张卡一高一矮。grid-auto-rows:1fr 让每行等高，
