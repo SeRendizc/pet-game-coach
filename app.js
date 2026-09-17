@@ -410,6 +410,13 @@ function updateCoach(force=false){
  const shouldShow=force||!coachMuted;
  box.hidden=!shouldShow;
  if(!shouldShow)return;
+ // 一条消息只能出现在一个地方。
+ // 起因：使用者截图里同一段老师讲解同时出现在顶部条、左下浮层和右下气泡三处，
+ // 文字一模一样。军师与老师的这条既然走了顶部条，就把另外两个属于陪练/场景的
+ // 浮层收掉，避免同一句话重复三遍。
+ clearTimeout(bubbleTimer);
+ $('coach-bubble').hidden=true;
+ $('scene-inline').hidden=true;
  // 风险档原先读一个已经不存在的 critical 变量（军师改造时删掉了定义、留下了引用，
  // 表现为每秒一次的 ReferenceError）。这里从军师这次的触发理由重新推出：
  // 倒下与「明显更差的替代」属于高风险，其余按常规处理。
