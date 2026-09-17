@@ -214,12 +214,19 @@ function swappedContext(ctx){
 }
 function updateSideCoaches(){
  if(!pvpMode()||!game||game.result){$('player-coach').hidden=true;$('enemy-coach').hidden=true;return;}
- for(const [side,box,text] of [['player','player-coach','player-coach-text'],['enemy','enemy-coach','enemy-coach-text']]){
+ // 对方是 AI 时不给它显示教练条。AI 扮演的是一个远程真人：远程对手的教练你本来就
+ // 看不到，把它画出来既不像远程，也等于把对手的谋算摊在你面前。
+ // 只有真人同机（一台设备两个人）才两边都显示——那时你们本来就看得见彼此。
+ const sides=humanOpponent()
+  ? [['player','player-coach','player-coach-text'],['enemy','enemy-coach','enemy-coach-text']]
+  : [['player','player-coach','player-coach-text']];
+ $('enemy-coach').hidden=true;
+ for(const [side,box,text] of sides){
   try{
    const base=matchContext('这回合怎么打');
    const ctx=side==='enemy'?swappedContext(base):base;
    const packet=strategist({...ctx,query:'这回合怎么打'});
-   const copy=(packet&&packet.text)?packet.text:'这一回合没有明显更优的选择：先比较对方留场和换宠两种分支。';
+   const copy=(packet&&packet.text)?packet.text:'这一回合没有明显更优的选择：先看对手是留在场上还是换人。';
    $(text).textContent=concise(copy,120);$(box).hidden=false;
   }catch{$(box).hidden=true;}
  }

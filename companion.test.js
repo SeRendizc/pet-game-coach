@@ -247,7 +247,7 @@ test('a model reply that breaks the register falls back to the recorded template
  await connectionStatus();
  const answer=await requestCoach({message:'烦',role:'auto',context,memory,conversation:[],stateToken:7});
  assert.equal(answer.provider,'local-fallback');
- assert.match(answer.fallbackReason,/陪练档位约束/);
+ assert.match(answer.fallbackReason,/换成本局规则结论/);
  assert.equal(answer.restraint.valid,false);
  assert.match(answer.restraint.reasons.join(','),/empty-encouragement/);
  assert(!/别灰心|你已经很棒/.test(answer.text));

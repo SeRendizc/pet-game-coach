@@ -30,14 +30,19 @@ async function executeCoach(payload,signal){
  // 直接回退到 runCoach 已经算好的本机记录模板（local），而不是把越界的话展示给玩家。
  const restraint=data.route==='companion'?companionRestraint(data,payload):{valid:true,reasons:[]};
  if(data.provider==='deepseek'&&!validation.valid){const fallback=await runCoach(payload);data={...fallback,provider:'local-fallback',validation,fallbackReason:'模型回答未通过事实检查，显示本局规则分析',stateToken:payload.stateToken};}
- else if(data.provider==='deepseek'&&!restraint.valid)data={...local,provider:'local-fallback',restraint,fallbackReason:'模型回答超出陪练档位约束（'+restraint.reasons.join('、')+'），显示本机记录模板',stateToken:payload.stateToken};
+ else if(data.provider==='deepseek'&&!restraint.valid)data={...local,provider:'local-fallback',restraint,restraintCodes:restraint.reasons,fallbackReason:'模型这次说得不太合适，已换成本局规则结论（具体原因记在日志里，不往界面上抛内部代码）',stateToken:payload.stateToken};
  else if(!restraint.valid)data={...data,restraint};
  data.memory={...data.memory,journal:payload.memory.journal||[],reflections:payload.memory.reflections||{},watches:payload.memory.watches||[],quizCount:payload.memory.quizCount||0,goal:data.memory?.goal||payload.memory.goal||null};data.memory.dialogue=(data.memory.dialogue||[]).map(m=>m.role==='user'&&m.content===payload.message?{...m,content:originalMessage}:m);data.contextAudit=assembled.audit;return data;
  }catch(error){if(signal?.aborted||error?.name==='AbortError')throw error;const fallback=await runCoach(payload);
  // 把真实原因带出来，不再一律显示"暂不可用"，否则无法区分会话失效、鉴权失败和超时。
  const why=error?.message||'网络异常';
- const reason=/超时|aborted|timeout/i.test(why)?'模型响应超时（'+why+'），保留本地依据':'模型请求未完成：'+why+'（已保留本地依据）';
- return {...fallback,provider:'local-fallback',fallbackReason:reason,stateToken:payload.stateToken,contextAudit:assembled.audit};}
+ // 这句话玩家会直接看到（教练面板顶部），所以不能把内部错误码原样抛出去。
+ // 原来的写法会把「教练上下文无效」这类服务端措辞端到玩家面前。
+ const friendly=/超时|aborted|timeout/i.test(why)?'等模型太久了，先按本局规则给你结论'
+  :/上下文无效|invalid|400/.test(why)?'这次没能把局面传给模型，先按本局规则给你结论'
+  :/403|鉴权|auth|会话/.test(why)?'模型连接过期了，正在重连；先按本局规则给你结论'
+  :'模型暂时没答上来，先按本局规则给你结论';
+ return {...fallback,provider:'local-fallback',fallbackReason:friendly,stateToken:payload.stateToken,contextAudit:assembled.audit};}
 }
 // 陪练档位扫描用的最小事实集：只判断「有没有真实经历可以支撑过去陈述」和「课程名是否真的记录过」。
 function companionRestraint(data,payload){
