@@ -72,11 +72,14 @@ function atTime(memory,h,m=0,{step=2,day=18}={}){
  return {...memory,events:memory.events.map((e,i)=>({...e,time:new Date(2026,8,day,h,m+i*step,0,0).toISOString()}))};
 }
 // 期望的问候句由被测的那张表算出来（问候句随时段变，断言不该写死「你好」）。
-const greetWordAt=(h,m=0)=>dayPartAt(atClock(h,m)).greet.replace(/。$/,'');
 const greetWordNow=()=>dayPartAt(Date.now()).greet.replace(/。$/,'');
 
 // app.js 的调用顺序：逐回合 → companionEvents（触发）→ coachEvent（门控 + 文案）。
 // 这条回放是「实测里会说出什么」的自动版本，所有断言都跑在它上面。
+// **时钟固定**：回放里的「现在」永远是当地的 22:00，而不是墙钟。有了时段那几条之后，
+// 「现在几点」「上一局是不是刚打完」会真的改变陪练先说哪一类（凌晨会先说「这么晚了」），
+// 断言不该因此随运行时刻变色——跑在凌晨三点和跑在下午三点必须是同一份结果。
+const REPLAY_NOW=(()=>{const d=new Date();d.setHours(22,0,0,0);return d.getTime();})();
 function replay(seed,memory,{strategy='random',difficulty='normal',smart=false}={}){
  const profile=newProfile(),session=companionSession(memory),said=new Set(),lines=[];
  let g=createGame(seed,undefined,{difficulty,stageName:STAGE,stageId:'summit'});g.id='replay-'+seed+strategy;
@@ -85,7 +88,7 @@ function replay(seed,memory,{strategy='random',difficulty='normal',smart=false}=
   const action=smart?(rankEnemyActions({...g,player:g.enemy,enemy:g.player})[0]?.action||actions[0])
    :(strategy==='guard'&&n%2===0?actions.find(a=>a.id==='guard'):null)||actions.find(a=>a.kind==='skill'&&a.id!=='guard')||actions[0];
   g=step(g,action);
-  const context=coachContext(g,profile,memory);
+  const context=coachContext(g,profile,memory,REPLAY_NOW);
   for(const event of companionEvents(g,{said,session,winStreak:context.winStreak,lossStreak:context.lossStreak,cross:context.cross,signals:context.signals})){
    // 先留一份开口前的账，再用同一份账把「这句话由哪几句组成」取回来：
    // 断言要落在句子的来源上，而不是只落在拼出来的字符串上。
@@ -1833,4 +1836,203 @@ test('凌晨 + 打久了：合并成一句，不重复说时间',()=>{
  const dayContext={turn:1,signals:companionSignals(game),cross:dayCross,now:dayNow};
  assert.equal(proactiveText('late-night',dayContext,'R4',{now:dayNow}),null);
  assert.match(proactiveText('long-session',dayContext,'R4',{now:dayNow}),/连着第5局了/);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 接住状态：玩家说「没睡好」时先接住他，落点留在他身上（第八次修正的验收）
+//
+// 用户原话（同一个病灶提了第三次，这次给了判据）：「陪练**还是拐回对局了**，应该**先接住情绪**，
+// 可以在**后续对话**拐回去，但**别那么着急**好吗？而且**最后落点应该是接住情绪，感性的而非理性的**」
+// 「而且还是**动不动拐回战斗**，有必要这样吗？而且**很短啊**！…而且**『我是小芽』是认真的吗**？」
+//
+// 改之前的真实输出（引擎真跑，不是假想）：
+//   「好早啊，今天没睡好」→「上午好——今天这才刚开头，我是小芽。你打过的那3局我都留着底。」
+//     三句话没有一句和「没睡好」有关，落点还落在记录上（理性的那一边）。
+//   「今天没睡好」（有记录）→「最近3局里，最先倒下的有2次是烬尾狐——最近几次在第9回合、第3回合。」
+// 「动不动拐回战斗」就是这一条：他一个字都还没说别的，先拿到一段战报。
+//
+// 用户给的判据，逐条落成可失败的断言：
+//   ① 接词（mimic）——他自己用的那个词必须原样出现在回答里（「今天没睡好」→ 至少要有「没睡」）；
+//   ② 顺序——两拍固定：**接词在前、落点在后**，中间是那个破折号停顿（——）；
+//   ③ 落点感性能理性——整段的**最后一句**落在他的状态上，不含记录/回合/胜负/伤害；
+//   ④ 第一轮不提对局——「对局」「记录」「上一局」这类词一个都不出现（后续轮次再说）；
+//   ⑤ 名字——「我是小芽」只在记录为空（真正的第一次见面）说一次；
+//   ⑥ 问候让位——同一条消息里既有问候又有状态时，问候不许把接词挤掉。
+// 最后一条测试把行为改回去（先报问候 + 拿记录收尾），同一把尺子必须变红。
+// ══════════════════════════════════════════════════════════════════════════════
+// 用户点名的三种说法 × 他自己用的那个词（接词要求原样出现）。
+const STATE_CASES=[['今天没睡好','没睡'],['有点累','累'],['今天状态不太好','状态不太好']];
+// 记录/回合/胜负/伤害：第一轮一个字都不许出现，最后一句更不许落在这里。
+// 「局」整个字都算——「你打过的那3局我都留着底」正是那个被点名的理性落点。
+const RECORD_TALK=/对局|局|记录|回合|胜|负|伤害|战绩|倒下|打出/;
+// 一句陪伴的落点长什么样：允许他此刻什么都不做（与 MOOD_COMPANY 同一个口径）。
+const CARE_LANDING=/歇|缓|慢慢|慢一点|不用急|不急|先别|先搁|没人催|停下来|别的先不管|别硬扛/;
+const lastSentence=text=>String(text).split(/[。！？!?]/).map(s=>s.trim()).filter(Boolean).at(-1)||'';
+// 这一组共用的一把尺：真实输出必须一条问题都没有；被改回去的旧输出必须被它逐条拦下。
+function stateProblems(text,word){
+ const t=String(text),problems=[];
+ if(!t.includes(word))problems.push('no-mimic');
+ if(t.indexOf(word)>3)problems.push('mimic-too-late');
+ if(RECORD_TALK.test(t))problems.push('match-talk-in-first-turn');
+ if(RECORD_TALK.test(lastSentence(t)))problems.push('lands-on-records');
+ if(!CARE_LANDING.test(lastSentence(t)))problems.push('no-care-landing');
+ return problems;
+}
+const STATE_LEDGERS=()=>[['空账本',freshMemory()],['有记录',calmHistory()]];
+
+test('接住状态①：三种说法 × 两种账本，都是两拍（接词 → 落点），第一轮都不提对局',()=>{
+ for(const [ledger,memory] of STATE_LEDGERS())for(const [message,word] of STATE_CASES){
+  const answer=companion({mode:'camp'},memory,message,atClock(9,20));
+  assert.deepEqual(stateProblems(answer.text,word),[],
+   `${ledger}「${message}」：${answer.text}`);
+  // 密度：不是一句话敷衍，而是两拍都在接人——「——」之前是接词，之后是落点。
+  const [beat1,...rest]=answer.text.split('——');
+  const beat2=rest.join('——');
+  assert(beat1.includes(word),`${ledger}「${message}」的第一拍必须是接住他自己那个词：${answer.text}`);
+  assert(CARE_LANDING.test(beat2),`${ledger}「${message}」的第二拍必须落在他的状态上：${answer.text}`);
+  assert(answer.text.length>=14,`${ledger}「${message}」太短了：${answer.text}`);
+  // 纪律不因为「有人味」而豁免：字数、问句、克制扫描照旧
+  assert(answer.text.length<=REGISTERS[answer.register].limit,`${message} 超长：${answer.text}`);
+  assert(!/[？?]/.test(answer.text),`说状态时不用问句追问：${answer.text}`);
+  const restraint=checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:true,lessons:memory.lessons}});
+  assert(restraint.valid,`${ledger}「${message}」：${answer.text} → ${restraint.reasons.join(',')}`);
+  // 说教那一条在这里最容易犯（「你该睡了」「早点睡」）——对照一下，扫描真的拦得住
+  assert(checkCompanionRestraint('没睡好啊——那你该早点睡了。',{register:'R1',facts:{allowPast:true,lessons:[]}}).reasons.includes('preach'));
+ }
+ // 三种说法三句不同的话：接的是他自己那个词，不是同一个模板换个主语
+ const said=STATE_CASES.map(([message])=>companion({mode:'camp'},calmHistory(),message,atClock(9,20)).text);
+ assert.equal(new Set(said).size,3,`三种状态必须三句不同的接话：${said.join(' | ')}`);
+ // 记录里真的连着输时也一样：说状态的那一轮不因为「有战报可报」就换成战报
+ for(const [message,word] of STATE_CASES){
+  const streak=companion({mode:'camp'},streakHistory(),message,atClock(9,20));
+  assert.deepEqual(stateProblems(streak.text,word),[],`连败账本「${message}」：${streak.text}`);
+ }
+});
+
+test('接住状态②：问候让位——「好早啊，今天没睡好」里那个「好」不许把「没睡好」挤掉',()=>{
+ const now=atClock(9,20),greet=dayPartAt(now).greet;
+ for(const [ledger,memory] of STATE_LEDGERS()){
+  const answer=companion({mode:'camp'},memory,'好早啊，今天没睡好',now);
+  assert(answer.text.includes('没睡'),`${ledger}：问候把接词挤掉了：${answer.text}`);
+  assert(!answer.text.includes(greet),`${ledger}：问候占掉了接情绪的位置：${answer.text}`);
+  assert.deepEqual(stateProblems(answer.text,'没睡'),[],`${ledger}：${answer.text}`);
+ }
+ // 四个时段各来一遍：问候句随时段变，但都不许出现在说状态的那一轮里
+ for(const h of [1,9,14,21]){
+  for(const [ledger,memory] of STATE_LEDGERS()){
+   const answer=companion({mode:'camp'},memory,'早啊，今天没睡好',atClock(h,20));
+   assert(!answer.text.includes(dayPartAt(atClock(h,20)).greet),`${h}点 ${ledger}：${answer.text}`);
+   assert(answer.text.includes('没睡'),`${h}点 ${ledger}：${answer.text}`);
+  }
+ }
+ // 反向对照：同一句话里没有状态词时，问候照旧说（问候没有被删掉，只是让位）
+ for(const [ledger,memory] of STATE_LEDGERS()){
+  const plain=companion({mode:'camp'},memory,'早啊',now);
+  assert(plain.text.includes(greet.replace(/。$/,'')),`${ledger}：问候本身必须还在：${plain.text}`);
+ }
+ // 安静档／线上竞技（R0，上限 24 字）同样接得住：整句陪伴装得下，而不是退回「我在。」
+ for(const [message,word] of STATE_CASES){
+  const quiet=companion({mode:'camp',preference:'quiet'},calmHistory(),message,atClock(22,30));
+  assert.equal(quiet.register,'R0',`${message} 的档位不该变`);
+  assert.notEqual(quiet.text,'我在。',`安静档「${message}」没接住：${quiet.text}`);
+  assert(quiet.text.includes(word),`安静档「${message}」：${quiet.text}`);
+  assert(quiet.text.length>8&&quiet.text.length<=REGISTERS.R0.limit,`安静档「${message}」：${quiet.text}`);
+  // 同一段话在 LIVE 那一档也要说得出来（两条 R0 场景共用同一条出口）
+  const live={mode:'pvp-live',battle:{mode:'pvp-live'}};
+  assert(companion(live,calmHistory(),message,atClock(22,30)).text.includes(word));
+ }
+});
+
+test('接住状态③：状态词族一个都不许漏（漏一个就退回账本或问候）',()=>{
+ const words=['没睡好','没睡着','睡不着','睡得不好','没睡够','睡不好','失眠','没睡','状态不太好','状态不好','状态不行','没状态','不舒服','头疼','头痛'];
+ for(const word of words){
+  for(const [ledger,memory] of STATE_LEDGERS()){
+   const answer=companion({mode:'camp'},memory,word,atClock(9,20));
+   assert(answer.text.includes(word),`${ledger}「${word}」没被接住：${answer.text}`);
+   assert(!/最近\d+局|倒下|回合/.test(answer.text),`${ledger}「${word}」拿到了战报：${answer.text}`);
+   assert(CARE_LANDING.test(lastSentence(answer.text)),`${ledger}「${word}」的落点不在他的状态上：${answer.text}`);
+  }
+ }
+ // 词表与出口必须同源：能进这些断言就说明 MOOD_ECHO / MOOD_ECHO_MORE / MOOD_COMPANY 都有它。
+ // 少一格（例如只在词表里加了「没睡好」却没写 company）就会退回观察通道的那些统计句，
+ // 上面这两条断言会直接变红——这正是改之前「今天没睡好」拿到战报的那条路。
+});
+
+test('接住状态④：「我是小芽」只在真正的第一次见面（记录为空）说一次',()=>{
+ const now=atClock(9,20);
+ for(const message of ['你好','早啊','在吗']){
+  const first=companion({mode:'camp'},freshMemory(),message,now);
+  assert.match(first.text,/小芽/,`记录为空时碰面要报一次名字：${first.text}`);
+ }
+ // 已经有 3 局记录：问候照说，但不自我介绍
+ const memory=calmHistory();
+ for(const h of [1,9,14,21])for(const message of ['你好','早啊','在吗','嗨']){
+  const answer=companion({mode:'camp'},memory,message,atClock(h,20));
+  assert(!/我是小芽/.test(answer.text),`有记录时还在自我介绍：${answer.text}`);
+  assert(!/小芽/.test(answer.text),`有记录时问候里还挂着名字：${answer.text}`);
+  assert(answer.text.includes(dayPartAt(atClock(h,20)).greet.replace(/。$/,'')),`问候本身不许删：${answer.text}`);
+ }
+ // 玩家自己问「你是谁」时说名字（第二节：这种时候本来就该说）
+ assert.match(companion({mode:'camp'},memory,'你是谁',now).text,/小芽/);
+ // 安静档（R0）走的是另一条出口，同一把尺子
+ assert(!/小芽/.test(companion({mode:'camp',preference:'quiet'},memory,'你好',atClock(9,20)).text));
+ assert(/小芽/.test(companion({mode:'camp',preference:'quiet'},freshMemory(),'你好',atClock(9,20)).text));
+ // 「随时自我介绍」与「好好打个招呼」不是一回事：名字没了，问候还在
+ assert(companion({mode:'camp'},memory,'你好',now).text.includes(dayPartAt(now).greet.replace(/。$/,'')),'有记录时问候照旧');
+});
+
+test('接住状态⑤：模型那一侧的约束同步改口径（不再要战报，也不许提对局）',()=>{
+ const memory=calmHistory();
+ const mood=companion({mode:'camp'},memory,'今天没睡好',atClock(9,20));
+ assert(!mood.replyConstraints.instruction.includes('至少一句要来自跨局记录'),
+  '说状态的一轮不该再要求跨局记录——模型会照着这句把接住的情绪换回一段战报');
+ assert(mood.replyConstraints.instruction.includes('不需要'),mood.replyConstraints.instruction);
+ assert(mood.replyConstraints.forbid.some(f=>/对局、记录、回合数或胜负/.test(f)),mood.replyConstraints.forbid.join(' | '));
+ assert(mood.replyConstraints.maxChars>=mood.text.length);
+ // 反面对照：寒暄那一轮的口径一个字都没动（记录兜底那条验收还在）
+ const chat=companion({mode:'camp'},memory,'早啊',atClock(9,20));
+ assert(chat.replyConstraints.instruction.includes('至少一句要来自跨局记录'),'寒暄那一轮照旧要有记录兜底');
+});
+
+test('接住状态⑥：走引擎那条路（runCoach）拿到的是同一段话',async()=>{
+ const ctx={...buildContext(createGame(17),newProfile(),'fox'),mode:'camp'};
+ for(const [ledger,memory] of STATE_LEDGERS())for(const [message,word] of STATE_CASES){
+  const answer=await runCoach({message,role:'companion',context:ctx,memory});
+  assert.equal(answer.route,'companion');
+  assert.deepEqual(stateProblems(answer.text,word),[],`${ledger}「${message}」（runCoach）：${answer.text}`);
+ }
+});
+
+test('接住状态⑦：两轮下来仍停在他身上（第二轮是「还…」，不是拐回对局）',()=>{
+ const first=companion({mode:'camp'},calmHistory(),'今天没睡好',atClock(9,20));
+ const withDialogue={...calmHistory(),dialogue:[{role:'user',content:'今天没睡好'},{role:'assistant',content:first.text}]};
+ const second=companion({mode:'camp'},withDialogue,'今天没睡好',atClock(9,25));
+ assert.notEqual(second.text,first.text,'第二轮不该把第一轮那句重说一遍');
+ assert(/还/.test(second.text),`第二轮要听得出是接着上一轮：${second.text}`);
+ assert.deepEqual(stateProblems(second.text,'没睡'),[],`第二轮仍然不许拐回对局：${second.text}`);
+});
+
+test('negative verification: 把行为改回去（先说问候再拿记录收尾），这一把尺必须变红',()=>{
+ // ① 用户看到的那几句真实输出，逐字抄下来当对照组
+ const legacy=[
+  ['好早啊，今天没睡好','没睡','上午好——今天这才刚开头，我是小芽。你打过的那3局我都留着底。'],
+  ['今天没睡好','没睡','最近3局里，最先倒下的有2次是烬尾狐——最近几次在第9回合、第3回合。'],
+  ['今天状态不太好','状态不太好','上午好——今天这才刚开头，我是小芽。你打过的那3局我都留着底。'],
+ ];
+ for(const [message,word,text] of legacy){
+  const problems=stateProblems(text,word);
+  assert(problems.length>0,`对照组必须被拦下（「${message}」）：${text}`);
+  assert(problems.includes('no-mimic'),`「${message}」的旧回答一个字都没接住他：${text}`);
+  assert(problems.includes('lands-on-records')||problems.includes('match-talk-in-first-turn'),
+   `「${message}」的旧回答拐回了对局／记录：${text} → ${problems.join(',')}`);
+ }
+ // ② 把状态词从这一句里拿掉——等价于改之前的词表（那时它一个字都不认识），
+ //    引擎立刻回到旧的顺序：问候在前、记录收尾。同一把尺子必须判红。
+ const now=atClock(9,20),masked=companion({mode:'camp'},calmHistory(),'好早啊，',now);
+ assert(masked.text.includes(dayPartAt(now).greet.replace(/。$/,'')),`对照组的问候必须真的出现：${masked.text}`);
+ const problems=stateProblems(masked.text,'没睡');
+ assert(problems.includes('no-mimic'),`改回去之后必须变红：${masked.text} → ${problems.join(',')}`);
+ assert(problems.includes('lands-on-records'),`改回去之后落点又回到记录上：${masked.text} → ${problems.join(',')}`);
+ // ③ 反过来：现在的实现把同一条消息判成「通过」（对照组成立，不是因为扫得太松）
+ assert.deepEqual(stateProblems(companion({mode:'camp'},calmHistory(),'好早啊，今天没睡好',now).text,'没睡'),[]);
 });

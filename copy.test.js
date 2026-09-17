@@ -119,6 +119,74 @@ test('整局统计的负向样本：把所有类别列出来必须被判为违�
  }
 });
 
+// 只出招、不防御的一局：counts 里换宠/道具/防御/撤退四类必然是 0。
+// 用户截图里那一局就是这个形状（「这局打满14回合，你一直进攻、没换宠没用药」）。
+function attackOnly(seed){
+ let g={...createGame(seed),id:`zero-${seed}`},i=0;
+ while(!g.result&&i<60){
+  const list=legalActions(g).filter(a=>a.kind==='skill'&&a.id!=='guard');
+  if(!list.length)break;
+  g=step(g,list[i%list.length]);i++;
+ }
+ return g;
+}
+
+test('整局回顾：四类全 0 的那一局整类省略（本地这一侧的回归保护）',()=>{
+ // 本地这一半早就做到了——matchStatsLine 只推非零类别。这条是**回归保护**：
+ // 谁把 0 值「换个句式列一遍」（「全程没用过换宠、道具…」）谁就得看见它变红。
+ // 判据盯的是**由 counts 生成的那一句**，不是整包文案里的每一个字：
+ // 建议句（「先比较吃药、换宠和继续攻击」）和「事后比较怎么读」的前提句
+ // （「对方治疗、换宠、防御或先出手都可能改变结果」）讲的是可能性，不是在念这一局的 0。
+ // 用户的口径是「把每个 0 都点一遍才算违规，不是提到 0 就算违规」，这里照此办。
+ for(const seed of [1,3,24]){
+  const m=summarizeMatch(attackOnly(seed));
+  assert(m,`seed ${seed} 应当有回合记录`);
+  const zeros=Object.entries(m.counts).filter(([,n])=>!n).map(([k])=>k);
+  assert.equal(zeros.length,4,`前提：这一局应当是「四类全 0、只有出手」，实际 ${JSON.stringify(m.counts)}`);
+  assert(m.counts.attacks>0,`前提：这一局应当有出手记录，实际 ${JSON.stringify(m.counts)}`);
+  const packet=reviewMatch({lastMatch:m});
+  const stat=matchStatsLine(m,{lead:false});
+  // 玩家读到的那句统计就是它，不是另写一套；依据里那行也必须是同一句。
+  assert(packet.text.includes(stat),`复盘正文里应当是这句统计（seed ${seed}）：${stat}`);
+  assert(packet.evidence.some(e=>e.startsWith('整局统计：')&&e.includes(stat)),`依据里的整局统计也必须是同一句（seed ${seed}）`);
+  for(const key of zeros)for(const label of COUNT_LABELS[key])
+   assert(!stat.includes(label),`count=0 的「${label}」又被念了出来（seed ${seed}）：${stat}`);
+ }
+ // 负向样本：换个句式把四个 0 列一遍，用同一条判据必须报错——否则上面那圈断言是空的。
+ const framed='这一局打了14回合，你出手14次。全程没用过换宠、道具、防御、撤退。';
+ const caught=Object.entries(COUNT_LABELS).filter(([key])=>!['attacks'].includes(key)).flatMap(([,labels])=>labels).filter(l=>framed.includes(l));
+ assert(caught.length>=4,`这句本该被同一条判据拦下：${framed}`);
+});
+
+// 用户口径写成判据：一局里为 0 的类别**被逐个点了一遍**才算违规，提到其中一个不算。
+// 「你这一局一次都没换宠」是允许的说法，「没换宠、没用道具、没防御、没撤退」才是违规的那句。
+// 本地这一侧比它更严（整类省略，连概括句都不写）；这条判据对应的是模型那一侧
+// （口径原文见 server.js 的 ZERO_COUNT_RULE）。
+// 判据要认得出「换个句式」，否则用户截图那句「没换宠没用药」正好从缝里漏过去——
+// 它一个字都没写「道具」，写的却是同一个 0。
+const LABEL_ALIASES={switches:['换'],guards:['守'],items:['用药','吃药','药'],escapes:['逃跑']};
+function enumeratesEveryZero(text,counts){
+ const zeros=Object.entries(counts).filter(([,n])=>!n);
+ if(zeros.length<2)return false;
+ return zeros.every(([key])=>[...(COUNT_LABELS[key]||[]),...(LABEL_ALIASES[key]||[])].some(label=>text.includes(label)));
+}
+
+test('0 值判据本身不是空的：列一遍为违规，提到一个不算',()=>{
+ const counts={attacks:14,switches:0,guards:0,items:0,escapes:0};
+ // ❌ 逐项罗列：清单式、换句式、以及用户截图里那句原话，都必须判为违规。
+ assert.equal(enumeratesEveryZero('换宠:0、防御:0、道具:0、撤退:0。',counts),true);
+ assert.equal(enumeratesEveryZero('全程没用过换宠、道具、防御、撤退。',counts),true);
+ assert.equal(enumeratesEveryZero('这局打满14回合，你一直进攻、没换宠没用药、没防御、没撤退。',counts),true);
+ // ✅ 允许：概括成一句，或只点其中一类（用户明确说「提到 0 不算违规」）。
+ assert.equal(enumeratesEveryZero('你这一局一次都没换宠。',counts),false);
+ assert.equal(enumeratesEveryZero('全程只出手，没做别的。',counts),false);
+ assert.equal(enumeratesEveryZero('你出手14次，一次都没换宠。',counts),false);
+ assert.equal(enumeratesEveryZero('你出手14次。',counts),false);
+ // 非零类别照常说：防御 5 次的那一局，「防御」不该被这条判据当成 0 值。
+ const withGuards={attacks:9,switches:0,guards:5,items:0,escapes:0};
+ assert.equal(enumeratesEveryZero('你出手9次、防御5次，一次都没换宠。',withGuards),false);
+});
+
 test('整局统计仍然保留真的发生过的事',()=>{
  const mixed=matchStatsLine({rounds:6,counts:{switches:2,guards:1,items:1,attacks:3,escapes:0},remainingItems:{potion:0,cleanse:0,ether:0},result:'win'});
  assert.match(mixed,/出手3次、换宠2次、用道具1次、防御1次/);

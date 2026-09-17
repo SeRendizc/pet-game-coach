@@ -108,14 +108,14 @@
 - 追问分支做的是「把上一句接回来」，引用的确实是 `memory.dialogue` 里那条真实回复；有上一句时结尾不再反问，没有上一句时才问一句「你说的是哪一处？」——R2 的问句上限是 1，这一句用掉了它。
 - 旧版硬编码的「我们已经练过速度判断了」**已删除**：现在只按 `memory.lessons` 里真实存在过的课程名说。对应测试：`one loss never becomes comfort, and silence stays a real output`。
 
-### 2.2 主动侧：`coachEvent` —— 11 个事件，引用局内真实事实
+### 2.2 主动侧：`coachEvent` —— 17 个事件，引用局内真实事实
 
 > **事件数 11 → 12**：新增 `clutch`（这一局有几个回合贴着血皮撑过来、后来有没有撑住）。
 > 没有它，「松口气」与「悬」在真实对局里永远说不出口：live 事件会先把那一次说掉。
 
 陪练还有一半在 `coach.js` 里：它在**没有任何玩家输入**的情况下决定要不要说话。门控在 `coach.js`，措辞引用这一局的真实读数（对手、倒下的伙伴、伤害落在谁身上、连续几个回合没输出、局势逆转、僵持、跨局连败/连胜）。
 
-`COMPANION_EVENTS` 一共 11 个：`result`、`streak-loss`、`streak-win`、`first-faint`、`return`、`rematch`、`stage`、`type`、`habit`、`trend`、`live`。判定顺序就是优先级，且**一次调用最多返回一个事件**；同一事件本局只报一次（`said` 去重），一个话题一局只说一次（`topics` 去重）。
+`COMPANION_EVENTS` 一共 17 个：`result`、`streak-loss`、`streak-win`、`first-faint`、`return`、`rematch`、`stage`、`type`、`habit`、`trend`、`live`。判定顺序就是优先级，且**一次调用最多返回一个事件**；同一事件本局只报一次（`said` 去重），一个话题一局只说一次（`topics` 去重）。
 
 **首次减员与整局结算这两类必须带一句有落点的情绪**（`STANCE_REQUIRED`）：这不是装饰，去掉它这两类会直接说不出话。真实输出（引擎实跑，种子 7、冠军高地、三连败）：
 
@@ -179,7 +179,7 @@ route = /培养|加点|成长/.test(message) ? 'teacher'
 
 | 测试 | 覆盖内容 | 状态 |
 |---|---|---|
-| `companion.test.js`（35 条） | 跨局账本（老对手 / 习惯 / 节奏 / 道具 / 地图）、每句的信息量自检、档位表与长度上限、真实事件引用、数字与依据一致、克制扫描与情绪落点、一次失败不出安慰、静默可用、偏好跨局保持、`runCoach` 把档位与约束交给模型、模型越界时回退模板、主动侧 11 个事件与预算、气泡几何与时长、旧存档降级 | **【已实现】** |
+| `companion.test.js`（43 条） | 跨局账本（老对手 / 习惯 / 节奏 / 道具 / 地图）、每句的信息量自检、档位表与长度上限、真实事件引用、数字与依据一致、克制扫描与情绪落点、一次失败不出安慰、静默可用、偏好跨局保持、`runCoach` 把档位与约束交给模型、模型越界时回退模板、主动侧 11 个事件与预算、气泡几何与时长、旧存档降级 | **【已实现】** |
 | `features.test.js:18`「companion can initiate without a complaint and respects suppression」 | 主动侧：`first-faint` 与 `result` 会说话；同局第二次同事件不说话；`quiet` 档位不说话；已关闭不说话 | **【已实现】** |
 | `features.test.js:19`「PVP live blocks unsolicited and queried tactical help」 | PVP 下主动与被动的陪练通道均被拒 | **【已实现】** |
 | `evals/agent.test.js:131`「analysis after a match invokes model with whole-match evidence rather than canned companion reply」 | 对局结束后必须走整局分析，**不能**退回陪练通用话术 | **【已实现】** |

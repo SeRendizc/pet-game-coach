@@ -1,0 +1,40 @@
+% 陪练机制图（放进 2.2 陪练小节）。图上每一步的出处，全部在 coach/companion.js：
+%   什么时候开口   companionEvents()：结算、减员、高光、臭棋、连败等真实事件；玩家主动搭话走
+%                  companion() → chatReply()，两条路共用同一份克制扫描
+%   取两本账       companionLedger() 跨局记录 + companionSignals() 局内读数（game.history 的派生）
+%   挑一条观察     readingsFor() → fitReading()：字数装得下、信息量自检、克制扫描三关都过才有话
+%   接住那个词     chatThread() / playerWords()：玩家说心情时用他自己那个词（moodWord 的 MOOD_ECHO）
+%   情绪落点       turnMoment() / finishMoment() 定出刚结算那一手，AFFECTS 的五种态度必须落在
+%                  第几回合、哪一只、哪一记技能上（checkCompanionStance 的锚点检查）
+%   六条硬线       checkCompanionRestraint()：复述屏幕 / 自我中心 / 空泛安慰 / 评价水平 / 说教 /
+%                  战术越界，命中任意一条整句丢掉
+%   左下气泡       COMPANION_BUBBLE 的 position:'bottom-left' 与 style.css 的 left/bottom，
+%                  由 app.js 的 placeCompanionBubble() 摆位、气泡可点掉
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}[font=\scriptsize]
+\node[mbox] (a1) {\mbody{什么时候开口}{companion.js}{{\ttfamily companionEvents()} 事件表}};
+\node[mbox,right=8pt of a1.north east,anchor=north west] (a2)
+  {\mbody{跨局账本 + 局内读数}{companion.js}{{\ttfamily companionLedger()}}};
+\node[mbox,right=8pt of a2.north east,anchor=north west] (a3)
+  {\mbody{挑一条算不出来的事}{companion.js}{{\ttfamily readingsFor() · fitReading()}}};
+\draw[marr] (a1)--(a2); \draw[marr] (a2)--(a3);
+\node[mbox,text width=92pt,anchor=north west] (b1) at ([yshift=-26pt]a1.south west)
+  {\mbody{接住那个词}{companion.js}{{\ttfamily chatThread()} 闲聊线程}};
+\node[mbox,text width=92pt,right=6pt of b1.north east,anchor=north west] (b2)
+  {\mbody{情绪落点}{companion.js}{{\ttfamily turnMoment()} 落在这一手}};
+\node[mbox,text width=92pt,right=6pt of b2.north east,anchor=north west] (b3)
+  {\mbody{六条硬线}{companion.js}{{\ttfamily checkCompanionRestraint()}}};
+\node[mbox,text width=92pt,right=6pt of b3.north east,anchor=north west] (b4)
+  {\mbody{左下气泡}{app.js}{{\ttfamily placeCompanionBubble()}}};
+\draw[marr] (b1)--(b2); \draw[marr] (b2)--(b3); \draw[marr] (b3)--(b4);
+% 上一行决定说什么，下一行决定怎么说：折线画在行间空白里，落到第二行第一格上。
+\draw[marr,dashed] (a3.south) -- ++(0,-10pt) -| (b1.north);
+\node[font=\tiny,anchor=east] at ([xshift=-4pt]a1.west) {说什么};
+\node[font=\tiny,anchor=east] at ([xshift=-4pt]b1.west) {怎么说};
+\node[mnote,text width=398pt,anchor=north west] at ([yshift=-9pt]b1.south west)
+ {两本账：{\ttfamily companionLedger()} 记跨局的（这套阵容打过几次、上一局停在第几回合、最近几局谁总先倒、上次来是几天前）；{\ttfamily companionSignals()} 记这一局的（对面打出的伤害有多少落在同一只身上、谁连续几个回合没输出）。\\[1pt]
+  六条硬线：不评价水平 · 不空泛安慰 · 不说教 · 不给战术指令 · 不复述屏幕 · 不自我中心。句子出句之后再扫一遍，命中就整句丢掉；走模型时同一份约束随证据一起发过去。\\[1pt]
+  开口上限：每局 4 次、两次之间隔 3 个回合；近 7 天被点掉 2 次降到 1 次，4 次就不再主动开口（{\ttfamily companionSession}）。};
+\end{tikzpicture}
+\shotcaption{陪练的机制：从两本账里挑一件玩家自己算不出来的事，再决定怎么说\label{fig:mech-companion}}
+\end{figure}

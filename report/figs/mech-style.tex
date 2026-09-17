@@ -1,0 +1,21 @@
+% ── 三种角色的机制图：共用一套样式 ──────────────────────────────────────────
+% 2.1 军师、2.2 陪练、2.3 老师各一张，加上第 2 章开头那张总图，四张看起来是一套：
+% 同样的圆角框、同样的 \scriptsize 标题与 \tiny 正文、同样的箭头与底部说明框。
+%
+% 每格三行：机制名（后面跟这一格的状态）、出处文件、那一步的函数。三张图的格子写法一致，
+% 读者看完第一张就知道后面两张怎么读。状态只写「已实现」——没做的机制不画进图里。
+%
+% 排版尺子（总图出过框压字的问题，这里按同一把尺子定，数字都在正文栏宽 453pt 以内）：
+%   一行三格：text width=124pt，格间距 8pt，整行 3×(124+4.8)+2×8 = 402.4pt；
+%   一行四格（陪练第二行）：text width=92pt，格间距 6pt，整行 4×(92+4.8)+3×6 = 405.2pt。
+%   底部说明框与它上面那一行同宽、左对齐，逐行排下去，不会伸出右边距。
+%   每格高度由内容决定，行内各格都用 north west 对齐，标题折行也不会互相压。
+\tikzset{
+  mbox/.style={draw,rounded corners=1.5pt,align=center,inner sep=2.2pt,
+               text width=124pt,minimum height=28pt,font=\scriptsize},
+  mnote/.style={draw,rounded corners=1.5pt,align=flush left,inner sep=3pt,font=\tiny},
+  marr/.style={->,>={Latex[length=3pt,width=3pt]}},
+}
+% 一格的正文。#1 是机制名，状态紧跟其后（不单独占一行，三张图各省一行竖高）；
+% #2 是出处文件；#3 是那一步的函数，允许写成「函数 + 一句短说明」。
+\newcommand{\mbody}[3]{{\bfseries #1}{\tiny（已实现）}\\[0.5pt]{\tiny\ttfamily #2}\\[0.5pt]{\tiny #3}}

@@ -28,6 +28,44 @@
 // 没有第一人称、且数字能对回同一句里的事实（checkCompanionStance 的锚点检查）= 对局面的判断。
 // 结算与减员这两类**必须**带一句有落点的情绪（STANCE_REQUIRED）：去掉情绪就会直接说不出话。
 //
+// ── 第六次修正：她得知道现在是什么时候，也得看得出你今晚已经坐了多久 ──────────────
+// 用户提了三件互相关联的事，都落在「时间」这一个维度上：
+//   ① 「R0 档字数上限 8 字，装不下一整句陪伴。这不能调整上限吗？……『我在』是可以的，
+//      但不能只有『我在』。」——R0 只出现在**主动侧被挡住**的时候（安静档、线上竞技、
+//      本局被点掉），而玩家自己开口搭话时答一句本来不算打扰。上限因此按「这一档最长的
+//      陪伴句整句装得下」改成 24 字（见 REGISTERS.R0），同时补上模型那一侧的 R0 约束，
+//      免得放宽长度变成「R0 也能念统计」的口子。
+//   ② 「加上个检测现在时间，问候上午/下午/晚上好，分别加一个属于这个时间的问候」——
+//      四个时段四句话（DAY_PARTS），只在**碰面那一轮**说一次，整句不带钟点数字。
+//   ③ 「『半夜还在打』这个可以的，还有就是打久了可以劝休息」——两条新观察
+//      （late-night / long-session）全部由 memory.events 的 ISO 时间戳算出来，
+//      同一波 + 凌晨成立时合并成一句（不能一句话里说两遍时间）。两条的硬线各一条：
+//      半夜那条**不是报时**（说「现在是凌晨两点」是钟表在说话），
+//      打久了那条**不是命令**（给的是「到这儿也行」这句许可，不是「你该睡了」）。
+//      这两类的许可句由 PERMISSION_REQUIRED 守着：被字数挤掉就整条不说。
+//
+// ── 第八次修正：玩家说了状态就先接住他；问候让位；名字不再复读 ────────────────────
+// 同一个病灶用户提了第三次，这次给了判据。玩家说「好早啊，今天没睡好」，拿到的仍然是
+// 「上午好——今天这才刚开头，我是小芽。你打过的那3局我都留着底。」——三句话里没有一句
+// 和「没睡好」有关，而且**落点落在记录上**（理性的那一边）。三个病各自对应一条判据：
+//   ① 状态词一个词表都没进——「没睡好」不在 TIRED_LINE／UPSET_LINE 里，于是「好早啊」的
+//      「好」被 GREETING_LINE 当成了一句问候，直接走了碰面那一句；有记录时更糟，它去念了账本
+//      （实测「今天没睡好」→「最近3局里，最先倒下的有2次是烬尾狐……最近几次在第9回合、第3回合」，
+//      正是用户说的「很冷漠」「动不动拐回战斗」）。现在 没睡好／睡不好／失眠／状态不好／不舒服
+//      这一族跟 累／烦 走同一条出口（见 STATE_WORDS / MOOD_WORD_LIST）。
+//   ② 顺序错了——§四 的四个动作是「接词 → 换说法 → 再说事 → 收在处境上」，而
+//      「**玩家说心情时第三步根本不该发生**」这条原来只对那五个心情词生效。状态词进来之后，
+//      说状态的那一轮整段只有两拍：**接词 + 一句陪着**；最后一个字落在他的状态上，
+//      不报回合、不提胜负、不拐回对局（想拐回对局是后面轮次的事，不是这一轮）。
+//   ③ 名字复读了——「我是小芽」原来是碰面那一轮**总是**说。玩家已经打过 3 局还被自我介绍，
+//      用户直接问「是认真的吗」。现在只有 memory.events 为空（真正的第一次见面）才说；
+//      有记录时连「我在——小芽，一直跟着你的那只」这句也不再说（除非玩家自己问「你是谁」）。
+// 时段问候（DAY_PARTS）一个字都没删，仍然只在碰面那一轮说：变的只是**优先级**——
+// 玩家这一轮说了具体状态时问候让位，否则它会把①的位置占掉，而那正是这次要修的错。
+// 落点也钉住了：说心情／状态时，整段的最后一句必须在**他的状态**上（MOOD_COMPANY 那一句），
+// 而模型那一侧的约束同步改成「这一轮不需要任何跨局记录」（见 replyConstraints 的 mood 分支），
+// 免得本地模板接住了、模型改写时又把它换回一段战报。
+//
 // ══════════════════════════════════════════════════════════════════════════════
 // 小芽的说话方式（内部设计说明，改文案前先读这一节）
 // ══════════════════════════════════════════════════════════════════════════════
@@ -53,6 +91,8 @@
 //   · 用「你」。不用「您」（把人推远），不用「亲爱的／宝／主人」（甜腻是另一种假）。
 //   · 大多数句子**根本不出现称呼**——中文里熟人说话不点名字。
 //   · 名字「小芽」只在第一次见面那一句说一次，之后只在玩家主动问「你是谁」时说，不复读。
+//     「第一次见面」的判据是**本机一条记录都没有**（memory.events 为空），不是「今天第一次说话」：
+//     陪你已经打过 3 局的伙伴，不会每次见面都自我介绍一遍（用户原话：「『我是小芽』是认真的吗」）。
 //
 // 三、长度与节奏
 //   · 一句话一件事。不用分号堆三个信息，不写「既…又…」。
@@ -75,6 +115,9 @@
 //   **例外：玩家说的是心情时，③根本不该发生。** 他累了不是来听战报的——
 //   「有点烦」回一段「你倒下过几次」是雪上加霜。这一类就停在①+一句陪着（见 moodLine），
 //   不报战绩、不提回合数、不问对局。这是「每条都要有信息量」唯一一处经过确认的例外。
+//   状态词（没睡好／状态不好／不舒服）与心情词同一条路，共用这一处例外；
+//   **收尾必须落在他的状态上**，不许把记录或战绩放在最后一句。
+//   时段问候也守这个顺序：玩家这一轮说了具体状态时，问候**让位**——它绝不能占掉①的位置。
 //
 // 五、她什么时候不说话
 //   · 说不出有记录支撑的事时——不说，宁可只有①②。
@@ -148,10 +191,16 @@ export const LONG_SESSION=5;
 
 export const REGISTERS={
  // R0 是「不主动开口」那一档：安静档、线上竞技进行中、本局被点掉时都落到它。
+ // 两种主要场景各自允许说到什么程度，这里是核过的结论（两边的**主动侧都完全不说**，
+ // 由 coach.js 的 coachEvent 门控保证；差别只在「玩家搭话时能回什么」）：
+ //   · 安静档（玩家自己设的档位）：不主动开口是怕被打扰。他既然开口了，
+ //     答一句短的（接住他说的那个词 + 一句陪着）不算打扰；但不报战绩、不问、不劝。
+ //   · 线上竞技（isLiveMatch）：挡的是**公平性**——赛中任何关于对局或历史的信息
+ //     都可能变成一方独有的优势，所以这一档连「本机记录」都不许出现；
+ //     只有玩家自己说出口的那句话可以接（问候/心情），长度同样是一句短句。
  // 上限原来写 8——那只够说一句承接词，于是玩家**自己开口**说话时
  //（「今天有点累」）也只能换回三个字的「我在。」。这两件事被混成了一件：
- // 「不主动开口」是主动侧的纪律（coach.js 的门控保证 R0 一句都不说），
- // 而玩家搭话时答一句，本来就不算打扰。
+ //「不主动开口」是主动侧的纪律，而玩家搭话时答一句，本来就不算打扰。
  // 24 是量出来的：这一档真的会说的最长一句是 moodLine 的
  // 「今天累了啊——那就先歇着，不用急着做什么。」（21 字），加语气停顿留 3 字余量；
  // 四句时段问候最长 18 字，也装得下。
@@ -301,8 +350,10 @@ export function companionLedger(memory={},game=null,now=Date.now()){
   run.unshift(events[i]);
  }
  const lastTime=timeOf(events.at(-1));
- // active：最后一局刚打完不久，人还坐在这儿。隔了几个钟头再打开，就不该说「你还在打」。
- const active=lastTime!==null&&now-lastTime<=SESSION_GAP;
+ // active：最后一局刚打完不久，人还坐在这儿。两条边界都要：
+ // 隔了几个钟头再打开，就不该说「你还在打」；而「刚打完」也不可能是未来的时间
+ //（留一分钟给时钟漂移）——时间戳比现在晚，说明这条记录不是当下这一波打的。
+ const active=lastTime!==null&&now>=lastTime-60000&&now-lastTime<=SESSION_GAP;
  ledger.run=run.length
   ?{count:run.length,wins:run.filter(e=>e.result==='win').length,losses:run.filter(e=>e.result==='loss').length,
     active,lastHour:new Date(timeOf(run.at(-1))).getHours(),at:new Date(timeOf(run.at(-1))).toISOString()}
@@ -1318,12 +1369,22 @@ export function checkCompanionInformation(text,{parts=[],requireStance=false,kla
 const PET_NAMES=SPECIES.map(s=>s.name).join('|');
 // 战术问句是军师的活：这类句子不走闲聊线程，免得陪练抢答。
 const TACTICAL_HINT=/怎么打|怎么用|怎么配|怎么选|建议|该不该|怎么办|咋办|该怎么|换上|换成|换掉|技能|能量|克制|属性|先手|防御|守住|培养|加点|阵容|战术|值得|哪个好/;
-// 这一句家常话是哪一类：问候、说心情（累／烦）、要人陪聊、问陪练自己。这几张词表只决定
-// 「先接住哪一句」，不新增任何关于过去的事实——空账本下接话里的每个字都出自玩家这一轮。
+// 这一句家常话是哪一类：问候、说心情／状态（累／烦／没睡好）、要人陪聊、问陪练自己。
+// 这几张词表只决定「先接住哪一句」，不新增任何关于过去的事实——空账本下接话里的每个字
+// 都出自玩家这一轮。**判断顺序是固定的：心情／状态 → 要人陪聊 → 问候**。
+// 顺序就是这一节的规矩：玩家说了具体状态时，问候让位——「好早啊，今天没睡好」里那个「好」
+// 不能把「没睡好」挤掉（第八次修正要修的就是这一处）。
 const GREETING_LINE=/^(你?好|您好|hi|hello|嗨|早|早安|晚安|在吗|在么|在不在)/i;
 const TIRED_LINE=/累|疲惫|没精神|困/;
 const UPSET_LINE=/烦|难受|心情|压力|撑不住|不想玩|不想打/;
-const MOOD_LINE=new RegExp(`${TIRED_LINE.source}|${UPSET_LINE.source}`);
+// 状态那一族（第八次修正）：「没睡好」「今天状态不好」原来一个词表都不收——于是
+// 「好早啊」的「好」被 GREETING_LINE 当成了一句问候（碰面那一句），有记录时更糟：它去念了账本。
+// 它和心情共用同一条出口（moodLine）：接词 + 一句陪着，不报战绩、不提回合数、不拐回对局。
+// **长的在前**：先认「没睡好」，不能先认「没睡」。
+const STATE_WORDS=['没睡好','没睡着','睡不着','睡得不好','没睡够','睡不好','失眠','没睡','状态不太好','状态不好','状态不行','没状态','不舒服','头疼','头痛'];
+const STATE_LINE=new RegExp(STATE_WORDS.join('|'));
+const MOOD_LINE=new RegExp(`${TIRED_LINE.source}|${UPSET_LINE.source}|${STATE_LINE.source}`);
+const IDENTITY_ASK=/你是谁|你叫什么|你叫啥|你是哪位|你是哪只|你是什么/;
 const CHAT_ASK_LINE=/陪我聊|随便聊|聊聊|说说话|唠|闲聊|说两句/;
 // 「没有记录」时的第二句：**在场的陪伴**，不是一句关于数据库的说明。
 // 三句话里没有任何一个关于过去的字，也没有一句把玩家推去开一局——
@@ -1356,7 +1417,8 @@ function selfLine(message,continuing,fresh=false,now=Date.now()){
  const t=String(message||'');
  // 说心情时用**玩家自己那个词**（见 moodWord）：他说「不想打」，不能回他「烦」——
  // 换词就等于告诉他「我没在听你说什么」，这是 reflective listening 第一步要挡掉的错。
- // 续说那一轮六种词都以「还」起头，所以「第二轮必须听得出是接着上一轮」照旧成立。
+ // 续说那一轮都以「还…」起头（「还累着啊——」「还没睡好啊——」），所以「第二轮必须听得出
+ // 是接着上一轮」照旧成立，心情词与状态词共用同一条判据。
  const w=moodWord(t);
  if(continuing){
   if(w)return MOOD_ECHO_MORE[w];
@@ -1372,13 +1434,15 @@ function selfLine(message,continuing,fresh=false,now=Date.now()){
  if(TIRED_LINE.test(t))return '今天累了就先缓着。';
  if(UPSET_LINE.test(t))return '烦就先搁着，不聊对局也行。';
  if(CHAT_ASK_LINE.test(t))return '嗯，那就聊。';
- // 「问候就回问候」：回的是**当前时段**的那一句问候，并且在这一句里报一次名字
- //（「上午好——今天这才刚开头，我是小芽。」）。原来固定在「你好，我是小芽。」，
- // 于是凌晨两点、下午三点、晚上十点说的都是同一句：她像没看窗外，也像没有时钟。
- // 判据没变——玩家问候，她回一句问候；只是这一句现在落在真实时间上，而且
- // **不带钟点数字**（说「现在是凌晨两点」是钟表在说话，不是她在说话）。
- if(GREETING_LINE.test(t))return greetingLine(now,{named:true});
- return '我在——小芽，一直跟着你的那只。';
+ // 「问候就回问候」：回的是**当前时段**的那一句问候（凌晨/上午/下午/晚上各说各的，
+ // 整句不带钟点数字——说「现在是凌晨两点」是钟表在说话，不是她在说话）。
+ // 注意顺序——上面三行（心情／状态、要人陪聊）永远排在问候前面：玩家说了具体状态时问候让位，
+ // 「好早啊，今天没睡好」里的那个「好」不能把「没睡好」挤掉（第八次修正）。
+ // 名字只在**真正的第一次见面**（本机一条记录都没有，fresh）报一次；有记录时那句问候照说，
+ // 但不自我介绍——陪你打过 3 局的伙伴不会每次见面都报名字（用户原话：「『我是小芽』是认真的吗」）。
+ if(GREETING_LINE.test(t))return greetingLine(now,{named:fresh});
+ // 既不是心情也不是问候时：只有玩家自己问「她是谁」才说名字（第二节），其余就应一声。
+ return IDENTITY_ASK.test(t)?'我在——小芽，一直跟着你的那只。':'我在呢——你说。';
 }
 // 玩家这一轮自己提到的伙伴名：空账本下唯一能说出口的名字，因为它出自玩家这句话。
 function namedPet(message){const m=String(message||'').match(new RegExp(PET_NAMES));return m?m[0]:null;}
@@ -1397,30 +1461,56 @@ function namedPet(message){const m=String(message||'').match(new RegExp(PET_NAME
 // 玩家这一轮自己用过的那个词，原样取回、**不做同义替换**：
 // 他说「累」，回「疲惫」就等于告诉他「我没在听你说什么」——reflective listening 的
 // 第一步是 mimic，换词就把这一步做废了。`困(?!难)` 是为了不把「困难」当成「困」。
-const MOOD_WORD_RE=/撑不住|不想玩|不想打|没精神|疲惫|难受|压力|心情|困(?!难)|累|烦/;
+// **词表与出口同源**：能进 MOOD_LINE 的词必须也能在 MOOD_WORD_RE 里取到（下面这两行由
+// 同一批字面量拼出来），否则 chatReply 会让开、moodLine 又拼不出词，玩家拿到的就是账本——
+// 「今天没睡好」那次实测走的就是这条路（见文件头第八次修正）。STATE_WORDS 接在最后：
+// 长的在前，先认「没睡好」再认「没睡」。
+const MOOD_WORD_RE=new RegExp(['撑不住','不想玩','不想打','没精神','疲惫','难受','压力','心情','困(?!难)','累','烦',...STATE_WORDS].join('|'));
 function moodWord(message=''){
  const m=String(message||'').match(MOOD_WORD_RE);
  return m?m[0]:null;
 }
 // ① 接词：开场与续说两版，续说用「还」起头，让人听得出是接着上一轮。
+// 状态那一族（第八次修正）和心情词共用这张表：接的仍然是**他自己那个词**
+//（「没睡好」就回「没睡好」，不许换成「失眠／休息不好」）。
 const MOOD_ECHO={累:'今天累了啊——',疲惫:'是真疲惫了——',没精神:'没精神啊——',困:'困了啊——',
  烦:'烦啊——',难受:'难受啊——',心情:'心里不痛快啊——',压力:'压力大啊——',撑不住:'撑不住了啊——',
- 不想玩:'不想玩了啊——',不想打:'不想打了啊——'};
+ 不想玩:'不想玩了啊——',不想打:'不想打了啊——',
+ 没睡好:'没睡好啊——',没睡着:'没睡着啊——',睡不着:'睡不着啊——',睡得不好:'睡得不好啊——',
+ 没睡够:'没睡够啊——',睡不好:'睡不好啊——',失眠:'失眠啊——',没睡:'没睡啊——',
+ 状态不太好:'状态不太好啊——',状态不好:'状态不好啊——',状态不行:'状态不行啊——',没状态:'没状态啊——',
+ 不舒服:'不舒服啊——',头疼:'头疼啊——',头痛:'头痛啊——'};
 const MOOD_ECHO_MORE={累:'还累着啊——',疲惫:'还疲惫着——',没精神:'还没缓过来啊——',困:'还困着啊——',
  烦:'还烦着啊——',难受:'还难受着啊——',心情:'心里还不痛快啊——',压力:'还压着啊——',撑不住:'还撑着啊——',
- 不想玩:'还不想玩啊——',不想打:'还不想打啊——'};
+ 不想玩:'还不想玩啊——',不想打:'还不想打啊——',
+ 没睡好:'还没睡好啊——',没睡着:'还没睡着啊——',睡不着:'还睡不着啊——',睡得不好:'还是睡得不好啊——',
+ 没睡够:'还没睡够啊——',睡不好:'还是睡不好啊——',失眠:'还失眠啊——',没睡:'还没睡啊——',
+ 状态不太好:'还没缓过来啊——',状态不好:'还没缓过来啊——',状态不行:'还没缓过来啊——',没状态:'还没缓过来啊——',
+ 不舒服:'还不舒服啊——',头疼:'头还疼啊——',头痛:'头还疼啊——'};
 // ② 停在那个词上：只做一件事——允许他此刻什么都不做。
+// **这一句是整段的落点**：说心情／状态的那一轮，最后一句必须落在他的状态上，
+// 不许把记录、回合数或战绩放在这里（第八次修正的判据，见 companion.test.js 的「接住状态」那一组）。
+// 状态那一族的四句各说各的处境：睡不好 → 缓一缓；状态不好 → 别逼自己；不舒服 → 别的先不管。
 const MOOD_COMPANY={累:'那就先歇着，不用急着做什么。',疲惫:'那就先歇着，不用急着做什么。',
  没精神:'那就先歇着，不用急着做什么。',困:'那就先歇着，不用急着做什么。',
  烦:'烦就先搁着，不聊对局也行。',难受:'那就先别管对局了。',心情:'那就先别管对局了。',
  压力:'那就先别管对局了。',撑不住:'那就先停下来。',
- 不想玩:'那就不玩，没人催你。',不想打:'那就不打，没人催你。'};
+ 不想玩:'那就不玩，没人催你。',不想打:'那就不打，没人催你。',
+ 没睡好:'那就先缓缓，今天不用急着做什么。',没睡着:'那就先缓缓，今天不用急着做什么。',
+ 睡不着:'那就先缓缓，今天不用急着做什么。',睡得不好:'那就先缓缓，今天不用急着做什么。',
+ 没睡够:'那就先缓缓，今天不用急着做什么。',睡不好:'那就先缓缓，今天不用急着做什么。',
+ 失眠:'那就先缓缓，今天不用急着做什么。',没睡:'那就先缓缓，今天不用急着做什么。',
+ 状态不太好:'那就先别逼自己，慢一点也行。',状态不好:'那就先别逼自己，慢一点也行。',
+ 状态不行:'那就先别逼自己，慢一点也行。',没状态:'那就先别逼自己，慢一点也行。',
+ 不舒服:'那就先歇着，别的先不管。',头疼:'那就先歇着，别硬扛。',头痛:'那就先歇着，别硬扛。'};
 function moodLine(message,{continuing=false}={}){
  const w=moodWord(message);
  if(!w)return null;
  const echo=(continuing?MOOD_ECHO_MORE:MOOD_ECHO)[w],company=MOOD_COMPANY[w];
  if(!echo||!company)return null;
- return {text:echo+company,word:w,parts:[SENT(echo,'chat','本轮消息'),SENT(company,'presence',null)]};
+ // company 单独带出去：空账本那一轮的第二句要用**同一句**（chatReply），
+ // 否则同一个玩家在有没有记录时会拿到两个不同版本的陪伴——那不该由账本决定。
+ return {text:echo+company,word:w,echo,company,parts:[SENT(echo,'chat','本轮消息'),SENT(company,'presence',null)]};
 }
 // 心情那一句必须**整句**装得下。字数上限不够时 fitSentences 会只留下前半句
 //（「今天累了啊——」后面空着），那是模板骨架漏出来，不是语气——比不说更糟。
@@ -1435,14 +1525,14 @@ function moodFits(mood,limit){
 // 唯一回应是一段战绩统计，那答的是账本，不是人。
 const THANKS_WORD=/^(谢谢|多谢|辛苦了|感谢)/;
 const ACK_WORD=/^(好的|好|嗯|哦|ok|OK|收到)/;
-function socialLine(message='',{now=Date.now(),first=false}={}){
+function socialLine(message='',{now=Date.now(),named=false}={}){
  const t=String(message||'').trim();
  if(THANKS_WORD.test(t))return '嗯，不用谢。';
  if(ACK_WORD.test(t))return '嗯。';
  // 问候按时段回一句。R0（安静档／线上竞技／本局被点掉）走的就是这一格：
  // 玩家自己开口问候，答一句当前时段的问候**不算打扰**——不主动开口的纪律管的是主动侧。
- // 名字只在碰面那一轮报一次（first），之后不再复读。
- if(GREETING_LINE.test(t))return greetingLine(now,{named:first});
+ // named 只对应**真正的第一次见面**（本机一条记录都没有）：名字报一次，之后不再复读。
+ if(GREETING_LINE.test(t))return greetingLine(now,{named});
  return '在的。';
 }
 export const CHAT_THREADS=[
@@ -1552,8 +1642,9 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  const text=String(message||'');
  if(TACTICAL_HINT.test(text))return null;
  const hasRecord=linesOf(f).length>0;
- // 有记录时的「说心情」（烦、难受）仍然走原来的关切通道：那时真的有事可以关切，
- // 闲聊不该把它换成一句家常。一条记录都没有时没有可关切的事，接住这句话本身就是回应。
+ // 有记录时的「说心情」（烦、难受、累、没睡好、状态不好）仍然走原来的关切通道：那时真的有事可以关切，
+ // 闲聊不该把它换成一句家常——而且**说状态的那一轮不该有任何战报**（见 moodLine 的那条例外）。
+ // 一条记录都没有时没有可关切的事，接住这句话本身就是回应（走下面的线程文案）。
  if(hasRecord&&MOOD_LINE.test(text)&&intent!=='chat')return null;
  const own=chatThread(text);
  const prev=previousChatThread(memory);
@@ -1563,7 +1654,8 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  const thread=own||prev;
  if(!thread)return null;
  const continuing=Boolean(prev&&(!own||own.id===prev.id));
- // fresh 一路传给线程文案：本机一条记录都没有时，接话句换「嗯，小芽还在。」这一版。
+ // fresh 一路传给线程文案：本机一条记录都没有时，接话句换「嗯，小芽还在。」这一版，
+ // 而且只有这一版会在问候里报一次名字（selfLine 的 named:fresh）——有记录时不再自我介绍。
  // 两个分支都不涉及任何过去，也不提记录。now 也一路传下去：碰面那一轮的问候句
  // 要落在真实时段上（凌晨/上午/下午/晚上各说各的），而它只在这一轮出现。
  const opts={message:text,continuing,fresh:!hasRecord,now};
@@ -1574,12 +1666,17 @@ export function chatReply({message='',memory={},facts=null,intent='other',limit=
  // 一条记录都没有时**不再播报「我这儿还是空的」**（那是系统状态，不是人话，而且会把人推去开一局），
  // 改成一句在场的陪伴（kind=presence）：不解释自己有没有数据，不推向对局，也不列选项菜单。
  // 它确实不含任何事实——所以不许冒充 memory，那会把「至少一句跨局信息」这条自检架空。
+ // 说心情／状态那一轮用 moodLine 的**同一句** company 收尾（MOOD_COMPANY）：
+ // 那一句是整段的落点，必须落在他这个人身上；而且它不该由「本机有没有记录」决定——
+ // 同一个玩家在空账本和有记录时拿到的应该是同一句陪伴（第八次修正）。
+ // 续说那一轮照旧只说一句「不急。」：上一句已经接着那个话题了，不再重复一遍。
+ const moodSecond=moodLine(text,{continuing});
  const second=built.memory
   ?{text:built.memory,kind:'memory',source:'memory.events'}
   :hasRecord?null
   :f.knowsFavorite?{text:`你跟我说过，本命是${f.favorite}。`,kind:'memory',source:'memory.favorite'}
   :f.lessons.length?{text:`你答对过的${list(f.lessons)}，我这儿记着。`,kind:'memory',source:'memory.lessons'}
-  :{text:emptyLedgerLine(continuing,MOOD_LINE.test(text)),kind:'presence',source:'没有记录（在场）'};
+  :{text:(moodSecond&&!continuing?moodSecond.company:emptyLedgerLine(continuing,Boolean(moodSecond))),kind:'presence',source:'没有记录（在场）'};
  if(!second)return null;
  const affects=[],last=linesOf(f).at(-1);
  if(thread.id==='record'&&last){
@@ -1628,8 +1725,14 @@ export function companion(context={},memory={},message='',now=Date.now()){
  // 其余每一关照旧（复述屏幕、自我中心的情绪、空泛打鸡血、说教、战术指令都还在拦，
  // companion.test.js 的「人味」那一组还会逐条钉住它不许夹带回合数、胜负数与倒下回合）。
  let socialOnly=false;
+ // 这一轮是不是「说心情／状态」：决定了三件事——问候让位、正文只有接词+一句陪着、
+ // 以及送给模型的约束里**不再要求**跨局记录（他这一轮要的不是战报）。
+ let moodUsed=false;
+ const hasRecord=f.history.length>0;
  const continuing=Boolean(previousChatThread(memory));
- const social=SOCIAL_ONLY.test(words.trim())?socialLine(words,{now,first:!continuing}):null;
+ // named 只在**真正的第一次见面**（本机一条记录都没有）时为真：有记录时那句问候照说，
+ // 但不再自我介绍（「我是小芽」是用户点名的那一处，见文件头第八次修正）。
+ const social=SOCIAL_ONLY.test(words.trim())?socialLine(words,{now,named:!hasRecord&&!continuing}):null;
  // 心情在 R0／R1／R2 都出口。R0 原来是关着的，理由是「8 字装不下一整句陪伴」——
  // 那个理由现在不成立了（上限 24 字，最长的一句陪伴 21 字），而且它本来就放错了地方：
  // R0 只出现在**玩家自己开口**的时候（安静档、线上竞技、本局被点掉都只挡住主动侧），
@@ -1642,16 +1745,18 @@ export function companion(context={},memory={},message='',now=Date.now()){
   // 保证 R0 一句都不说）、不给战术指令、不问句。这里只决定「玩家搭话时回哪一句」，
   // 顺序与 R1/R2 一致：心情 → 问候/道谢 →（都说不出时）最短承接句。
   const fit=moodFits(mood,limit);
-  if(fit){text=fit.text;parts=fit.parts;socialOnly=true;}
+  if(fit){text=fit.text;parts=fit.parts;socialOnly=true;moodUsed=true;}
   else if(social){text=social;parts=[SENT(social,'chat','本轮消息')];socialOnly=true;}
   else text='我在。';
  }
  else if(register==='R1'||register==='R2'){
   // 玩家主动搭话（寒暄、家常、问陪练自己）先走闲聊线程：接住这句话，再落一件记得的事。
   // 战术问句与倾诉不走这里——前者是军师的活，后者由 R2/R3 的关切句接。
+  // 空账本下说心情／状态会走这条线程（那时没有可关切的事），所以这里也要认出来：
+  // 只要这一轮说的是心情／状态，模型那一侧就不许再要跨局记录。
   chat=chatReply({message:words,memory,facts:f,intent,limit,now});
-  if(chat){text=chat.text;parts=chat.parts;}
-  else if(moodFits(mood,limit)){text=mood.text;parts=mood.parts;socialOnly=true;}
+  if(chat){text=chat.text;parts=chat.parts;if(MOOD_LINE.test(words))moodUsed=true;}
+  else if(moodFits(mood,limit)){text=mood.text;parts=mood.parts;socialOnly=true;moodUsed=true;}
   else if(social){text=social;parts=[SENT(social,'chat','本轮消息')];socialOnly=true;}
   else if(register==='R1'){
    reading=pick(CLASSES);
@@ -1668,7 +1773,7 @@ export function companion(context={},memory={},message='',now=Date.now()){
   const moodR3=moodLine(words,{continuing});
   if(moodR3&&!lead){
    // 没有处境句可落（连败不足 2 局）：退回纯心情那一条，不为了凑信息量硬塞一句统计。
-   text=moodR3.text;parts=moodR3.parts;socialOnly=true;
+   text=moodR3.text;parts=moodR3.parts;socialOnly=true;moodUsed=true;
   }else{
    const r=moodR3?null:pick(CLASSES);
    const body=[...(moodR3?[SENT(moodR3.parts[0].text,'chat','本轮消息')]:[]),lead,...(r?r.sentences:[])].filter(Boolean).slice(0,2);
@@ -1690,10 +1795,10 @@ export function companion(context={},memory={},message='',now=Date.now()){
  // 但**照旧**拦「播报我这儿是空的／把人推去开一局」这类姿态错误（freshIntro 里的硬线）。
  // socialOnly 的两类（说心情／只道谢）按设计就不含事实，唯一豁免的是「至少一句跨局信息」
  // 与「至少两句」这两条**信息量**判据；它们的文本来自固定小词表，由测试逐条钉住不许夹带事实。
- if(observed&&!socialOnly&&text&&text!=='我在。'&&!checkCompanionInformation(text,{parts,freshIntro:Boolean(chat?.emptyLedger)}).valid){text=null;reading=null;parts=[];chat=null;}
+ if(observed&&!socialOnly&&text&&text!=='我在。'&&!checkCompanionInformation(text,{parts,freshIntro:Boolean(chat?.emptyLedger)}).valid){text=null;reading=null;parts=[];chat=null;moodUsed=false;}
  // 该档位需要的事实一条都拼不出来时，降到 R0 只说承接句：档位要么真的用上，要么明说降到最低。
- if(!text){register='R0';text='我在。';state.register='R0';state.registerReason='该档位需要的事实在本机记录里一条都找不到，降到最短承接句';reading=null;parts=[];chat=null;}
- return publicPacket({text,register,state,intent,reading,chat});
+ if(!text){register='R0';text='我在。';state.register='R0';state.registerReason='该档位需要的事实在本机记录里一条都找不到，降到最短承接句';reading=null;parts=[];chat=null;moodUsed=false;}
+ return publicPacket({text,register,state,intent,reading,chat,mood:moodUsed});
 }
 
 // 被动通道手里只有 buildContext 的快照（history 被裁空），把它当成一个「没有回合记录的对局」读。
@@ -1716,7 +1821,7 @@ function followupReply(memory){
 
 // 每个数字都出现在依据里：这样模型改写后的答案也能通过 checkGroundedAnswer 的数字核对，
 // 不会因为「引用了陪练模板里的真实数字」被误判成编造。
-function publicPacket({text,register,state,intent,reading=null,chat=null}){
+function publicPacket({text,register,state,intent,reading=null,chat=null,mood=false}){
  const f=state.facts,history=f.history;
  const wins=history.filter(e=>e.result==='win').length,losses=history.filter(e=>e.result==='loss').length,draws=history.filter(e=>e.result==='draw').length;
  const evidence=[`本机对战记录：已结束${history.length}场，${wins}胜${losses}负${draws?draws+'平':''}（来源：memory.events，最多保留12场，预制场景不写入）。`];
@@ -1743,20 +1848,27 @@ function publicPacket({text,register,state,intent,reading=null,chat=null}){
  const settings=[`交流偏好${f.preference||'未设置'}`,`玩法目标${f.goal||'未设置'}`,`本命${f.favorite||'未设置'}`].join('、');
  evidence.push(`你的设置：${settings}（来源：你明确表达过才会记录）。`);
  if(f.lessons.length)evidence.push(`课程记录：${f.lessons.join('、')}（${f.lessons.length}条答对过的练习，不等于熟练掌握）。`);
- return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat)}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
+ return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat),mood}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
 }
 
 // 模型路径下的档位约束：随证据包一起送到服务端（server.js 把整个证据包作为 game_evidence 发给模型）。
 // forbid 里的每一条与 checkCompanionRestraint / checkCompanionInformation 的硬线一一对应：
 // 复述屏幕、播报自己的情绪、空泛安慰、评价水平、说教、战术指挥，一条都不留。
 // allow 里写清这一轮**该有**的东西：情绪不是被禁止的，被禁止的是把情绪落在自己身上。
-export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false}={}){
+export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false,mood=false}={}){
  const r=REGISTERS[register];
  // 没有记录时送模型的那句话要换掉：原来写的是「至少一句要来自跨局记录（memory.events）」，
  // 而 memory.events 是空的——照这句写，模型只能编一局出来；
  // 上一版补的是「并说明记录还是空的」，那句话又把模型推向了另一个错：播报系统状态。
  // 现在明说两件事：不许提过去，也不许讲「我这儿有没有数据」——没有历史就直接不聊历史。
- const grounding=emptyLedger
+ // ── 第八次修正：**说心情／状态的那一轮，连有记录时也不要跨局记录**。──────────────
+ // 这是本地模板与模型那条路必须对齐的一处：模板已经改成「接词 + 一句陪着」，可是送模型的
+ // 约束原来无条件写着「至少一句要来自跨局记录」——模型照着写，就会把刚接住的情绪又换成
+ // 一段战报（「今天没睡好」→「最近3局里，最先倒下的有2次是烬尾狐……」），
+ // 而这正是用户第三次提的那个病灶。所以这一轮换成一句相反的要求。
+ const grounding=mood
+  ?'这一轮**不需要**任何跨局记录或跨回合统计：他说的是自己的状态，不是来听战报的；接住他这句话本身，比任何数字都该说。'
+  :emptyLedger
   ?'本机还没有任何对战记录（memory.events 为空）：不许提过去，也不许编一局出来；也不要说「记录还是空的／一局都还没记上」这类关于本机数据的话——没有历史就不聊历史，直接不聊它。'
   :'至少一句要来自跨局记录（memory.events）或跨回合统计（game.history），否则不如不说；';
  // 第二轮是在接着上一轮说：这一点也要写给模型。实测里只给「上一轮说过什么」不够，
@@ -1769,10 +1881,13 @@ export function replyConstraints(register,voice='companion',{emptyLedger=false,c
  // 答得住一句陪伴句，不是为了让这一档也能讲正事。这句约束就是那条闸门：
  // 模型在 R0 只许回玩家这一句本身，不许提对局、记录、回合数、胜负，也不许提问。
  const quiet=register==='R0'?'这一轮是安静档/线上竞技：她**不主动开口**，只回玩家这一句话本身（他用的那个词要原样接住），不问、不劝、不说教；对局、记录、回合数、胜负一个字都不要提。':'';
+ // 说状态／心情那一轮的四条：① 用他自己的词接住（不许同义替换）；② 落点在他身上；
+ // ③ 对局、记录、回合数、胜负一个字都不提；④ 想拐回对局也是后面几轮的事，不是这一轮。
+ const care=mood?'这一轮玩家说的是他自己的心情或状态：先用他用的那个词原样接住（他说「累」就回「累」，不许换成「疲惫／辛苦」；说「没睡好」就回「没睡好」），然后把话停在他的状态上——最后一句要落在他身上。对局、记录、回合数、胜负一个字都不要提：想拐回对局也是后面几轮的事，不是这一轮。也不要说教（「你该睡了」「早点睡」这类话一个字都不许有）。':'';
  return {register,voice,maxChars:r.limit,maxQuestions:r.maxQuestions,allowAdvice:r.advice,
-  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':'',emptyLedger?'播报本机有没有记录（「记录还是空的」「一局都还没记上」），或者把玩家推去开一局（「去开一局吧」「打完我就能接上话」）':'',register==='R0'?'提对局、记录、回合数或胜负（安静档只回玩家这一句话）':''].filter(Boolean),
+  forbid:['复述屏幕上已经写着的事','播报自己的情绪（「我看得有点急」这类第一人称感受）','空泛安慰','评价玩家水平','说教',r.advice?'':'给建议','战术指挥',emptyLedger?'提任何过去的事（「上次」「之前」「上回」这类说法）':'',emptyLedger?'播报本机有没有记录（「记录还是空的」「一局都还没记上」），或者把玩家推去开一局（「去开一局吧」「打完我就能接上话」）':'',register==='R0'?'提对局、记录、回合数或胜负（安静档只回玩家这一句话）':'',mood?'提对局、记录、回合数或胜负（他这一轮说的是自己的状态，先接住他）':''].filter(Boolean),
   allow:['对真实事件的可惜/漂亮/悬/憋屈/松口气（必须落在具体回合、数字或记录上）','跨局记录与偏好（玩家以前说过、打过的事）'],
-  instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，只写有本机记录支撑的事实。${quiet}${grounding}${threading}${smallTalk}不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
+  instruction:`本轮档位 ${register}（${r.name}）：正文不超过${r.limit}字，${r.maxQuestions?'最多一个问句':'不要问句'}，${mood?'':'只写有本机记录支撑的事实。'}${quiet}${care}${grounding}${threading}${smallTalk}不要复述屏幕上已经写着的事（谁被克制、还剩几只、第几回合的进度），也不要说自己的感受——情绪要落在这一局真实发生的事上（可惜、漂亮、悬、憋屈、松口气），不是落在你自己身上。`};
 }
 
 // 两条声线。自我中心的情绪在任何声线下都拦——「我看得有点急」正是这一版要修掉的方向：

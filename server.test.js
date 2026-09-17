@@ -2,11 +2,12 @@ import test from 'node:test';
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import {webcrypto} from 'node:crypto';
-import {createCoachServer} from './server.js';
+import {createCoachServer,ZERO_COUNT_RULE} from './server.js';
 import {buildContext} from './coach/runtime.js';
 import {newProfile} from './progression.js';
 import {freshMemory} from './coach/memory.js';
-import {createGame} from './engine.js';
+import {createGame,legalActions,step} from './engine.js';
+import {summarizeMatch} from './coach/teacher.js';
 const fixtureKey='sk-fixture-only-not-a-real-api-key';
 async function setup(t,fetchImpl){const server=createCoachServer({fetchImpl});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>{server.closeAllConnections();server.close();});const base='http://127.0.0.1:'+server.address().port;let cookie='',boot;
  async function bootstrap(){const r=await fetch(base+'/api/bootstrap',{headers:cookie?{Cookie:cookie}:{}});if(r.headers.get('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];boot=await r.json();return boot;}
@@ -53,4 +54,49 @@ test('every local mode the client can send is accepted by the coach endpoint',as
   const body=await r.json();
   assert.notEqual(body.error,'教练上下文无效',`服务端必须接受 mode=${mode}`);
  }
+});
+
+// 整局复盘是**模型接手**的那条路径：runCoach 里 locked=true，但 lastTopic 是 match-review，
+// deterministic=false，所以本地那句统计和完整的 counts 一起进证据包，由模型重写成人话。
+// 本地那一侧（coach/teacher.js 的 matchStatsLine）只推非零类别，早就做到了；
+// 模型这一侧原来没有任何约束，于是它自己把 0 值念了出来（用户截图：「一直进攻、没换宠没用药」）。
+// 这一条盯的就是真正发给模型的 system：口径必须写在里面，而 0 值数据一个都不许少。
+// 负向验证：把 server.js 里 ZERO_COUNT_RULE 那段去掉（或不再拼进 system），本用例变红。
+test('整局复盘：给模型的指令写清了 0 值口径，而 0 值数据照给模型',async t=>{
+ const calls=[];
+ const x=await setup(t,async(url,args)=>{const body=JSON.parse(args.body);calls.push(body);
+  // 规划器那一步只回「别再查了」，否则它会把正文当成 JSON 去解析。
+  if(body.messages[0].content.includes('你为小芽决定是否要查证'))return new Response(JSON.stringify({choices:[{message:{content:'{"stop":true}'}}]}),{status:200});
+  return ok();});
+ await x.connect();
+ // 只出招的一局（不点防御）：counts 里换宠/道具/防御/撤退四类全是 0，正是用户截图里的那一局。
+ let g={...createGame(31),id:'zero-count-review'},i=0;
+ while(!g.result&&i<14){const list=legalActions(g).filter(a=>a.kind==='skill'&&a.id!=='guard');const pick=list[i%list.length];if(!pick)break;g=step(g,pick);i++;}
+ const m=summarizeMatch(g);
+ assert(m, '这一局应当有完整的回合记录');
+ assert(Object.values(m.counts).filter(n=>!n).length>=4,`这一局应当是「四类全 0、一类非 0」，实际 ${JSON.stringify(m.counts)}`);
+ const r=await x.post('/api/coach',{message:'总结整局',role:'teacher',context:buildContext(g,newProfile(),'fox'),memory:freshMemory(),stateToken:23,conversation:[]});
+ assert.equal(r.status,200);
+ const coach=calls.filter(c=>c.messages[0].content.includes('你是宠物 PVE 游戏教练小芽'));
+ assert.equal(coach.length,1,'整局复盘只该有一次生成调用');
+
+ // ① 指令里写清了口径（判据是「把每个 0 都点一遍才算违规」，不是「提到 0 就算违规」）。
+ const system=coach[0].messages[0].content;
+ assert(system.includes(ZERO_COUNT_RULE),'这条口径必须以常量原文出现在真正发出的 system 里');
+ assert.match(system,/计为 0 的类别不要逐项念出来/);
+ assert.match(system,/不能把为 0 的类别一项一项点一遍/);
+ assert.match(system,/换个句式/);
+ assert.match(system,/一次都没换宠/,'允许的说法（概括成一句）要作为正例写进去');
+ assert.match(system,/照实回答/,'直接提问仍要照实回答：0 值不是不许提，是不许罗列');
+ assert.match(system,/只改说法，不减少事实/,'与「证据包是事实依据」这条硬线不冲突，要点明');
+
+ // ② 数据照给：0 值一个都没被隐瞒，玩家直接问「这一局用了几次防御」模型答得出来。
+ const evidence=JSON.parse(coach[0].messages.at(-1).content).game_evidence;
+ assert.deepEqual(evidence.textFacts.counts,m.counts,'证据包里的 counts 必须原样带上 0 值');
+ assert.equal(evidence.textFacts.counts.switches,0);
+ assert.equal(evidence.textFacts.counts.items,0);
+ assert.equal(evidence.textFacts.counts.guards,0);
+ assert.equal(evidence.textFacts.counts.escapes,0);
+ // 本地那句统计（只讲非零的那一类）也在包里，模型可以照它的说法写。
+ assert.match(String(evidence.textFacts?JSON.stringify(evidence):''),/出手\d+次/);
 });
