@@ -14,7 +14,7 @@
 
 ```sh
 npm start          # http://127.0.0.1:8765/
-npm test           # 257 项，约 12 秒
+npm test           # 272 项，约 12 秒
 ```
 
 **不接模型也能完整游玩**：规则建议、复盘、培养建议和小测都由本地引擎给出。接上模型之后，这些解释改由模型生成。
@@ -46,11 +46,12 @@ npm test           # 257 项，约 12 秒
 
 **把「算」和「说」分开——引擎负责对，模型负责讲。**
 
-伤害、克制、命中、胜负一律由引擎算；模型只负责把已经算好的结论说成人话。所有取舍都是这条的推论：
+伤害、克制、命中、胜负一律由引擎算。程序规定权限与必须查证的条件；模型理解玩家的问题，在已有证据之上决定是否再补一次查询，然后把结论讲成简短的取舍。所有取舍都是这条的推论：
 
 - 模型不参与伤害计算，也不决定对手出招
 - 「该不该调工具」由代码判断，不由模型自由发挥
 - 模型说出的话要经过三条校验，越界就回退到本地模板
+- 代码规定的首步流程不冒充模型自主规划；模型决定补查也不等于拥有任意操作权限
 
 同一个道理在开发过程里又验证了一次：**助手负责产出，我负责验收**。它交付过多次「测试全绿但功能没生效」的东西——详见报告第 3 节。
 
@@ -71,13 +72,27 @@ npm test           # 257 项，约 12 秒
 ## 实验
 
 ```sh
-npm run build:knowledge      # 从 tactics.json 与引擎生成知识卡
-npm run eval:retrieval       # 检索四臂对照
-npm run eval:balance         # 平衡矩阵（约 3 分钟）
-npm run train:intervention   # Q-learning 干预时机
+npm run build:knowledge      # 从 tactics.json 与引擎生成知识卡（纯 Node）
+npm run eval:retrieval       # 检索四臂对照（纯 Node，几秒）
+npm run eval:balance:quick   # 单宠胜率对照（纯 Node，几秒）
+npm run eval:balance         # 平衡矩阵：5,796 场无头仿真（纯 Node，约 3 分钟）
+npm run train:intervention   # Q-learning 干预时机（纯 Node，约 1 分钟）
 ```
 
-产物写在 `reports/`。真实模型联调用 `node scripts/eval-live-model.js`，会消耗少量 API 额度，不读取也不打印密钥。
+产物写在 `reports/`。以上都不需要 Python，也不调用模型。
+
+工具评测（判模型该调哪个工具、以及**参数对不对**）：
+
+```sh
+npm run eval:live:selftest   # 判分自检：拿修复前/后的回执各跑一遍，不需要网络与额度
+npm run eval:live:dry-run    # 用例彩排：构造每条用例的真实局面，走真实政策与工具，不调模型
+npm run eval:live            # 真实调用：一条用例一次 POST /api/coach，会消耗额度
+```
+
+`eval:live` 需要 8765 上已配置密钥的服务（`./scripts/start.sh`）；没配置时它直接退出，不发出任何请求。
+它按五层算分：工具选择、参数、证据匹配、回答依据一致、过期/跨局拦截，并保留两个已复现的参数缺陷用例（R01「上一回合」、R02 分支候选）作为回归样例。
+
+真实模型联调也可以用 `node scripts/eval-live-model.js`（3 条用例，写 `reports/live-model.json`），同样需要已配置的服务、会消耗少量额度，不读取也不打印密钥。
 
 实验有两条：Q-learning 学干预时机；SmolLM2 冻结骨干后训练两个工具输出行，实际更新 1152 个参数。后者是小型二选一实验，**不是 DeepSeek 微调**。
 
@@ -95,15 +110,16 @@ npm run train:intervention   # Q-learning 干预时机
 
 ## 可选：本地模型
 
-基础游戏只需 Node。语义检索、精确 token 计数和训练需要 Python。
+基础游戏与上面「实验」一节的全部命令只需 Node。语义检索与工具输出行训练需要 Python，且首次要联网下载模型：
 
 ```sh
-node scripts/eval-semantic.js
-node scripts/eval-balance.js
-.venv-agent/bin/python scripts/train-tool-router.py
+.venv-agent/bin/python -m pip install -r requirements-agent.lock.txt  # 建 Python 环境（本机已有 .venv-agent，Python 3.9）
+node scripts/eval-semantic.js                                        # 首次下载多语嵌入模型（约 458MB，落在 .models/）
+.venv-agent/bin/python scripts/train-tool-router.py                  # 首次下载 SmolLM2-135M-Instruct（约 260MB）
 ```
 
-首个模型需要联网下载；启动时预热语义模型，未就绪会自动退回词项检索。
+`node scripts/eval-balance.js`（即 `npm run eval:balance:quick`）不需要 Python。
+Python 环境或模型缺失时不会报错中断：语义检索预热失败会自动退回词项检索，精确 token 计数则由 `.venv-agent/bin/python scripts/count-tokens.py` 提供。
 
 ---
 

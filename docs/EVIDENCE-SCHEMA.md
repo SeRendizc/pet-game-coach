@@ -23,7 +23,11 @@ journal事件：id、kind、matchId、turn、rulesVersion、time、source、conf
 
 卡片字段：id、game、rulesVersion、status、title、keywords、principle、counterexample、requiredEvidence、conditions、authority、inspiration。检索时先版本过滤。resolveCitation与verifyCitations校验存在性；applicability检查条件，返回candidate/conditions-not-met/reference-only，而非真值或最优性。
 
-工具只读，固定白名单；**`search_rules` 只接受 `query`；`simulate_branch{actionIndex,opponentIndex}`、`read_match{offset,limit}`、`read_evidence{turn}` 也接受参数**（`coach/toolbox.js:15-24` 的 `TOOL_CONTRACTS`，由 `validToolArgs` 逐个校验范围；其余工具参数为空。原文写「其余工具参数为空」，与实现不符）；非法参数、重复调用、超大回执及预算耗尽停止。工具返回为证据数据，不具有修改系统权限的能力。
+工具只读，固定白名单；**`search_rules` 只接受 `query`；`read_match{offset,limit}`、`read_evidence{turn,matchId}` 也接受参数**（`coach/toolbox.js` 的 `TOOL_CONTRACTS`，由 `validToolArgs` 逐个校验范围；其余工具参数为空）；非法参数、重复调用、超大回执及预算耗尽停止。工具返回为证据数据，不具有修改系统权限的能力。
+
+**行动标识（`simulate_branch`）**：候选用稳定标识而不是合法行动列表下标——`skill:guard` / `switch:<伙伴物种id>` / `item:<道具id>:<伙伴物种id>`。索引会随能量、道具和倒下而整体位移，同一个下标在不同回合指向不同行动，回执里也无法核对；物种 id 在一局内不变。旧参数 `actionIndex/opponentIndex` 仍被接受（`validToolArgs` 两条路径都校验），但代码给出的参数一律用稳定标识。回执里必须列明 `simulated`（实际模拟了哪些行动）、`vs`（各候选面对同一组合法对手行动的收益与风险），并在 `freeReplacement` 上区分「主动换宠（消耗整回合）」与「倒下后的免费补位（不消耗回合、不触发对手行动）」。
+
+**回合参数（`read_evidence`）**：显式「第 N 回合」与「上一回合」是两条路径。隐式路径只认 `context.lastTurn` 与 `evidenceIndex` 中**绑定到本局**（`matchId`）的回合——`buildContext` 为控制上下文体积把 `battle.history` 裁成空数组，所以不能用它的长度当回合号；一条记录都没有时回执返回 `{missing:true}`，并用 `otherMatchId` 说明同号回合属于另一局，不跨局补造。
 
 ## 条件提醒
 

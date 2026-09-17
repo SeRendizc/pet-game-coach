@@ -1,4 +1,4 @@
-import {TOOL_CONTRACTS,HARD_TOOLS,validToolArgs,executeTool} from './toolbox.js';
+import {TOOL_CONTRACTS,HARD_TOOLS,validToolArgs,executeTool,evidenceMatchId,resolveMentionedActions} from './toolbox.js';
 import {isLiveMatch} from './policy.js';
 export const MATCH_REVIEW_REQUEST='总结整局：先说这局的走向，再选一个有证据的亮点或值得复盘的选择。没有突出亮点就不硬夸，获胜不必挑错，失利不把单回合评分当必然败因。说清宠物和具体回合，80字以内。';
 import {strategist,searchKnowledge,RULES_VERSION,cards,resolveCitation} from './strategist.js';
@@ -52,7 +52,9 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  else if(/复盘|回顾|详看第.+回合/.test(message)){packet=context.requestedTurn&&!context.lastTurn?{text:`这份对局记录里没有第 ${context.requestedTurn} 回合，不能用其他回合替代。`,evidence:[]}:review(context);if(context.lastTurn)packet={...packet,evidence:[...packet.evidence,compareTurnAlternatives(context.lastTurn,context.evidenceRulesVersion||'0.6')?.text].filter(Boolean),text:`第 ${context.lastTurn.before.turn} 回合：${analyzeTurn(context.lastTurn,{rulesVersion:context.evidenceRulesVersion||'0.6'})}`};route='teacher';next.lastTopic='review';locked=true;}
  if(!packet&&followup&&['review','match-review'].includes(memory.lastTopic)){packet=memory.lastTopic==='match-review'?reviewMatch(context):review(context);route='teacher';locked=true;}
  if(!packet){
-   if(role==='auto')route=/培养|加点|成长/.test(message)?'teacher':(/怎么打|建议|这回合|换宠|技能|先手|能量|豆|属性|克制|防御|预判/.test(message)||situational&&context.battle)?'strategist':'companion';
+   // 换宠/守备这类「选哪个行动」的问法也是军师问题：只说「守一下和换潮甲龟哪个好」时
+   // 一个关键词都不匹配，会被判成陪练，于是政策要求的分支模拟被整段跳过。
+   if(role==='auto')route=/培养|加点|成长/.test(message)?'teacher':(/怎么打|建议|这回合|换宠|换上|换成|换掉|换一只|补位|技能|出招|先手|能量|豆|属性|克制|防御|守一下|守住|预判/.test(message)||situational&&context.battle)?'strategist':'companion';
    if(followup&&['teacher','strategist'].includes(memory.lastTopic))route=memory.lastTopic;
    packet=route==='strategist'?strategist({...context,query:message}):route==='teacher'?teacher(context):companion(context,next,message);next.lastTopic=route;
  }
@@ -60,7 +62,10 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  const useModel=provider.name!=='local'&&!deterministic;
  if(!locked&&next.preference==='brief'&&packet.text.length>160)packet={...packet,text:packet.text.slice(0,157)+'…'};
  packet={...packet,publicState:context.battle,latestEvents:context.lastTurn?.events||[],playerMessage:message,conversation:previous,taskState:{topic:next.lastTopic,pendingQuestion:next.pendingQuiz?.question||null},interfaceContext:{screen:context.mode==='camp'?'首页营地与培养':'对战',focus:context.focus,stageId:context.stageId}};
- if(useModel&&provider.plan&&['strategist','teacher'].includes(route)){
+ // 政策说「必须调」时，工具循环不能被路由挡掉：路由决定语气，证据需求由政策决定。
+ // 之前这里是 ['strategist','teacher'].includes(route)，于是「守一下和换潮甲龟哪个好」
+ // 被判成陪练，agentStop 记成 policy-route-without-tools——政策说要查，实际一次都没查。
+ if(useModel&&provider.plan&&(['strategist','teacher'].includes(route)||policyFor(message,context).need)){
    // 由代码判断该不该调，模型只在"要调"的时候参与，负责决定是否继续查。
    const policy=policyFor(message,context);
    if(policy.need){
@@ -74,10 +79,17 @@ export async function runCoach({message,role='auto',context,memory,conversation=
  }
  const text=useModel?await provider.generate(packet):packet.text;
  if(typeof text!=='string'||!text.trim())throw Error('教练暂时没有生成有效回答');
- const rejected=useModel&&text.length>360;
+ // 「回答必须和工具回执一致」也要由代码判一次，而不是写在提示里指望模型自觉：
+ // 回执说某回合没有记录、说只模拟了这两个行动，正文就不能反过来讲。
+ // 本地模板由引擎数据生成（它说的「备选」来自局面，不是对回执的转述），所以只判模型正文。
+ const modelConsistency=useModel?checkReceiptConsistency({...packet,text}):{consistent:true,reasons:[],scope:'local template: engine-generated, not a paraphrase of the receipts'};
+ const rejected=useModel&&(text.length>360||!modelConsistency.consistent);
  const finalText=rejected?packet.text:text;
+ const finalConsistency=rejected
+  ?{consistent:true,checkedText:'local-template',rejectedModelReasons:modelConsistency.reasons,scope:'回退后的正文是本地已核验结论；rejectedModelReasons 记录被丢弃的模型回答与回执的不一致'}
+  :{...modelConsistency,checkedText:useModel?'model-answer':'local-template'};
  next.dialogue=[...previous,{role:'user',content:message},{role:'assistant',content:finalText}].slice(-8);
- return {...packet,text:finalText,memory:next,route,provider:rejected?'local-fallback':useModel?provider.name:'local',verified:!useModel,localOnly:deterministic,fallbackReason:rejected?'模型输出过长，显示已核验的本局分析':undefined};
+ return {...packet,text:finalText,memory:next,route,provider:rejected?'local-fallback':useModel?provider.name:'local',verified:!useModel,localOnly:deterministic,receiptConsistency:finalConsistency,fallbackReason:rejected?(text.length>360?'模型输出过长，显示已核验的本局分析':'模型回答与工具回执不一致，显示已核验的本局分析'):undefined};
 }
 
 // Bounded tool loop: planner may choose a different tool after inspecting receipts.
@@ -104,9 +116,18 @@ export function policyFor(message='',context={}){
  if(policyNoTool(text))return {need:null,reason:'chitchat-or-parametric'};
  if(/第\s*\d+\s*回合|上一回合|上个回合|前面那回合/.test(text))return {need:'read_evidence',reason:'named-turn'};
  if(/(模拟|如果|假如|要是).{0,14}(换|打|防御|吃|攻击)|帮我比较|两种顺序|谁先出手|先后手/.test(text))return {need:'simulate_branch',reason:'branch-simulation'};
+ if(compareIntent(text))return {need:'simulate_branch',reason:'branch-comparison'};
  if(/(整局|全程|一共打了|总共|回顾整场|前面几回合)/.test(text))return {need:'read_match',reason:'whole-match'};
  if(/(战术|套路|打法|反例|条件|为什么不|怎么克制)/.test(text))return {need:'search_rules',reason:'tactics-knowledge'};
  return {need:null,reason:'state-in-packet'};
+}
+// 「防御还是换龟」「守一下和换潮甲龟哪个好」这类二选一没有「模拟/如果」的字面，
+// 但同样只有分支计算能回答：要有明确的二选一/比较说法，并且提到两个以上的动作。
+// 两条同时成立才触发——只看「比较」会把「回复药比防御更划算吗」这种参数化问题也拉进来。
+function compareIntent(text){
+ if(!/(还是|或者|哪个|哪一个|谁更|谁先|二选一|两个选择)/.test(text))return false;
+ const mentions=text.match(/防御|守一下|守住|换(?:上|成|掉)?[\u4e00-\u9fa5]{0,3}|技能|出招|进攻|攻击|道具|回复药|能量果|净化药|补位|先手/g)||[];
+ return mentions.length>=2;
 }
 // 明确不需要任何工具的情形：寒暄、感谢、情绪表达、对教练本身的提问、偏好声明。
 function policyNoTool(text){
@@ -117,16 +138,58 @@ export function requiredTool(message='',context={}){
 }
 
 // 政策指定工具时，参数由代码给出——玩家不需要说"第几回合"才能查回合，
-// 没指定就取最近一个已结算回合。
-function defaultArgsFor(name,context,message){
+// 没指定就取最近一个**已结算**的回合。
+//
+// 这里踩过一个必须写下来的坑：曾经用
+//   (context.battle?.history||[]).filter(h=>h.type==='turn').length || 1
+// 当回合号。但 buildContext 为了控制上下文体积把 battle.history 裁成了空数组
+// （最近回合只留在 context.lastTurn 与 evidenceIndex 里），长度恒为 0，
+// `0||1` 永远是第 1 回合——玩家问「上一回合」，模型拿到的是第 1 回合的证据，
+// 工具执行成功、回执正常，没有人会发现问题。所以现在：
+//   1. 显式「第 N 回合」与「上一回合」是两条独立路径；
+//   2. 隐式路径只认 lastTurn 与 evidenceIndex 里**绑定到本局**的回合；
+//   3. 一条都没有时明确返回无记录，不伪造第 1 回合。
+export function resolveEvidenceTurn(context={},message=''){
  const text=String(message);
- if(name==='read_evidence'){const m=/第\s*(\d+)\s*回合/.exec(text);
-  const turns=(context.battle?.history||[]).filter(h=>h.type==='turn').length||1;
-  const turn=m?Number(m[1]):Math.max(1,turns);
-  return {turn};}
+ const battleId=context.battle?.id??null;
+ const entries=Array.isArray(context.evidenceIndex)?context.evidenceIndex:[];
+ const explicit=/第\s*(\d+)\s*回合/.exec(text);
+ // 提问明确说「上一局」时问的是归档里的那一局，否则问的是当前对局。
+ const aboutPrevious=/上一局|上个对局|上一场|前一局|上局/.test(text);
+ const ids=[...new Set(entries.map(evidenceMatchId))];
+ const otherMatch=ids.find(id=>id!=='current'&&(battleId===null||id!==String(battleId)));
+ const scope=aboutPrevious&&otherMatch?otherMatch:(battleId===null?null:String(battleId));
+ const scoped=scope===null?entries:entries.filter(entry=>evidenceMatchId(entry)===scope);
+ if(explicit)return {turn:Number(explicit[1]),source:'explicit',battleId,scope,matchId:scope};
+ const listed=scoped.map(entry=>entry.turn).filter(turn=>Number.isInteger(turn)&&turn>0);
+ const last=context.lastTurn?.before?.turn;
+ if(Number.isInteger(last)&&last>0&&(listed.length===0||listed.includes(last)))return {turn:last,source:'last-settled',battleId,scope,matchId:scope};
+ if(listed.length)return {turn:Math.max(...listed),source:'evidence-index',battleId,scope,matchId:scope};
+ return {turn:null,source:null,battleId,scope,matchId:scope,missing:true,
+  reason:'这一局还没有已结算的回合，没有可读取的原始记录；不能用摘要或上一局的同号回合补造'};
+}
+// 参数构造不出来时（例如本局还没有已结算回合），把「没有记录」本身做成回执，
+// 而不是伪造一个参数去调工具，也不是静默跳过。
+function absentArgsFor(name,context,message){
+ if(name==='read_evidence'){const r=resolveEvidenceTurn(context,message);
+  return {missing:true,turn:null,matchId:r.battleId??null,reason:r.reason};}
+ return {missing:true,reason:'无法从这条提问里确定工具参数；不猜参数去执行'};
+}
+export function defaultArgsFor(name,context,message){
+ const text=String(message);
+ if(name==='read_evidence'){const r=resolveEvidenceTurn(context,text);
+  if(r.missing)return null;
+  return r.matchId===null||r.matchId===undefined?{turn:r.turn}:{turn:r.turn,matchId:r.matchId};}
  if(name==='read_match')return {offset:0,limit:3};
  if(name==='search_rules')return {query:text.slice(0,180)};
- if(name==='simulate_branch')return {actionIndex:0,opponentIndex:0};
+ if(name==='simulate_branch'){
+  // 候选从玩家的话里解析，并对照当前合法行动；解析不出来时把原文片段一起交给工具，
+  // 由工具回执要求澄清——绝不默认取第一个行动（那正是「模拟了两个索引 0」的成因）。
+  const resolved=resolveMentionedActions(text,context.battle);
+  const candidates=resolved.candidates.map(c=>c.id);
+  const unresolved=resolved.ambiguous.map(x=>x.token);
+  return {candidates,unresolved:candidates.length?unresolved:unresolved.length?unresolved:['未识别的动作']};
+ }
  return {};
 }
 async function runTool(name,args,context,message,retrieve){
@@ -141,11 +204,18 @@ export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve
  if(mustCall){
   if(!Object.hasOwn(TOOL_CONTRACTS,mustCall))return {trace,stopped:'policy-invalid-tool'};
   const args=defaultArgsFor(mustCall,context,message);
-  if(!validToolArgs(mustCall,args))return {trace,stopped:'policy-invalid-arguments'};
-  let first;try{first=await runTool(mustCall,args,context,message,retrieve);}catch{return {trace,stopped:'policy-tool-failed'};}
-  if(JSON.stringify(first).length>10000)return {trace,stopped:'receipt-budget'};
-  trace.push({id:'tool:1',tool:mustCall,args,result:first,chosenBy:'policy'});
-  seen.add(JSON.stringify([mustCall,args]));
+  if(args===null){
+   // 参数确实构造不出来（本局没有已结算回合）：回执写清「无记录」，让模型据此作答，
+   // 而不是拿一个伪造的回合号去换回错误的证据。
+   trace.push({id:'tool:1',tool:mustCall,args:{},result:absentArgsFor(mustCall,context,message),chosenBy:'policy'});
+   seen.add(JSON.stringify([mustCall,{}]));
+  }else{
+   if(!validToolArgs(mustCall,args))return {trace,stopped:'policy-invalid-arguments'};
+   let first;try{first=await runTool(mustCall,args,context,message,retrieve);}catch{return {trace,stopped:'policy-tool-failed'};}
+   if(JSON.stringify(first).length>10000)return {trace,stopped:'receipt-budget'};
+   trace.push({id:'tool:1',tool:mustCall,args,result:first,chosenBy:'policy'});
+   seen.add(JSON.stringify([mustCall,args]));
+  }
  }
  for(let i=trace.length;i<Math.min(4,limit);i++){
   // 规划器解析失败不应该让整轮作废：拿不到工具就用已有证据作答，
@@ -204,6 +274,46 @@ export function assembleContext(payload,{window=WORKING_CONTEXT,output=OUTPUT_RE
  return {payload:p,audit:{task,window,outputReserve:output,systemReserve:system,toolReserve:tools,estimatedInput:bytes(p),estimate:'UTF-8 byte upper budget; not exact model token count',retainedEvidenceIds:[...(p.context.lastMatch?.keyTurns||[]).map(x=>x.id),...(m.journal||[]).map(x=>x.id)]}};
 }
 
+const escapeRe=text=>String(text).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+// 「回答必须与工具回执一致」由代码判定，而不是写在提示里指望模型自觉。
+// 只判三类可判定的事，宁可漏判也不误伤：
+//   1. 回执说某回合没有记录，正文却把那一回合当成事实讲；
+//   2. 回执只模拟了 A、B，正文却说「比较了 C」（C 是合法但没模拟的行动）；
+//   3. 成本说反：把倒下后的免费补位说成消耗整回合，或把主动换宠说成免费。
+// 这不是正确性的证明，只是把「工具执行成功但答的是另一件事」变成一个可失败检查。
+export function checkReceiptConsistency(answer={}){
+ const text=String(answer.text||''),reasons=[];
+ const trace=Array.isArray(answer.toolTrace)?answer.toolTrace:[];
+ for(const receipt of trace){
+  const result=receipt?.result;
+  if(!result||typeof result!=='object')continue;
+  if(receipt.tool==='read_evidence'&&result.missing===true&&Number.isInteger(result.turn)){
+   const clause=text.match(new RegExp('第\\s*'+result.turn+'\\s*回合([^。；！？]*)'))?.[1]??null;
+   const asserts=clause&&/(使用|造成|受到|打出|发生|掉了|剩下|回复|换上了)/.test(clause);
+   const negated=clause&&/(没有|还没|未|不存在|不能|无法|缺少|查不到|不存)/.test(clause);
+   if(asserts&&!negated)reasons.push('claim-on-missing-evidence:'+result.turn);
+  }
+  if(receipt.tool==='simulate_branch'){
+   const simulated=new Set((result.simulated||[]).map(x=>x.name).filter(Boolean));
+   for(const other of result.legalAlternatives||[]){
+    if(!other?.name||simulated.has(other.name))continue;
+    if(new RegExp('(?:比较|对照|模拟|算了|试算)[^。；]{0,12}'+escapeRe(other.name)).test(text))reasons.push('receipt-action-mismatch:'+other.name);
+   }
+   // 成本说反：否定词必须在动词前面才算否定（「不消耗回合」不是「消耗回合」）。
+   if(result.freeReplacement===true){
+    const claim=/(补位|换上?)[^。；]{0,10}(消耗|用掉|占用|花掉)[^。；]{0,4}回合/.exec(text);
+    if(claim){const head=text.slice(claim.index,claim.index+claim[0].indexOf(claim[2]));
+     if(!/(不|没|免|别|不用)/.test(head))reasons.push('replacement-cost-mismatch');}
+   }
+   if(result.freeReplacement===false&&(result.simulated||[]).some(x=>x.kind==='switch')){
+    const claim=/(换上?|主动换宠)[^。；]{0,10}(免费|不消耗回合|不占回合)/.exec(text);
+    if(claim){const head=text.slice(claim.index,claim.index+claim[0].indexOf(claim[2]));
+     if(!/(不|没|并非|不是)/.test(head))reasons.push('switch-cost-mismatch');}
+   }
+  }
+ }
+ return {consistent:reasons.length===0,reasons:[...new Set(reasons)],scope:'Receipt-consistency guard: missing evidence, un-simulated comparison, switch/replacement cost. Narrow by design, not a proof of full correctness'};
+}
 export function checkGroundedAnswer(answer){
  const reasons=[],text=answer.text||'',facts=JSON.stringify({evidence:answer.evidence||[],tools:answer.toolTrace||[],state:answer.publicState,events:answer.latestEvents,summary:answer.textFacts});
  if(/先看.{0,8}(?:对手|它).{0,6}出招|看(?:到|完)对手.{0,5}(?:出招|行动)再/.test(text))reasons.push('simultaneous-action-order');
