@@ -79,6 +79,18 @@ function renderTypeFilter(navId,rerender,which='rosterType'){
  document.querySelectorAll(`#${navId} [data-roster-type]`).forEach(b=>b.onclick=()=>{if(which==='enemyRosterType')enemyRosterType=b.dataset.rosterType;else rosterType=b.dataset.rosterType;rerender();});
 }
 // 出征页 = 选关卡、选三只、选难度，然后开始。
+// 选宠卡片只有这一个模板，两侧共用。
+// 之前对方那侧另写了一份简化模板（只有图标、名字、等级），于是两栏的文字高度不一样——
+// 同一件事两套渲染，是这轮反复出现的毛病。
+function petCard(base,{order=-1,level=1,action=''}={}){
+ const p={...base,level};
+ return `<article class="pet-option ${order>=0?'chosen':''}">`
+  +`${order>=0?`<span class="order">${order+1}号位</span>`:''}`
+  +`<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div>`
+  +`<p><strong>${p.bio}</strong> · ${p.trait}</p>`
+  +`<div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div>`
+  +`<div class="buttons">${action}</div></article>`;
+}
 function deployView(){
  wallet();$('deploy-record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
  renderStages();renderTypeFilter('roster-pages',()=>deployView());
@@ -112,30 +124,29 @@ function renderPickSplit(){
  const box=document.querySelector('.pick-split');if(box)box.classList.toggle('split',split);
  if(!split)return;
  const ai=pvpOpponent!=='human';
- $('pick-side-enemy-title').textContent=ai?'对方 · 已配好':'对方 · 同屏选';
  const seed=Number($('seed').value);
  const avg=selected.length?Math.round(selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/selected.length):1;
- // 对方那只队伍：AI 由引擎自动配好，真人则是他自己在右栏选的。
+ // 两侧用**同一套网格**：都是 14 张卡、都能筛、都能点。区别只在于
+ // 对方那列的三只是谁选的——真人自己点，AI 由引擎先选好并标出来。
+ // 之前把 AI 那侧做成了「只显示 3 张」的特殊视图，那是两套界面，不是同一件事。
  const enemyTeam=ai?buildVersusOpponent(Number.isInteger(seed)?seed:17,{level:avg}).enemyTeam:enemySelected;
- // 筛选：两侧各一个，互不影响
  renderTypeFilter('enemy-pages',()=>deployView(),'enemyRosterType');
- if(ai){
-  $('roster-enemy').innerHTML=enemyTeam.map(id=>{const b=SPECIES.find(x=>x.id===id);
-   return `<article class="pet-option chosen"><div class="pet-top"><span class="pet-icon">${b.icon}</span><div><h3>${b.name}</h3><span class="muted">Lv.${avg}</span></div></div></article>`;}).join('');
- }else{
-  $('roster-enemy').innerHTML=filteredSpecies('enemyRosterType').map(base=>{const at=enemySelected.indexOf(base.id);
-   return `<article class="pet-option${at>=0?' chosen':''}">${at>=0?`<span class="order">${at+1}号位</span>`:''}<div class="pet-top"><span class="pet-icon">${base.icon}</span><div><h3>${base.name}</h3><span class="muted">Lv.${profile.pets[base.id]?.level||1}</span></div></div><div class="buttons"><button data-enemy-pet="${base.id}" ${at<0&&enemySelected.length>=3?'disabled':''}>${at>=0?'移出':'加入'}</button></div></article>`;}).join('');
-  document.querySelectorAll('#roster-enemy [data-enemy-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.enemyPet;
-   enemySelected=enemySelected.includes(id)?enemySelected.filter(x=>x!==id):[...enemySelected,id];deployView();});
- }
- // 双方阵容各评估一次。对方那条在 AI 对局里糊掉：看得见有评估，读不出内容。
+ const markOf=id=>enemyTeam.indexOf(id);
+ $('roster-enemy').innerHTML=filteredSpecies('enemyRosterType').map(base=>{
+  const at=markOf(base.id),lv=ai?avg:(profile.pets[base.id]?.level||1);
+  // AI 那侧不可点，但卡片本身与左侧完全一致；用一个不可用的按钮占位，保持高度相同。
+  const act=ai?`<button disabled>${at>=0?'AI 已选':'—'}</button>`
+   :`<button data-enemy-pet="${base.id}" ${at<0&&enemySelected.length>=3?'disabled':''}>${at>=0?'移出队伍':'加入队伍'}</button>`;
+  return petCard(base,{order:at,level:lv,action:act});}).join('');
+ if(!ai)document.querySelectorAll('#roster-enemy [data-enemy-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.enemyPet;
+  enemySelected=enemySelected.includes(id)?enemySelected.filter(x=>x!==id):[...enemySelected,id];deployView();});
+ // 双方阵容各评估一次；AI 那侧糊掉——看得见有评估，读不出内容。
  const theirs=enemyTeam.map(id=>{const b=SPECIES.find(x=>x.id===id);
-  return {...b,...(profile.pets[id]||{}),level:ai?avg:(profile.pets[id]?.level||1)};});
- const ea=enemyTeam.length===3?rosterAdvice(theirs):null;
- const box2=$('enemy-advice');
- box2.classList.toggle('blurred',ai&&!!ea);
- box2.innerHTML=ea?`<strong>✦ 阵容</strong><span>${escape(ea.lines[0]+' '+ea.lines[2])}</span>`
-  :`<span class="muted">${ai?'等待对手配队':'对方选好三只后给出阵容评估'}</span>`;
+  return b?{...b,...(profile.pets[id]||{}),level:ai?avg:(profile.pets[id]?.level||1)}:null;}).filter(Boolean);
+ const ea=theirs.length===3?rosterAdvice(theirs):null;
+ const ebox=$('enemy-advice');
+ ebox.innerHTML=ea?`<strong>✦ 阵容</strong><span>${escape(ea.lines[0]+' '+ea.lines[2])}</span>`
+  :`<span class="muted">${ai?'等待对手配队':'对方选满三只后给出评估'}</span>`;
 }
 function showCamp(){$('deploy').hidden=true;$('camp-home').hidden=false;$('camp-tab').classList.add('selected');}
 function showDeploy(mode){matchMode=mode||matchMode;$('camp-home').hidden=true;$('deploy').hidden=false;$('camp-tab').classList.remove('selected');syncMode();deployView();}

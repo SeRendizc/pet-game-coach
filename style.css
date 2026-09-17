@@ -399,12 +399,10 @@
 .pick-split.split #pick-side-enemy{padding-left:14px;border-left:2px solid #4a6a86}
 /* 两侧结构一致：标题一行、筛选条一行、建议、网格。筛选条撑满本栏宽度，
    与下面的宠物网格同宽（和营地页一致）——按钮靠 nav button{flex:1} 等分。 */
-.pick-side-title{display:block;margin:0 0 8px}
 .pick-split.split .pick-side nav{margin:0 0 9px;flex-wrap:nowrap}
 .pick-split.split .pick-side nav button{flex:1 1 0;min-width:0;padding:5px 2px;font-size:12px}
 /* 两侧标题长度不同（「我方」/「对方（已自动配好）」），会把各自的筛选条推到不同的起点，
    看起来就不对称了。给标题固定宽度，两个筛选条便从同一位置开始。 */
-.pick-side-title{margin:0;font-size:13px;color:#9fb3c4;font-weight:600;flex:0 0 7.5em;
  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick-head nav{display:flex;flex-wrap:wrap;gap:4px;margin:0}
 .pick-head nav button{padding:3px 7px;font-size:11px;border-radius:6px}
@@ -428,7 +426,7 @@
 /* 对方的教练建议：AI 对局时糊掉——看得见有，读不出内容 */
 .roster-advice.card.blurred{position:relative;filter:blur(4px);user-select:none;pointer-events:none}
 /* 对方那条被糊掉的建议：压成一行高，否则一块灰条比正文还显眼。 */
-.pick-split.split .roster-advice.card.blurred{max-height:26px;overflow:hidden}
+/* 两侧评价框高度由基础规则统一给到 42px，这里不再单独夹取，否则右边矮一截、下面全错开。 */
 .pick-split.split .roster-advice.card.blurred>strong{display:none}
 /* 卡片数量少时不要留一整行空列：按内容自适应，最多 4 列。 */
 .pick-split.split #roster,
@@ -441,3 +439,33 @@
 /* 筛选按钮：不带数量、不换行。八个属性要能排在一行里。 */
 .pick-head nav button{white-space:nowrap;min-width:0}
 #camp-pages button{white-space:nowrap}
+
+/* 两侧逐行对齐：标题、评价、筛选、网格各占固定高度，
+   否则左边评价两行、右边一行，下面的筛选与网格就错开了。 */
+.pick-split.split .pick-side{display:flex;flex-direction:column}
+/* order:3 是早先「评价排在网格之后」那个布局留下的，DOM 顺序改了但 flex 顺序没跟着改，
+   结果评价被挪到最下面。这里显式归零。 */
+.pick-split.split .roster-advice.card{order:0;flex:0 0 auto;height:42px;display:flex;flex-direction:column;
+ justify-content:center;overflow:hidden}
+.pick-split.split .pick-side nav{flex:0 0 auto;min-height:30px}
+.pick-split.split .roster{flex:1 1 auto;align-content:start}
+
+/* 两侧逐像素对齐：边框与内边距在左右两侧的写法不同（左 padding-right、右 padding-left+边框），
+   靠继承来的 margin 会差出 2px，越往下越明显。这里显式统一。 */
+/* 用 gap 而不是 margin 控制两侧的行间距。
+   margin 会受各自继承来的值影响（左栏 padding-right、右栏 padding-left+边框），
+   实测差 2px；gap 由容器统一给，两侧不可能不一致。 */
+/* 用固定的行轨道，而不是靠内容高度自然堆叠。
+   两侧的标题、评价、筛选各占一条固定高度的轨道，网格占最后一条——
+   这样两栏的每一行必然在同一水平线上，不必逐项去追那 2px 的差。 */
+.pick-split.split .pick-side{padding-top:0;padding-bottom:0;display:grid;
+ grid-template-rows:42px 30px auto;gap:10px;align-content:start}
+.pick-split.split .pick-side>*{margin:0;min-width:0}
+.pick-split.split .pick-side>.roster-advice.card{height:42px;overflow:hidden}
+.pick-split.split .pick-side>nav{height:30px;align-items:center}
+
+/* 两侧卡片必须一样高：AI 那侧的卡没有按钮（不可点），会比可点的那侧矮 34px，
+   四行下来就差出一大截。给卡片一个固定高度，按钮缺席时由空白占位。 */
+.pick-split.split .pet-option{height:144px;grid-template-rows:auto 1fr auto;align-content:start}
+/* 两侧的筛选条对齐：边框与内边距在左右两侧写法不同，差 2px，用同高的行轨道吸收掉。 */
+.pick-split.split .pick-side>nav{height:30px;box-sizing:border-box}
