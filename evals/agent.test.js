@@ -203,11 +203,16 @@ test('tool contracts reject unknown parameters and return bounded evidence pages
  const p=executeTool('read_match',{limit:1},context);assert.equal(p.keyTurns.length,1);assert.equal(p.nextOffset,1);
  const e=executeTool('read_evidence',{turn:1},context);assert(e.events.length);assert.equal(e.turn,1);
  assert.equal(executeTool('read_evidence',{turn:999},context).missing,true);
- // A live versus match gets no tools: one side would be reading the other's options.
- // Both the online mode and the local hot-seat mode share this policy.
- const live=buildContext(createGame(17),newProfile(),'fox');live.mode='pvp-local';
- assert.throws(()=>executeTool('read_state',{},live),/policy/);
- assert.throws(()=>executeTool('read_state',{}, {...live,mode:'pvp-live'}),/policy/);
+ // Only online competitive play mutes the coach. Local versus does not: the coach
+ // belongs to the player, the opponent can consult the same coach across the
+ // handoff, and the line that matters - never reading the opponent's pending
+ // action - is enforced separately.
+ const local=buildContext(createGame(17),newProfile(),'fox');local.mode='pvp-local';
+ const localState=executeTool('read_state',{},local);
+ assert.equal(localState.screen,'pvp-local','local versus keeps the tools');
+ assert(Array.isArray(localState.legalPlayer)&&localState.legalPlayer.length>0);
+ // Online ranked does mute, while the match is live.
+ assert.throws(()=>executeTool('read_state',{}, {...local,mode:'pvp-live'}),/policy/);
  // Once the match has ended the same evidence is available again — the refusal
  // message promises "结束后我们再聊", so post-match review must not stay blocked.
  const afterMatch=executeTool('read_state',{}, {...context,mode:'pvp-live'});

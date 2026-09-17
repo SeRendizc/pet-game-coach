@@ -1,20 +1,24 @@
 // Who may receive tactical help, and when.
 //
-// A *live* match — online PVP, or the local hot-seat versus mode — gets no in-match
-// tactical advice, because both sides are human and one of them would be reading the
-// other's options. The very same evidence may be reviewed once the match has ended.
+// The only mode that mutes the coach is online competitive play (`pvp-live`):
+// there the opponent is a separate account and live tactical help would give
+// one side an advantage the other cannot have.
 //
-// `pvp-local` and `pvp-live` share this policy on purpose: the fairness rule is about
-// a human opponent being present, not about whether a socket is open.
-const LIVE_MODES=['pvp-live','pvp-local'];
+// Local versus (`pvp-local`) is NOT muted, whoever sits opposite. It is a
+// demo/learning surface on one device: the coach belongs to the player, the
+// opponent can consult the same coach when the device is handed over, and the
+// one line that actually matters is never crossed anyway - the coach never
+// reads the opponent's pending action, which tests assert.
+//
+// Muting local versus was an over-reach in an earlier revision: it disabled the
+// 军师 in exactly the 对战 scenario the task asks for, and it was incoherent -
+// the AI opponent exists precisely to stand in for a human, so the two had to
+// behave the same way.
+const RANKED_MODES=['pvp-live'];
 export function isLiveMatch(context){
   const modes=[context?.mode,context?.battle?.mode];
-  if(!modes.some(m=>LIVE_MODES.includes(m)))return false;
+  if(!modes.some(m=>RANKED_MODES.includes(m)))return false;
   const ended=context?.battle?.result||context?.battle?.phase==='ended';
-  if(ended)return false;
-  // 对局中要不要闭麦是产品开关，不是硬规则。题目要的是「军师在对战场景给建议」，
-  // 所以只有在存在第三方受影响时才必须沉默：对面坐着真人。对电脑时双方只有玩家
-  // 一方，给建议不损害任何人，教练照常工作。
-  return !context?.coachAllowed;
+  return !ended;
 }
-export function isVersusMode(mode){return LIVE_MODES.includes(mode);}
+export function isVersusMode(mode){return mode==='pvp-local'||mode==='pvp-live';}
