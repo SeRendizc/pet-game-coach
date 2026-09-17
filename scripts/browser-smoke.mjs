@@ -71,8 +71,14 @@ async function main(){
 
  // 训练一局
  await js(`document.getElementById('go-pve').click()`);await sleep(400);
+ // 播放速度调到最快。否则每回合的动画帧会让所有按钮暂时禁用，
+ // 而「按不到按钮」会被下面误判成卡死——第一版就是这样量出了 14 次，
+ // 那实际量的是动画时长而不是死锁。
+ await js(`(()=>{const s=document.getElementById('speed');if(s){s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
+ await sleep(200);
  await js(`document.getElementById('start').click()`);await sleep(1800);
  check('进入对局',await js(`!document.getElementById('battle').hidden`));
+ check('播放速度已设为最快',await js(`document.getElementById('speed')?.value==='0'`));
 
  // 一直打到分出结果；同时检测「按钮全不可用且没结束」= 卡死
  let stuck=0,maxStuck=0,turns=0,finished=false;
@@ -81,12 +87,15 @@ async function main(){
   await sleep(850);
   finished=await js(`!!document.getElementById('result')&&!document.getElementById('result').hidden`);
   if(finished)break;
-  if(clicked)turns++;else stuck++;
+  // 只有在「界面不在忙碌状态、对局也没结束、却仍然一个可点按钮都没有」时才算卡死。
+  // 动画期间的禁用是正常的。
+  const busy=await js(`!!document.getElementById('turn')?.textContent.includes('正在')`);
+  if(clicked){turns++;stuck=0;}else if(!busy){stuck++;}else{stuck=0;}
   maxStuck=Math.max(maxStuck,stuck);
   if(stuck>=15)break;
  }
  check('对局能打到结束',finished,`${turns} 次出招`);
- check('过程中没有卡死',maxStuck<15,`最长连续无可点 ${maxStuck} 次`);
+ check('过程中没有卡死',maxStuck<15,`非动画期最长连续无可点 ${maxStuck} 次`);
  check('控制台零报错',errors.length===0,errors.slice(0,3).join(' | '));
 
  for(const c of checks)console.log(`${c.ok?'✓':'✗'} ${c.name}${c.detail?`  (${c.detail})`:''}`);
