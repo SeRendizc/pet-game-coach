@@ -791,6 +791,11 @@ function updateCoach(force=false){
   // 而展开区不再补全它。（给模型的提示词本来就只要 60 字以内。）
   const line=concise(answer.text,140);
   $('live-copy').textContent=line;
+  // 顶部条从此是**结论唯一的落脚处**。展开区里那段本地结论必须让位——
+  // 判据不是「与模型这句措辞相同」（措辞不同照样是第二个结论，一屏两套结论还可能互相冲突），
+  // 而是「它本来就是结论」：`copy` 正是此前显示在顶部条里的那一句。
+  // 依据（血量能量、引用的卡片）不受影响，它们本来就不等于 copy。
+  dropRepeatedLead($('live-detail'),copy);
   dropRepeatedLead($('live-detail'),line);
   speakCue(answer.text);$('live-provider').textContent=answer.provider==='deepseek'?'DeepSeek · 结合局面解释':answer.fallbackReason||'本地教练';}).catch(()=>{if(hintEpoch===token){$('live-provider').textContent='模型暂不可用 · 保留规则建议';speakCue(hint.text);}});
 }

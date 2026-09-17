@@ -279,3 +279,38 @@ test('这套判据不是空洞的：修改前的原句贴进来必须报错',()=
  const line=matchStatsLine({rounds:14,counts:{switches:0,guards:0,items:0,attacks:14,escapes:0},remainingItems:{potion:3,cleanse:2,ether:2}});
  assert.deepEqual(copyViolations([line]),[],'现在的统计句被误判了：'+line);
 });
+
+test('模型接管顶部条后，展开区不得留下第二套结论（措辞不同也不行）',async()=>{
+ // 上一版的判据是「展开区那段与模型这句**措辞相同**才删」。措辞不同时它留着，
+ // 于是顶部条是模型结论、展开区是本地结论——一屏两套结论，还可能互相冲突。
+ // 判据改成「它本来就是结论」：本地结论 copy 一经被模型取代就整段让位，不论措辞。
+ const src=readFileSync(new URL('./app.js',import.meta.url),'utf8');
+ const landing=/const line=concise\(answer\.text,140\);[\s\S]{0,700}?dropRepeatedLead\(\$\('live-detail'\),copy\);/.exec(src);
+ assert(landing,'模型接管时必须把本地结论（copy）从展开区移除，不能只按措辞判重');
+ assert(/dropRepeatedLead\(\$\('live-detail'\),line\)/.test(src),'与模型句真正重复的那段仍要删');
+
+ // 行为层面：展开区结构是 [本地结论, 依据…]。
+ const detail=makeDetail(['首回合双方都满血，先手压芽角鹿。','烬尾狐：98/98 HP，能量 5，速度 38。']);
+ dropRepeatedLead(detail,'首回合双方都满血，先手压芽角鹿。');   // 模型接管：本地结论让位
+ dropRepeatedLead(detail,'这一回合先用火花压血挂灼烧更划算。'); // 模型句措辞不同，不该再删到依据
+ assert.deepEqual([...detail.querySelectorAll('p')].map(p=>p.textContent),
+  ['烬尾狐：98/98 HP，能量 5，速度 38。'],'展开区只该留下依据');
+});
+
+test('本地路径（没有模型回答）下展开区的依据不得被删',async()=>{
+ // 反向：判据不能矫枉过正。折叠条写「为什么现在说」，展开区写完整局面，两者不是同一句，
+ // 本地路径下必须留着——无条件删第一段就是把依据弄丢。
+ const detail=makeDetail(['烬尾狐：98/98 HP，能量 5，速度 38。','芽角鹿：108/108 HP，能量 5，速度 29。']);
+ const removed=dropRepeatedLead(detail,'首回合双方都满血');
+ assert.equal(removed,false,'依据与折叠句不同，不该删');
+ assert.equal([...detail.querySelectorAll('p')].length,2,'两段依据都要在');
+});
+
+// 造一个最小的 details 结构，形状与 #live-detail 一致（若干 <p>，querySelector 取第一段）
+function makeDetail(texts){
+ const d={children:[],querySelector(sel){return sel==='p'?(this.children[0]||null):null;},
+  querySelectorAll(sel){return sel==='p'?this.children:[];},
+  removeChild(el){this.children=this.children.filter(c=>c!==el);}};
+ for(const t of texts){const p={textContent:t,remove(){d.removeChild(p);}};d.children.push(p);}
+ return d;
+}
