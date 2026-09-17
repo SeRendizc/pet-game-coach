@@ -311,7 +311,9 @@ test('长停留：停的就是推荐解 → 老师只讲解这一招，军师闭
 
 test('长停留：明显不是最优 → 军师委婉建议换掉（给台阶，不判错）',()=>{
  const g=createGame(1),ranked=rankedOf(g),dash=suboptimalSkillOf(ranked);
- assert(dash&&dash.id==='dash','测试前提：疾爪在真实枚举里比第一低 6 分以上');
+ // 不绑死某个技能：相克表改动后第一个「低于第一 5 分以上」的技能可能换人，
+ // 这里只要求真实枚举里确实存在这么一个明显更差的选项。
+ assert(dash,'测试前提：真实枚举里存在一个比第一低 5 分以上的技能');
  const att=dwellOn(dash,{now:13000});
  const signal=dwellSignal(att,{now:13000,turn:'1:battle'});
  const verdict=dwellVerdict(g,signal,ranked);
@@ -321,7 +323,10 @@ test('长停留：明显不是最优 → 军师委婉建议换掉（给台阶，
  assert.equal(cue.basis.kind,'dwell-suboptimal');
  assert.equal(cue.basis.notWinRate,true);
  assert(cue.basis.gap>5);
- assert.match(cue.text,/疾爪/);assert.match(cue.text,/火花/);
+ // 不绑死技能名：相克表改动后第一个「明显更差」的技能可能换人，
+ // 断言改成「文案提到的正是玩家实际停的那个，以及枚举第一的那个」。
+ assert.match(cue.text,new RegExp(dash.name),'文案要提到玩家停的那个技能');
+ assert.match(cue.text,new RegExp(topSkillOf(ranked).name),'文案要提到枚举第一的技能');
  assert.match(cue.text,/当时也可以先比较/,'措辞要给台阶');
  assert.match(cue.text,/不算错/);assert.match(cue.text,/由你决定/);
  assert.match(cue.text,/不是胜率/);

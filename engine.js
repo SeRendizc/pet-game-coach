@@ -80,13 +80,20 @@ export const ITEMS = {
   ether:withDesc({name:'能量果',restore:4,count:2,desc:o=>`为任意存活队友恢复 ${o.restore} 能量`}),
 };
 // Relationships are explicit; no type immunities or same-type attack bonus.
-export const TYPE_ADVANTAGES={fire:['leaf'],water:['fire','rock'],leaf:['water','rock'],rock:['fire','electric','wind'],electric:['water','wind'],wind:['leaf']};
+// 属性相克：两个独立的三环，每个属性**恰好克一个、被一个克**，两组之间中性。
+//   元素环：火 → 草 → 水 → 火
+//   自然环：岩 → 雷 → 风 → 岩
+// 旧表是拍出来的：岩克三个、火只克一个、雷只被一个克，说不出为什么。
+export const TYPE_ADVANTAGES={fire:['leaf'],leaf:['water'],water:['fire'],rock:['electric'],electric:['wind'],wind:['rock']};
 // 属性关系的一句话摘要，供开局日志与规则弹窗共用，避免各写一份。
 export function typeChartLine(){return Object.entries(TYPE_ADVANTAGES).map(([type,targets])=>`${TYPES[type]}克${targets.map(x=>TYPES[x]).join('、')}`).join('；');}
 export function multiplier(a,b){
  if(a==='normal')return 1;
  if(TYPE_ADVANTAGES[a]?.includes(b))return RULES.typeAdvantage;
- if(a===b||TYPE_ADVANTAGES[b]?.includes(a))return RULES.typeResist;
+ // 同系 ×1，不减伤。旧实现把「同系」和「被反克」塞进同一个分支共用 0.75，
+ // 但那是两件事：被反克是打了克制你的属性，同系只是同属性互殴，没有设定支持它减伤。
+ if(a===b)return 1;
+ if(TYPE_ADVANTAGES[b]?.includes(a))return RULES.typeResist;
  return 1;
 }
 export function effectiveSpeed(p){return Math.max(1,p.speed-(p.speedDown?.amount||0));}

@@ -88,7 +88,9 @@ test('screenshot endgame flags attack opportunity with guard caveat',()=>{
  const g=createGame(17,['turtle','fox','sparrow'],{enemyTeam:['turtle','otter','deer']});g.turn=25;
  Object.assign(g.player.pets[0],{hp:28,maxHp:142,atk:36,def:32,speed:16,energy:6});
  Object.assign(g.enemy.pets[0],{hp:31,maxHp:161,atk:23,def:31,speed:13,energy:1});g.enemy.items.potion=0;g.enemy.pets.slice(1).forEach(p=>p.hp=0);
- const cue=decisiveOpportunity(g);assert(cue);assert.equal(cue.action.id,'tide');assert.equal(cue.evidence.damage,38);assert.match(cue.text,/防御/);
+ const cue=decisiveOpportunity(g);assert(cue);// 相克表改成两个三环并把同系改为 ×1 之后，潮汐重击对潮甲龟的伤害从 38 涨到 51，
+ // 而水波只要 2 豆就能打 38，刚好够收尾——于是最省的致命解从 tide 变成 wave。
+ assert.equal(cue.action.id,'wave');assert.equal(cue.evidence.damage,38);assert.match(cue.text,/防御/);
  assert.equal(decisiveOpportunity({...g,mode:'pvp-live'}),null);g.player.pets[0].energy=0;assert.equal(decisiveOpportunity(g),null);
 });
 

@@ -37,13 +37,16 @@ test('type multipliers shown on the rules page match measured engine damage',()=
   // 同一个攻击者、同一个技能，只换防守方属性，用引擎自己算出来的伤害比值反推倍率。
   const neutral=damage(scaledPet('fire'),scaledPet('normal'),scaledAttack('fire'));
   const strong=damage(scaledPet('fire'),scaledPet('leaf'),scaledAttack('fire'));
-  const weak=damage(scaledPet('fire'),scaledPet('fire'),scaledAttack('fire'));
+  // 抵抗要用「打向克制自己的属性」来探，不能用同系：同系已改为 ×1。
+  // 旧实现把同系与被反克塞进同一个分支共用 0.75，这个探针当时靠同系也能测到。
+  const weak=damage(scaledPet('fire'),scaledPet('water'),scaledAttack('fire'));
+  const same=damage(scaledPet('fire'),scaledPet('fire'),scaledAttack('fire'));
   assert.equal(multiplier('fire','leaf'),RULES.typeAdvantage);
   assert.equal(strong/neutral,RULES.typeAdvantage,'实测克制倍率与 RULES 不一致');
   assert.equal(weak/neutral,RULES.typeResist,'实测抵抗倍率与 RULES 不一致');
   // 普通系与无关系属性必须是 1 倍。
   assert.equal(damage(scaledPet('normal'),scaledPet('leaf'),scaledAttack('normal')),neutral);
-  assert.equal(damage(scaledPet('fire'),scaledPet('water'),scaledAttack('fire')),weak);
+  assert.equal(same,neutral,'同系必须 ×1，不再减伤');
   assert.ok(shown(RULES.typeAdvantage)&&shown(RULES.typeResist),'规则页没有显示属性倍率');
   // 属性表本身也要一致：文案里的克制关系必须等于引擎的 TYPE_ADVANTAGES，而且每个克制关系都能实测到。
   const chart=typeChartLine();
