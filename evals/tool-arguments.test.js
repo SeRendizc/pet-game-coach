@@ -373,3 +373,34 @@ test('R06 README 代码块里的每条命令都真实存在',async()=>{
 
 
 
+
+test('有界循环能走满两个回执：政策首步之后，planner 读到回执再要第二个工具，然后停',async()=>{
+ // 补这条是因为：真实模型评测里 toolTrace 从未超过 1，光靠"读源码"证明不了循环可用。
+ // 之前我写过一版，planner 签名写成 {trace} 而实际键名是 receipts，解构出 undefined，
+ // 一 .length 就抛，被 loop 的 catch 吞成 planner-failed——测试接法错了，不是循环坏了。
+ // 这次按真实签名接：plan({message,screen,tools,contracts,hard,hardRequired,receipts,remaining})。
+ const {createGame:cg,buildVersusOpponent:bv}=await import('../engine.js');
+ const g=cg(17,['fox','turtle','deer'],{mode:'pve',difficulty:'normal',...bv(17,{level:2})});
+ const context=buildContext(g,newProfile(),'fox');
+ const seen=[];
+ const plan=async(task)=>{
+   // 签名断言：receipts 与 remaining 必须在，且 receipts 随轮次增长
+   assert.ok(Array.isArray(task.receipts),'planner 必须收到 receipts 数组');
+   assert.equal(typeof task.remaining,'number','planner 必须收到剩余预算');
+   seen.push({rounds:task.receipts.length,remaining:task.remaining,tools:task.receipts.map(r=>r.tool)});
+   if(task.receipts.length===1)return {tool:'search_rules',args:{query:'换宠 回合'}};  // 看过第一个回执后，要第二个
+   return {stop:true};                                                               // 拿到第二个就停
+ };
+ const r=await gatherAgentEvidence({message:'上一回合发生了什么，顺便查一下换宠在规则里是怎么算的',
+   context,mustCall:'read_evidence',plan,retrieve:()=>[],call:async(name,args)=>({ok:true,name})});
+ assert.equal(r.trace.length,2,`应当有两个回执（实际 ${r.trace.length}，stopped=${r.stopped}）`);
+ assert.equal(r.trace[0].chosenBy,'policy','第一个回执由政策直调');
+ assert.equal(r.trace[0].tool,'read_evidence');
+ assert.equal(r.trace[1].chosenBy,undefined,'第二个回执由 planner 请求');
+ assert.equal(r.trace[1].tool,'search_rules');
+ assert.equal(r.stopped,'complete','planner 说停之后必须停');
+ // planner 第一轮看到 1 个回执、剩余 2；第二轮看到 2 个回执、剩余 1
+ assert.deepEqual(seen.map(x=>x.rounds),[1,2],'planner 每轮都要看到当前已有的回执');
+ assert.deepEqual(seen.map(x=>x.remaining),[2,1],'剩余预算要随消耗递减');
+ assert.deepEqual(seen[0].tools,['read_evidence'],'第一轮的回执里应当是政策那一步');
+});

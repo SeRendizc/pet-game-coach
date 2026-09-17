@@ -22,5 +22,17 @@
     }
   ],
   "conclusion": "真实模型在当前提示与政策下稳定地只调用一次工具；多步循环的能力由代码结构（每轮询问 plan，上限 limit=3）与确定性 planner 测试保证，但**未被真实模型评测观察到**。不得用单工具真实记录冒充多步 ReAct。",
-  "note": "修复后的 simulate_branch 一次调用即解析多个候选，这本就是更好的设计——它同时消除了旧代码两次调用但问的不是玩家的那个问题的缺陷。"
+  "note": "修复后的 simulate_branch 一次调用即解析多个候选，这本就是更好的设计——它同时消除了旧代码两次调用但问的不是玩家的那个问题的缺陷。",
+  "deterministicLoopEvidence": {
+    "test": "evals/tool-arguments.test.js 的「有界循环能走满两个回执」",
+    "asserts": [
+      "policy 首步产生第 1 个回执（chosenBy=policy, read_evidence）",
+      "planner 每轮收到 receipts 与 remaining（第一轮 1 个回执/剩余 2，第二轮 2 个/剩余 1）",
+      "planner 看过回执后请求第二个**不同**工具（search_rules）",
+      "trace=2 且 stopped=complete"
+    ],
+    "negativeVerification": "把 runtime.js 的循环上限从 limit 改成 1（模拟产品代码阻止第二步）→ 该测试变红；恢复后 17/17 绿",
+    "note": "这条证明的是**循环实现可用**，不是真实模型会走多步。两者分开陈述。"
+  },
+  "correction": "我第一版这条测试把 planner 签名写成 {trace}，而实际键名是 receipts，解构出 undefined 一 .length 就抛，被 loop 的 catch 吞成 planner-failed。当时我删掉了测试并改用「如实声明」，那是绕过。真实原因是我接错了签名，循环本身没问题。"
 }
