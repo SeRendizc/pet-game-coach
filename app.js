@@ -36,7 +36,7 @@ function renderLoadout(){
  // 默认折叠：只列出已选 4 个技能，避免整页被 6 张卡撑长。
  if(!loadoutOpen){
   const chips=draft.map(id=>{const s=SKILLS[id];return `<span>${s.name}${s.priority?` <i>先制+${s.priority}</i>`:''}</span>`;}).join('');
-  box.innerHTML=`<div class="loadout"><div class="loadout-head"><strong>配招 · 6 选 4</strong><span class="muted">${held==='none'?'无携带物':HELD_ITEMS[held].name}</span></div><div class="chosen-chips">${chips}</div><p class="loadout-note">改动只影响下一局。</p><button id="edit-loadout" class="wide">编辑配招</button></div>`;
+  box.innerHTML=`<div class="loadout"><div class="loadout-head"><strong>配招 · 6 选 4</strong><span class="muted">携带物 · ${held==='none'?'未装备':HELD_ITEMS[held].name}</span></div><div class="chosen-chips">${chips}</div><p class="loadout-note">改动只影响下一局。</p><button id="edit-loadout" class="wide">编辑配招</button></div>`;
   $('edit-loadout').onclick=()=>{loadoutOpen=true;renderLoadout();};
   return;
  }
@@ -73,16 +73,19 @@ $('action-banner').textContent=game.result?'本场已结束。成长奖励见上
 }catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());hoverAction=null;updateCoach();}}
 function notify(event){if(preview)return;const text=coachEvent(event,coachContext(game,profile),coachSession);if(text){$('bubble-text').textContent=text;$('coach-bubble').hidden=false;clearTimeout(bubbleTimer);bubbleTimer=setTimeout(()=>$('coach-bubble').hidden=true,9000);}}
 function openCoach(){connectionStatus().then(s=>{$('coach-status').textContent=s.configured?(s.verified?'DeepSeek 已连接':'DeepSeek 已配置，尚未验证'):'本地模式 · 未配置密钥';}).catch(()=>{$('coach-status').textContent='后端未启动，请运行 npm start';});$('coach-panel').hidden=false;$('coach-bubble').hidden=true;}
-function addChat(role,text){conversation.push({role:role==='你'?'user':'assistant',content:text});conversation=conversation.slice(-8);const e=document.createElement('div');e.className='chat-entry'+(role==='你'?' user':'');e.innerHTML=`<strong>${role}</strong>${markdown(concise(text))}`;if(text.length>180){const d=document.createElement('details');d.innerHTML='<summary>展开完整解释</summary>'+markdown(text);e.append(d);}$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
+function addChat(role,text){conversation.push({role:role==='你'?'user':'assistant',content:text});conversation=conversation.slice(-8);const e=document.createElement('div');e.className='chat-entry'+(role==='你'?' user':'');e.innerHTML=`<strong>${role}</strong>${markdown(text)}`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
+// 等待指示：请求发出后立刻出现，收到回答或失败时移除。
+function showThinking(label){hideThinking();const e=document.createElement('div');e.className='chat-entry thinking';e.id='chat-thinking';e.innerHTML=`<strong>小芽</strong><span class="thinking-text">${escape(label)}</span><span class="dots"><i></i><i></i><i></i></span>`;$('chat-log').append(e);$('chat-log').scrollTop=$('chat-log').scrollHeight;}
+function hideThinking(){document.getElementById('chat-thinking')?.remove();}
 async function ask(text){
- if(!text.trim()||asking)return;if(busy){$('coach-status').textContent='请等本回合出招结束，再分析当前战况';return;}asking=true;addChat('你',text);$('coach-status').textContent='正在读取游戏状态…';
+ if(!text.trim()||asking)return;if(busy){$('coach-status').textContent='请等本回合出招结束，再分析当前战况';return;}asking=true;addChat('你',text);$('coach-status').textContent='正在读取游戏状态…';const remote=!['policy'].includes(coachRole);showThinking('正在读取局面与依据…');$('chat-send').disabled=true;$('chat-input').disabled=true;
  const epoch=contextEpoch,stamp=taskStamp({epoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'});
- try{const answer=await requestCoach({message:text,role:coachRole,context:buildContext(game,profile,focus,roundArchive,stageId,text),memory:coachMemory,conversation:conversation.slice(0,-1),stateToken:epoch});if(!taskIsCurrent(stamp,{epoch:contextEpoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'})||answer.stateToken!==epoch){$('coach-status').textContent='局面已变化或建议已过期，本次旧建议已丢弃，请重新提问';return;}coachMemory=answer.memory;if(answer.fallbackReason&&game)coachMemory=recordCoachEvent(coachMemory,{id:matchId+':'+game.turn+':fallback:'+Date.now(),kind:'coach-fallback',reason:answer.fallbackReason,matchId,turn:game.turn,rulesVersion:game.version});saveCoachMemory();if(!game)cultivation();addChat('小芽',answer.text);
+ try{const answer=await requestCoach({message:text,role:coachRole,context:buildContext(game,profile,focus,roundArchive,stageId,text),memory:coachMemory,conversation:conversation.slice(0,-1),stateToken:epoch});if(!taskIsCurrent(stamp,{epoch:contextEpoch,matchId:game?.id||null,rulesVersion:game?.version||'0.6'})||answer.stateToken!==epoch){hideThinking();$('coach-status').textContent='局面已变化或建议已过期，本次旧建议已丢弃，请重新提问';return;}coachMemory=answer.memory;if(answer.fallbackReason&&game)coachMemory=recordCoachEvent(coachMemory,{id:matchId+':'+game.turn+':fallback:'+Date.now(),kind:'coach-fallback',reason:answer.fallbackReason,matchId,turn:game.turn,rulesVersion:game.version});saveCoachMemory();if(!game)cultivation();addChat('小芽',answer.text);
  const entry=$('chat-log').lastElementChild;if(answer.choices){const controls=document.createElement('div');controls.className='quiz-choices';for(const choice of answer.choices){const b=document.createElement('button');b.textContent=choice;b.onclick=()=>{controls.remove();ask(choice);};controls.append(b);}entry.append(controls);}
  if(answer.evidence.length){const details=document.createElement('details');details.className='coach-evidence';details.innerHTML='<summary>依据 · '+escape({strategist:'军师',teacher:'老师',companion:'陪练',auto:'偏好',policy:'场景限制',guide:'游戏说明'}[answer.route]||answer.route)+'</summary>'+answer.evidence.map(x=>'<p>'+escape(x)+'</p>').join('');entry.append(details);}
  if(answer.toolTrace?.length){const details=document.createElement('details');const summary=document.createElement('summary');summary.textContent='小芽查了什么';details.append(summary);const names={read_state:'当前局面',search_rules:'规则和战术',compare_actions:'行动分支',inspect_training:'培养面板',read_last_turn:'上一回合记录',read_match:'整局记录',read_evidence:'指定回合原始证据',simulate_branch:'假设行动分支'};for(const receipt of answer.toolTrace){const line=document.createElement('p');line.textContent=names[receipt.tool]||receipt.tool;details.append(line);}entry.append(details);}
  $('coach-status').textContent=answer.fallbackReason?answer.fallbackReason:answer.provider==='deepseek'?'DeepSeek 已回答 · 依据可展开查看':answer.verified?(answer.scope==='match'?'整局记录已读取 · 可展开关键回合':answer.memory.lastTopic==='review'?'原始回合已读取 · 计算条件可核对':'本地规则核验 · 不经模型自由改写'):'本地教练 · 依据可展开查看';
- }catch(e){if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{asking=false;}
+ }catch(e){hideThinking();if(e.name==='AbortError'){if(epoch===contextEpoch)$('coach-status').textContent='这条请求已取消';return;}addChat('小芽','这次没有完成分析，请重试。');$('coach-status').textContent=e.message;}finally{hideThinking();asking=false;$('chat-send').disabled=false;$('chat-input').disabled=false;}
 }
 $('start').onclick=()=>{advanceContext();const seed=Number($('seed').value);if(!Number.isInteger(seed)||seed<0||seed>4294967295){$('save-message').textContent='种子需为 0～4294967295 的整数';return;}game=createGame(seed,selected,{pets:profile.pets,difficulty:$('difficulty').value,...stageOptions(stageId)});matchId=crypto.randomUUID();game.id=matchId;coachMemory.watches=[];saveCoachMemory();tacticalShown=new Set();tacticalCount=0;lastTacticalTurn=-10;reward=null;tab='skill';faintShown=false;attention=attentionState(Date.now());coachSession={count:0,lastTurn:null,dismissed:false};$('coach-bubble').hidden=true;$('setup').hidden=true;$('battle').hidden=false;$('camp-tab').classList.remove('selected');$('message').textContent='';$('action-banner').textContent='选择行动。电脑会根据回合前局面决策，不读取你的待执行选择。';render();autoCalls=0;lastAutoReason=null;visibleHintReason=null;visibleHintTurn=-10;coachMuted=false;lastFeedback=null;updateCoach();};
 function toCamp(){if(busy)return;cancelVoice();advanceContext();if(preview){exitPreview();return;}if(game&&!game.result&&!confirm('离开会结束本次训练且没有奖励，返回营地吗？'))return;hintEpoch++;currentHint=null;$('attention-cue').hidden=true;clearTimeout(nudgeTimer);game=null;$('setup').hidden=false;$('battle').hidden=true;$('coach-bubble').hidden=true;$('camp-tab').classList.add('selected');camp();}
@@ -98,7 +101,7 @@ if(coachMemory.dialogue?.length){for(const item of coachMemory.dialogue)addChat(
 function renderStages(){
  $('stage-picker').innerHTML=STAGES.map(stage=>`<button data-stage="${stage.id}" class="${stage.id===stageId?'selected':''}" ${preview?'disabled':''}><strong>${stage.name}</strong><small>Lv.${stage.level} ${(profile.clearedStages||[]).includes(stage.id)?'· 已通关':''}</small></button>`).join('');
  const stage=STAGES.find(x=>x.id===stageId);
- $('stage-detail').textContent=stage.description+' · 首次10回合内获胜额外1训练点，慢打基础奖励不减 · '+stage.team.map(id=>{const pet=SPECIES.find(p=>p.id===id),build=stage.pets[id];return `${pet.name} Lv.${build.level}（耐${build.points.hp}/力${build.points.atk}/敏${build.points.speed}）`;}).join(' / ');
+ $('stage-detail').innerHTML=`<p class="stage-desc">${escape(stage.description)}</p><p class="stage-enemy"><span class="muted">对手阵容</span>${stage.team.map(id=>{const pet=SPECIES.find(p=>p.id===id),build=stage.pets[id];return `<span class="enemy-chip">${pet.icon} ${pet.name} <em>Lv.${build.level}</em><small>耐${build.points.hp}/力${build.points.atk}/敏${build.points.speed}</small></span>`;}).join('')}</p><p class="stage-reward muted">首次 10 回合内获胜额外 1 训练点 · 慢打基础奖励不减</p>`;
  document.querySelectorAll('[data-stage]').forEach(b=>b.onclick=()=>{advanceContext();stageId=b.dataset.stage;renderStages();cultivation();});
 }
 function clearScene(){clearTimeout(bubbleTimer);$('coach-bubble').hidden=true;$('scene-inline').hidden=true;$('scene-result').hidden=true;$('coach-panel').hidden=true;if($('growth-scene'))$('growth-scene').hidden=true;}
@@ -228,18 +231,34 @@ let voiceEnabled=false,voiceVolume=.5,lastSpoken='';
 try{const setting=JSON.parse(localStorage.getItem('xiaoya-voice')||'{}');voiceEnabled=setting.enabled===true;voiceVolume=Number.isFinite(setting.volume)?Math.max(0,Math.min(1,setting.volume)):.5;}catch{}
 $('voice-enabled').checked=voiceEnabled;$('voice-volume').value=voiceVolume;
 if(!('speechSynthesis' in window)){$('voice-enabled').disabled=true;$('voice-status').textContent='当前浏览器不支持语音，仍可查看文字';}
-let utterance=null;
+let utterance=null,chosenVoice=null;
 function voiceStatus(text){$('voice-status').textContent=text;}
-function cancelVoice(){window.speechSynthesis?.cancel();utterance=null;}
+// 只挑普通话。zext 的 startsWith('zh') 会命中 zh-HK（粤语）与 zh-TW，
+// 而 getVoices() 首次调用常常返回空数组 —— 这正是"第一次普通话、之后粤语"的原因。
+function pickMandarinVoice(){
+ const list=window.speechSynthesis?.getVoices?.()||[];if(!list.length)return null;
+ const norm=v=>String(v.lang||'').toLowerCase().replace('_','-');
+ return list.find(v=>norm(v)==='zh-cn')
+     || list.find(v=>norm(v).startsWith('zh-cn'))
+     || list.find(v=>norm(v).startsWith('zh')&&!/(hk|tw|yue|hant|hans-hk)/.test(norm(v)))
+     || null;
+}
+if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=()=>{chosenVoice=pickMandarinVoice();};
+function cancelVoice(){const s=window.speechSynthesis;if(!s)return;utterance=null;if(s.speaking||s.pending)s.cancel();}
 function playVoice(text,{test=false}={}){
  if(!window.speechSynthesis){voiceStatus('当前浏览器不支持语音，请使用文字');return;}
  if(voiceVolume===0){voiceStatus('音量为0，请调高后试听');return;}
- cancelVoice();const u=new SpeechSynthesisUtterance(concise(text,90));utterance=u;u.lang='zh-CN';u.volume=voiceVolume;u.rate=1.05;
- const voices=window.speechSynthesis.getVoices(),voice=voices.find(v=>v.lang.toLowerCase().startsWith('zh'));if(voice)u.voice=voice;
+ const synth=window.speechSynthesis,wasSpeaking=!!(synth.speaking||synth.pending);
+ cancelVoice();
+ const u=new SpeechSynthesisUtterance(concise(text,90));utterance=u;
+ const v=chosenVoice||pickMandarinVoice();if(v)chosenVoice=v;
+ u.voice=v||null;u.lang=v?v.lang:'zh-CN';u.volume=voiceVolume;u.rate=1.05;u.pitch=1;
  voiceStatus(test?'正在试听…':'准备播报…');
  u.onstart=()=>voiceStatus('正在播报');u.onend=()=>{if(utterance===u){utterance=null;voiceStatus(voiceEnabled?'语音已开启':'试听结束，自动语音未开启');}};
  u.onerror=e=>{if(!['interrupted','canceled'].includes(e.error))voiceStatus('语音未播放：'+({ 'not-allowed':'请点试听解锁播放', 'voice-unavailable':'系统没有可用语音', 'language-unavailable':'系统缺少中文语音','audio-busy':'音频设备忙'}[e.error]||'请检查浏览器及系统声音设置'));};
- window.speechSynthesis.resume();window.speechSynthesis.speak(u);
+ // 上一句还在播时先 cancel 再立刻 speak 会产生爆音；让音频管线先静下来。
+ const start=()=>{if(utterance!==u)return;if(synth.paused)synth.resume();synth.speak(u);};
+ if(wasSpeaking)setTimeout(start,80);else start();
  setTimeout(()=>{if(utterance===u&&!window.speechSynthesis.speaking&&!window.speechSynthesis.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},1500);
 }
 function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||game?.mode!=='pve')return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
