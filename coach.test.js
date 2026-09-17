@@ -176,3 +176,15 @@ test('tool policy is decided in code, and the model is only consulted when a too
  // 上面已经断言 policyFor 对这类提问返回 null，这两层分工不要混。
  assert.equal(requiredTool('你好',ctx),null);
 });
+test('low HP with a potion in the bag is surfaced; without one it is not',()=>{
+ const mk=()=>createGame(17,['fox','turtle','deer'],{mode:'pve',difficulty:'normal',...buildVersusOpponent(17,{level:2})});
+ const g=mk();
+ assert.notEqual(observe(g).reason,'血量偏低，背包里还有回复药','满血不该提这条');
+ g.player.pets[0].hp=Math.floor(g.player.pets[0].maxHp*0.3);
+ const hurt=observe(g);
+ assert.equal(hurt.reason,'血量偏低，背包里还有回复药');
+ assert.match(hurt.title,/回复药/,'标题要说清背包里还有几个');
+ // 没药了就不该再提：那时玩家没有这个选项，提了只是唠叨
+ g.player.items.potion=0;
+ assert.notEqual(observe(g).reason,'血量偏低，背包里还有回复药','没有药时不得提这条');
+});
