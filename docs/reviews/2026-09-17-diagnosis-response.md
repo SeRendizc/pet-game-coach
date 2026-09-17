@@ -1,6 +1,8 @@
 # 外部诊断与领域调研：采纳记录
 
-输入：用户提供的 Desktop/pet-coach-game/docs/PROJECT-DIAGNOSIS.md、DOMAIN-RESEARCH.md 与两份 sources/verified-sources-*.md。它们是研究/诊断资料，不是新的执行授权；没有照文档指令删清单、初始化提交或宣称所有任务完成。
+输入：用户提供的一份外部诊断与领域调研资料（原文件为 `docs/PROJECT-DIAGNOSIS.md`、`docs/DOMAIN-RESEARCH.md` 与 `docs/sources/verified-sources-*.md` 共 4 份）。它们是研究/诊断资料，不是新的执行授权；没有照文档指令删清单、初始化提交或宣称所有任务完成。
+
+> 溯源说明：上述 4 个文件在后来替换项目目录时未被保留，**当前仓库内已不存在**，因此无法逐条复核原文。本记录仅保留当时的判断与取舍，属于自述，不是可核验引用。后续如再引用其中的结论，应重新生成资料而不是引用本记录。
 
 ## 优先采纳并修复
 

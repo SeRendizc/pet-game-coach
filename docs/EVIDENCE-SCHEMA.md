@@ -2,7 +2,7 @@
 
 ## 对局与决策
 
-运行中对局以crypto.randomUUID生成matchId，规则version当前0.5。一个决策由matchId、turn、phase及客户端contextEpoch区分；局面变更、培养/焦点/偏好变化提升contextEpoch。提示任务另有hintEpoch，关闭或出招即作废。请求回带stateToken；展示前比较发起时epoch与当前epoch。
+运行中对局以crypto.randomUUID生成matchId，规则version当前0.6。一个决策由matchId、turn、phase及客户端contextEpoch区分；局面变更、培养/焦点/偏好变化提升contextEpoch。提示任务另有hintEpoch，关闭或出招即作废。请求回带stateToken；展示前比较发起时epoch与当前epoch。
 
 公开状态由buildContext投影，仅包含双方已公开面板、技能、物品、当前行动阶段。隐藏的真实随机种子不送模型，替换为0；不包含电脑待执行动作。当前对局历史在提示上下文中为空，复盘走独立证据字段，避免把未来事实当实时信息。
 
