@@ -8,7 +8,22 @@
 
 链上七步各有出处：触发分两路——玩家提问走聊天面板，自动触发由 \code{app.js} 的事件钩子与 \code{coach/experience.js} 的触发层判定（每局上限、理由去重、冷却都在这一层）；门控在 \code{policy.js}；循环、校验与输出上限都在 \code{runtime.js}；工具与参数契约在 \code{toolbox.js}；被查的证据来自 \code{engine.js} 枚举出的合法行动与本地知识卡；记忆写在 \code{memory.js}。工具路由头、干预时机、检索对照这三组实验产物由脚本跑到结果，不在上面这条链上。
 
-记忆与反思这一环要把两件事分开。\textbf{规则与证据驱动的 Reflection 已经实现}：同类独立行动满 3 条时，\code{rememberDecision} 写下一条掌握判断，带着依据；它真的改变行为——\code{adaptiveGate} 据此降频，\code{observeStruggle} 与 \code{markUnlearned} 据此重教。\textbf{LLM 自动总结式 Reflection 没做}，Generative Agents 式的自由合成不在这一版里。
+这条链把题目里提到的四项 Agent 技术放在了不同位置，而不是把名词堆在一起：
+
+{\footnotesize
+\begin{center}
+\begin{tabular}{L{2.5cm} L{11.7cm}}
+\toprule
+\textbf{技术} & \textbf{在小芽里解决的问题} \\
+\midrule
+ReAct & 代码先判断是否缺证据，模型再按回执续查；最多 3 次只读工具，宿主校验参数、预算与停止条件，最终只生成 1 次正文。\\
+RAG & 49 张战术卡 + 44 条引擎规则，共 93 条；词项与多语言 MiniLM 语义候选经 RRF 融合，并带版本、适用条件、反例和引用 ID，最后还要过引擎计算。\\
+Memory Stream / Reflection & 回合、跨局事件、明确偏好和教学记录分层保存；3 条同类独立行动才形成带依据的掌握判断，用于降频或重教。LLM 自由总结式 Reflection 没做。\\
+Agentic RL & 两条离线实验：Q-learning 学“该不该提醒”；SmolLM2 冻结骨干，只训练两个工具输出行，共 1152 个参数。它们没有用于微调 DeepSeek，也不代表真人学习效果。\\
+\bottomrule
+\end{tabular}
+\end{center}
+}
 
 
 
