@@ -1,0 +1,39 @@
+% 执行链框图。原在第 4 章开头，按用户意见移出：它讲的是「这东西怎么工作」，
+% 属于介绍三种角色之前的机制总览，不属于「我的难点」。
+%
+% 插入位置建议：main.tex 第 22 行 \input{sections/02-delivery} 之前，
+% 即紧接第 1 章、作为第 2 章的开篇。理由见交付说明。
+%
+% 本文件用 \section*（不编号、不进目录）。若你决定把它折进第 2 章当第一个小节，
+% 把第一行换成 \subsection{三种角色共用一条执行链}，并删掉这一行 section* 即可。
+\section*{三种角色共用一条执行链}
+
+军师、陪练、老师是三种角色，跑的是同一条链：玩家提问、或代码判定该开口时，请求先过门控，再由有界的工具循环去查证，查到的回执必须过校验，最后才允许输出——或者允许沉默。三种角色的差别只在提示词、证据包与措辞约束上，链本身只有一条。
+
+\begin{figure}[ht]\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  >={Latex[length=3pt,width=3pt]},
+  cbox/.style={draw,rounded corners=1.5pt,align=center,inner sep=2.2pt,text width=48pt,minimum height=36pt},
+  side/.style={draw,rounded corners=1.5pt,align=center,inner sep=2.5pt,font=\tiny,text width=194pt},
+  node distance=6pt]
+\node[cbox] (s1) {\textbf{玩家提问\\自动触发}\\[0.5pt]{\tiny\ttfamily app.js}\\[0.5pt]{\tiny\ttfamily experience.js}\\[0.5pt]{\tiny 已实现}};
+\node[cbox,right=6pt of s1] (s2) {\textbf{硬策略\\门控}\\[0.5pt]{\tiny\ttfamily policy.js}\\[0.5pt]{\tiny 已实现}};
+\node[cbox,right=6pt of s2] (s3) {\textbf{有界\\工具循环}\\[0.5pt]{\tiny\ttfamily runtime.js}\\[0.5pt]{\tiny 已实现}};
+\node[cbox,right=6pt of s3] (s4) {\textbf{引擎 / RAG\\回执}\\[0.5pt]{\tiny\ttfamily toolbox.js}\\[0.5pt]{\tiny 已实现}};
+\node[cbox,right=6pt of s4] (s5) {\textbf{一致性\\校验}\\[0.5pt]{\tiny\ttfamily runtime.js}\\[0.5pt]{\tiny 已实现}};
+\node[cbox,right=6pt of s5] (s6) {\textbf{有界输出\\或沉默}\\[0.5pt]{\tiny\ttfamily runtime.js}\\[0.5pt]{\tiny 已实现}};
+\node[cbox,right=6pt of s6] (s7) {\textbf{事件记忆\\与反思}\\[0.5pt]{\tiny\ttfamily memory.js}\\[0.5pt]{\tiny 规则与证据驱动的\\Reflection 已实现}};
+\draw[->] (s1)--(s2); \draw[->] (s2)--(s3); \draw[->] (s3)--(s4);
+\draw[->] (s4)--(s5); \draw[->] (s5)--(s6); \draw[->] (s6)--(s7);
+\draw[->,dashed] (s7.north) -- ++(0,9pt) -| (s1.north);
+\node[side,draw,dashed,anchor=south west] (off) at ([yshift=-17pt]current bounding box.south west)
+  {离线实验（有产物，但不在这条链上）：工具路由头 1152 参数 · Q-learning 干预时机 · 检索四臂};
+\node[side,draw,dotted,anchor=south west] at ([xshift=-199.8pt]current bounding box.south east)
+  {生产设想（没做）：LLM 自动总结式 Reflection · 服务端权威对局 · 独立盲标评测};
+\end{tikzpicture}
+\end{figure}
+
+链上七步各有出处：触发分两路——玩家提问走聊天面板，自动触发由 \code{app.js} 的事件钩子与 \code{coach/experience.js} 的触发层判定（每局上限、理由去重、冷却都在这一层）；门控在 \code{policy.js}；循环、校验与输出上限都在 \code{runtime.js}；工具与参数契约在 \code{toolbox.js}；被查的证据来自 \code{engine.js} 枚举出的合法行动与本地知识卡；记忆写在 \code{memory.js}。
+
+记忆与反思这一环要把两件事分开。\textbf{规则与证据驱动的 Reflection 已经实现}：同类独立行动满 3 条时，\code{rememberDecision} 写下一条掌握判断，带着依据；它真的改变行为——\code{adaptiveGate} 据此降频，\code{observeStruggle} 与 \code{markUnlearned} 据此重教。\textbf{LLM 自动总结式 Reflection 没做}，Generative Agents 式的自由合成不在这一版里。

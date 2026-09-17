@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {createGame,step,legalActions,rankEnemyActions,SKILLS,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,EMPTY_LEDGER_ECHO,EMPTY_LEDGER_MENU,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords} from './coach/companion.js';
+import {fitReading,companion,companionState,companionFacts,checkCompanionRestraint,checkCompanionInformation,checkCompanionStance,decideRegister,proactiveRegister,proactiveText,proactiveReading,readingsFor,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents,companionSignals,companionSession,companionLedger,companionReadings,eventRegister,bubbleDurationMs,companionCueSlot,companionAvatar,COMPANION_LIMITS,COMPANION_BUBBLE,COMPANION_EVENTS,COMPANION_DEFER,SCREEN_ECHO,EMPTY_LEDGER_ECHO,EMPTY_LEDGER_MENU,SELF_CENTERED_EMOTION,SELF_FOCUS,AFFECTS,AFFECT_WORDS,STANCE_REQUIRED,PERMISSION_REQUIRED,checkCompanionPermission,DAY_PARTS,dayPartOf,dayPartAt,SESSION_GAP,LONG_SESSION,chatReply,chatThread,previousChatThread,CHAT_THREADS,playerWords} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {strategistTrigger,strategistSession,attentionState} from './coach/experience.js';
 import {coachEvent,coachContext} from './coach.js';
@@ -62,6 +62,18 @@ const winGame=()=>play(4,{smart:true});
 const history=games=>games.reduce((memory,game)=>rememberBattle(memory,game),freshMemory());
 // 把真实记录的时间往前挪：久别那一类需要「隔了几天」，而时钟不可能靠打一局走完。
 function backdate(memory,days){return {...memory,events:memory.events.map(e=>({...e,time:new Date(Date.parse(e.time)-days*86400000).toISOString()}))};}
+
+// ── 时间注入：问候与「半夜还在打」都不能靠真实时钟碰运气 ──────────────────────
+// 固定的当地时刻（2026-09-18 是随便挑的一天，只有「几点」有意义），
+// 需要的时候把它当 now 传进 companion / companionLedger / proactiveText。
+const atClock=(h,m=0,day=18)=>new Date(2026,8,day,h,m,0,0).getTime();
+// 把一批真实记录的时间戳改到给定时刻：改的是时钟，不是战绩。
+function atTime(memory,h,m=0,{step=2,day=18}={}){
+ return {...memory,events:memory.events.map((e,i)=>({...e,time:new Date(2026,8,day,h,m+i*step,0,0).toISOString()}))};
+}
+// 期望的问候句由被测的那张表算出来（问候句随时段变，断言不该写死「你好」）。
+const greetWordAt=(h,m=0)=>dayPartAt(atClock(h,m)).greet.replace(/。$/,'');
+const greetWordNow=()=>dayPartAt(Date.now()).greet.replace(/。$/,'');
 
 // app.js 的调用顺序：逐回合 → companionEvents（触发）→ coachEvent（门控 + 文案）。
 // 这条回放是「实测里会说出什么」的自动版本，所有断言都跑在它上面。
@@ -364,7 +376,9 @@ test('the register changes the wording and the length ceiling',()=>{
  assert(r1.text.split('。').filter(Boolean).length>=2,`R1 只有一句话：${r1.text}`);
  assert(r2.text.split('。').filter(Boolean).length>=2,`R2 只有一句话：${r2.text}`);
  // 模型路径：档位随证据包一起送到服务端，字数上限/问句上限可见
- assert.deepEqual([r0Empty.replyConstraints.maxChars,r1.replyConstraints.maxChars,r2.replyConstraints.maxChars,r3.replyConstraints.maxChars],[8,72,120,64]);
+ // R0 的上限是 24（不是原来的 8）：安静档下玩家自己搭话时要答得住一句陪伴句，
+ // 见文件末尾「R0 上限」那一组；这仍然远低于 R1，观察句一条都塞不进去。
+ assert.deepEqual([r0Empty.replyConstraints.maxChars,r1.replyConstraints.maxChars,r2.replyConstraints.maxChars,r3.replyConstraints.maxChars],[24,72,120,64]);
  assert.deepEqual([r0Empty.replyConstraints.maxQuestions,r2.replyConstraints.maxQuestions],[0,1]);
  assert.match(r1.replyConstraints.instruction,/R1/);
  // 情绪不是被禁的：allow 里写明「要落在真实事件上」，forbid 里只禁「播报自己的情绪」。
@@ -903,7 +917,9 @@ test('small talk never hijacks a tactical question, and never invents a chat thr
  assert(bare,'空账本下的寒暄也必须接住，不能返回 null 让玩家拿到「我在。」');
  assert.equal(bare.thread,'self');
  assert.equal(bare.emptyLedger,true);
- assert.match(bare.text,/你好/);
+ // 问候回问候：回的是**当前时段**的那一句（凌晨/上午/下午/晚上各说各的），
+ // 不再是固定的一句「你好，我是小芽。」——判据仍是「问候得到应答」+ 名字在第一句。
+ assert(bare.text.startsWith(greetWordNow()),`问候没有落在当前时段上：${bare.text}`);
  assert.match(bare.text,/小芽/,bare.text);
  assert(!EMPTY_LEDGER_ECHO.test(bare.text),`空账本下不许播报「我这儿还是空的」，也不许把人推去开一局：${bare.text}`);
  assert(!EMPTY_LEDGER_MENU.test(bare.text),`空账本下不许把话题列成选项菜单：${bare.text}`);
@@ -948,9 +964,12 @@ test('fresh memory: the three greetings get three different answers, and the sec
   `三种问候得到了同一句：${firsts.map(a=>a.text).join(' | ')}`);
  for(const [i,answer] of firsts.entries()){
   const message=FRESH_GREETINGS[i];
-  // 不能只剩「我在。」：R0 的上限是 8 字，一个字都多不出来
+  // 不能只剩「我在。」：那句话既不接「你好」也不接「累」，一个词都没接住。
+  //（旧断言是「比 R0 的 8 字上限长」；R0 的上限已经为了「被搭话要答得住」改成 24 字，
+  // 所以这里换成直接判**接住了没有**：回应里必须带着玩家这句话里的东西。）
   assert.notEqual(answer.text,'我在。',`空账本下不许只回「我在。」（玩家说的是「${message}」）`);
-  assert(answer.text.length>REGISTERS.R0.limit,`「${message}」只挤出一句 8 字以内的承接句：${answer.text}`);
+  const echo=/累/.test(message)?'累':/聊/.test(message)?'聊':'小芽';
+  assert(answer.text.includes(echo),`「${message}」没有接住玩家这句话（缺「${echo}」）：${answer.text}`);
   assert.equal(answer.register,'R1',`「${message}」应当接住，而不是降档`);
   assert.equal(answer.chatThread,'self');
   // 硬线①无编造的过去 / ③不冒充军师 / ④不空泛打鸡血
@@ -970,9 +989,9 @@ test('fresh memory: the three greetings get three different answers, and the sec
   assert(!EMPTY_LEDGER_ECHO.test(answer.text),`「${message}」命中了空账本禁止词表：${answer.text}`);
   assert(!EMPTY_LEDGER_MEMORY_CLAIM.test(answer.text),`「${message}」声称自己记得：${answer.text}`);
  }
- // 接住的是话头，不是同一句模板：问候得到应答，说累得到的接话里带着「累」。
+ // 接住的是话头，不是同一句模板：问候得到的应答落在当前时段上，说累得到的接话里带着「累」。
  // 问候那一轮同时说清「谁在陪你」（名字在第一句里），不靠第二句补充身份。
- assert(/你好/.test(firsts[0].text)&&/小芽/.test(firsts[0].text),firsts[0].text);
+ assert(firsts[0].text.includes(greetWordNow())&&/小芽/.test(firsts[0].text),firsts[0].text);
  assert(/累/.test(firsts[1].text),firsts[1].text);
  assert(/聊/.test(firsts[2].text),firsts[2].text);
  // ② 第二轮：把第一轮的 dialogue 存下来再走一轮，九个组合都要接住同一个话题
@@ -1166,9 +1185,9 @@ test('空账本闲聊：不播报「我这儿是空的」，不推人走，不�
   assert(checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).valid,
    `${answer.text} → ${checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true}).reasons.join(',')}`);
  }
- // 三句问候还是三句不同的话，而且问候就回问候（第一句带着名字）
+ // 三句问候还是三句不同的话，而且问候就回问候（第一句是当前时段那一句 + 名字）
  assert.equal(new Set(firsts).size,3,`三种问候得到了同一句：${firsts.join(' | ')}`);
- assert(/你好/.test(firsts[0])&&/小芽/.test(firsts[0]),firsts[0]);
+ assert(firsts[0].includes(greetWordNow())&&/小芽/.test(firsts[0]),firsts[0]);
  assert(/聊/.test(firsts[1]),firsts[1]);
  assert(/累/.test(firsts[2]),firsts[2]);
  // 第二轮仍要承接：存下第一轮的 dialogue 再走一轮
@@ -1515,4 +1534,303 @@ test('人味③不当客服：被动通道不出现客服腔与系统状态',()=
  assert(!legacyThanks.includes('谢'),'对照组：旧回答里没有任何回应「谢谢」的东西');
  assert.notEqual(companion({mode:'camp'},freshMemory(),'谢谢').text,legacyThanks);
  assert(!SERVICE_TONE.test(companion({mode:'camp'},freshMemory(),'你好哦').text));
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// R0 的字数上限：安静档与线上竞技下，玩家自己开口时要答得住
+//
+// 用户原话：「R0 档字数上限 8 字，装不下一整句陪伴。**这不能调整上限吗**？
+// R0 是啥？废话肯定不要啊，『我在』是可以的，但不能只有『我在』。」
+// R0 出现在两种情况下，两种都只挡住**主动侧**：安静档（玩家自己设的档位）与
+// 线上竞技进行中（isLiveMatch）。它要说清的只有一件事——**不主动开口**是主动侧的纪律
+//（coach.js 的门控保证 R0 一句都不说），而玩家搭话时答一句，本来就不算打扰。
+// 原先 8 字的上限把这两件事混成了一件：他刚说完「今天有点累」，换回的是「我在。」。
+// ══════════════════════════════════════════════════════════════════════════════
+
+test('R0 被搭话时答得住：安静档与线上竞技下的心事不再掉回「我在。」',()=>{
+ const memory=calmHistory();
+ const quiet={mode:'camp',preference:'quiet'};
+ const live={mode:'pvp-live',battle:{mode:'pvp-live'}};
+ for(const [label,context] of [['安静档',quiet],['线上竞技',live]]){
+  for(const [message,word] of MOOD_CASES){
+   const answer=companion(context,memory,message,atClock(22,30));
+   assert.equal(answer.register,'R0',`${label}「${message}」的档位不该变`);
+   assert.notEqual(answer.text,'我在。',`${label}「${message}」不许只回「我在。」`);
+   assert(answer.text.includes(word),`${label}「${message}」没接住他自己用的那个词：${answer.text}`);
+   // 一句像样的陪伴必须装得下：这就是上限从 8 改到 24 的那条理由
+   assert(answer.text.length>8,`${label}「${message}」仍然装不下一整句陪伴：${answer.text}`);
+   assert(answer.text.length<=REGISTERS.R0.limit,`${label}「${message}」超长：${answer.text}`);
+   // 放开的是**长度**，不是纪律：不问句、不给战术指令、不说教、不空泛安慰
+   assert(!/[？?]/.test(answer.text),`${label}「${message}」用了问句：${answer.text}`);
+   assert(!TACTIC_TALK.test(answer.text),`${label}「${message}」给了战术指令：${answer.text}`);
+   const restraint=checkCompanionRestraint(answer.text,{register:'R0',facts:{allowPast:true,lessons:[]}});
+   assert(restraint.valid,`${label}「${message}」：${answer.text} → ${restraint.reasons.join(',')}`);
+  }
+ }
+ // 用户点名的那一句，两个场景各来一遍
+ assert.notEqual(companion(quiet,memory,'今天有点累',atClock(23,10)).text,'我在。');
+ assert.notEqual(companion(live,memory,'今天有点累',atClock(23,10)).text,'我在。');
+ // 问正事时仍然是「只说承接句」：安静档不因为放宽了字数就开始答对局的事
+ const asking=companion(quiet,memory,'这局怎么打',atClock(23,10));
+ assert.equal(asking.register,'R0');
+ assert(!/回合|胜|负|倒下|伤害|阵容/.test(asking.text),`安静档不该答对局的事：${asking.text}`);
+ assert.equal(asking.silent,true);
+});
+
+test('R0 仍然不主动开口：门控一条都不动',()=>{
+ const memory=calmHistory(),game=lossGame();
+ const quiet={mode:'camp',preference:'quiet'};
+ const base=coachContext(game,newProfile(),memory),session=companionSession(memory);
+ const muted=[['安静档',{...base,preference:'quiet'}],
+  ['线上竞技',{...base,mode:'pvp-live',battle:{mode:'pvp-live'}}]];
+ for(const [label,context] of muted){
+  for(const event of COMPANION_EVENTS){
+   assert.equal(coachEvent(event,context,session),null,`${label}下 ${event} 不该主动开口`);
+  }
+ }
+ assert.equal(coachEvent('habit',base,{...session,dismissed:true}),null,'本局点掉之后同样不主动开口');
+ // 档位判定：不是玩家发起时，安静档 / 线上竞技恒为 R0，且理由写在 registerReason 里
+ const quietState=companionState(memory,{preference:'quiet'},{playerInitiated:false},Date.now());
+ assert.equal(quietState.register,'R0');
+ assert.match(quietState.registerReason,/安静/);
+ const liveState=companionState(memory,{mode:'pvp-live',battle:{mode:'pvp-live'}},{playerInitiated:false},Date.now());
+ assert.equal(liveState.register,'R0');
+ assert.match(liveState.registerReason,/线上竞技/);
+ // 放宽的只是「被搭话时回哪一句」：这一档永远不许问句、不许给建议
+ assert.equal(REGISTERS.R0.maxQuestions,0);
+ assert.equal(REGISTERS.R0.advice,false);
+ // 模型那一侧同样被写死：R0 的约束里明确说了「不提对局、记录、回合数或胜负」
+ const constraints=companion(quiet,memory,'今天有点累',atClock(22,0)).replyConstraints;
+ assert.equal(constraints.maxChars,REGISTERS.R0.limit);
+ assert.equal(constraints.maxQuestions,0);
+ assert.equal(constraints.allowAdvice,false);
+ assert(constraints.forbid.some(f=>/对局、记录、回合数或胜负/.test(f)),constraints.forbid.join(' | '));
+ assert.match(constraints.instruction,/不主动开口/);
+});
+
+test('negative verification: 把 R0 的上限改回 8，上面两条验收必须变红',()=>{
+ const memory=calmHistory();
+ const longest=Math.max(...MOOD_CASES.map(([message])=>
+  companion({mode:'camp',preference:'quiet'},memory,message,atClock(22,0)).text.length));
+ // ① 每一句都比 8 字长：上限改回 8，它们就全部被整句丢掉（fitSentences 返回 null）
+ assert(longest>8,`安静档的这些陪伴句都比 8 字长（最长 ${longest} 字），改回 8 就是全部丢掉`);
+ for(const [message] of MOOD_CASES){
+  assert(companion({mode:'camp',preference:'quiet'},memory,message,atClock(22,0)).text.length>8,message);
+ }
+ // ② 上限表本身必须装得下最长的那一句（这就是「上限」与「那句话」之间唯一的那条约束）
+ assert(REGISTERS.R0.limit>=longest,
+  `R0 的上限 ${REGISTERS.R0.limit} 装不下最长的那句陪伴（${longest} 字）——改回 8 就是这样变红的`);
+ // ③ 同上一条自检：限额一旦回落到 8，克制扫描会直接把这句话判成 over-limit。
+ //    也就是说「改回 8」不是靠人记得——它同时踩中「拼不出来」与「超长」两条断言。
+ const sentence=companion({mode:'camp',preference:'quiet'},memory,'今天有点累',atClock(22,0)).text;
+ assert(sentence.length>8);
+ assert.equal(checkCompanionRestraint(sentence,{register:'R0',facts:{allowPast:true,lessons:[]}}).valid,true);
+ assert(checkCompanionRestraint(sentence,{register:'R0',facts:{allowPast:true,lessons:[]}}).reasons.length===0);
+ // 上限 8 时的对照：同一句话在 8 字预算下被判超长（旧行为就是这个）
+ const legacyLimit=8;
+ assert(sentence.length>legacyLimit,`对照组：${sentence} 比 8 字长，8 字上限下只能是「我在。」`);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 时段问候：她知道现在是几点，而且每个时段说自己的那一句
+//
+// 用户原话：「可以在陪练加上个检测现在时间，问候上午/下午/晚上好，
+// **分别加一个属于这个时间的问候**，比如凌晨就说，这么晚了还在努力奋战呢？」
+// 三条硬线：① **不是报时**——「现在是凌晨 2 点」是系统播报（DATABASE_TALK 那一类），
+// 要说的是「你在这个点还在这儿」；② **不说教**——凌晨那句是「看见」，不是「你该睡了」；
+// ③ 不能每条消息都挂一个问候（那是噪音），只在**碰面那一轮**说一次。
+// 时刻全部注入（atClock），不靠真实时钟碰运气。
+// ══════════════════════════════════════════════════════════════════════════════
+
+test('四个时段各说各的那一句，边界钉在整点上',()=>{
+ assert.deepEqual(DAY_PARTS.map(p=>[p.id,p.from,p.to]),
+  [['late',0,6],['morning',6,12],['afternoon',12,18],['evening',18,24]]);
+ // 边界只有一条，且用整点：5:59 属于凌晨，6:00 属于上午（其余两条同理）
+ assert.equal(dayPartAt(atClock(5,59)).id,'late');
+ assert.equal(dayPartAt(atClock(6,0)).id,'morning');
+ assert.equal(dayPartAt(atClock(11,59)).id,'morning');
+ assert.equal(dayPartAt(atClock(12,0)).id,'afternoon');
+ assert.equal(dayPartAt(atClock(17,59)).id,'afternoon');
+ assert.equal(dayPartAt(atClock(18,0)).id,'evening');
+ assert.equal(dayPartAt(atClock(23,59)).id,'evening');
+ assert.equal(dayPartAt(atClock(0,0)).id,'late');
+ // 四句各不相同，而且各说各的事（不是同一个模板换个词）
+ const words=DAY_PARTS.map(p=>p.greet);
+ assert.equal(new Set(words).size,4,`四个时段必须是四句话：${words.join(' | ')}`);
+ assert.match(words[0],/这么晚了还在努力奋战/);
+ assert.match(words[1],/^上午好/);
+ assert.match(words[2],/^下午好/);
+ assert.match(words[3],/^晚上好/);
+ for(const part of DAY_PARTS)assert(!/\d/.test(part.greet),`问候句里不许出现钟点数字：${part.greet}`);
+ // 真实输出：同一次碰面，四个时刻得到四句不同的问候
+ const said=[];
+ for(const [h,id] of [[1,'late'],[9,'morning'],[14,'afternoon'],[21,'evening']]){
+  const now=atClock(h,20);
+  const answer=companion({mode:'camp'},freshMemory(),'你好',now);
+  assert.equal(answer.register,'R1');
+  assert(answer.text.startsWith(dayPartAt(now).greet.replace(/。$/,'')),
+   `${id} 的问候没有落在这一档上：${answer.text}`);
+  assert.match(answer.text,/小芽/,`碰面那一轮要报一次名字：${answer.text}`);
+  assert(!/\d/.test(answer.text),`问候里不许出现钟点数字（那是报时）：${answer.text}`);
+  said.push(answer.text);
+ }
+ assert.equal(new Set(said).size,4,`四个时刻应当是四句不同的问候：${said.join(' | ')}`);
+ // 每一句都过克制扫描（含「不说教」那条：劝他睡觉的话必须被拦）
+ for(const h of [1,9,14,21]){
+  const answer=companion({mode:'camp'},freshMemory(),'你好',atClock(h,20));
+  const restraint=checkCompanionRestraint(answer.text,{register:answer.register,facts:{allowPast:false,lessons:[]},emptyLedger:true});
+  assert(restraint.valid,`${h} 点的问候：${answer.text} → ${restraint.reasons.join(',')}`);
+ }
+});
+
+test('时段问候只在碰面那一轮说，而且是「看见」不是「劝」',()=>{
+ // ① 第一轮说，第二轮不再说一遍（不是每条消息都挂问候）
+ const first=companion({mode:'camp'},freshMemory(),'你好',atClock(1,20));
+ assert.match(first.text,/这么晚了还在努力奋战/);
+ const withDialogue={...freshMemory(),dialogue:[{role:'user',content:'你好'},{role:'assistant',content:first.text}]};
+ const second=companion({mode:'camp'},withDialogue,'你好',atClock(1,25));
+ assert(!/这么晚了还在努力奋战/.test(second.text),`第二轮不该再把问候说一遍：${second.text}`);
+ assert(/还|接着/.test(second.text),second.text);
+ // 同一次会话里说别的话也不带问候：说心情时说的是心情那一句
+ const tired=companion({mode:'camp'},withDialogue,'今天有点累',atClock(1,30));
+ assert(!/这么晚了还在努力奋战/.test(tired.text),`问候不该跟着每条消息走：${tired.text}`);
+ assert(/累/.test(tired.text),tired.text);
+ // ② 硬线：劝他睡觉的话一句都不许说（说教扫描必须真的拦得住）
+ for(const bad of ['这么晚了，你该睡了。','凌晨两点了，早点睡。','快去睡吧，明天再打。','别熬夜了，该休息了。']){
+  const check=checkCompanionRestraint(bad,{register:'R1',facts:{allowPast:true,lessons:[]}});
+  assert(check.reasons.includes('preach'),`「${bad}」必须被判成说教，实际 ${check.reasons.join(',')}`);
+ }
+ // ③ 凌晨那一句说的是「你还在」（看见），不是钟表、也不是命令
+ const late=companion({mode:'camp'},freshMemory(),'你好',atClock(1,20));
+ assert.match(late.text,/还在努力奋战/);
+ assert(!/\d/.test(late.text),'不许报时');
+ assert(!/该|必须|快去|早点/.test(late.text),`不许劝：${late.text}`);
+ // ④ 安静档下这一句同样会说（被搭话就答），但档位还是 R0
+ const quiet=companion({mode:'camp',preference:'quiet'},freshMemory(),'你好',atClock(1,20));
+ assert.equal(quiet.register,'R0');
+ assert(quiet.text.includes(dayPartAt(atClock(1,20)).greet.replace(/。$/,'')),quiet.text);
+ assert(quiet.text.length<=REGISTERS.R0.limit,quiet.text);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 两个新场景：半夜还在打 / 打久了劝休息
+//
+// 用户原话：「『半夜还在打』这个可以的，还有就是打久了可以劝休息这样」。
+// 两条都只从 memory.events 的 ISO 时间戳算出来（这一波打了几局、过了零点几局），
+// 硬线各有一条：半夜那条**不是报时**（说「现在是凌晨两点」是钟表在说话），
+// 打久了那条**不是命令**（给的是「到这儿也行」这句许可，不是「你该睡了」）。
+// 两条同时成立时**合并成一句**（下面第三条）：不能一句话里说两遍时间。
+// ══════════════════════════════════════════════════════════════════════════════
+// 引擎真跑出来的一串对局：id 各不相同，否则 rememberBattle 会按 id 去重。
+function runOf(seeds){let m=freshMemory();for(const seed of seeds)m=rememberBattle(m,{...play(seed),id:`run-${seed}`});return m;}
+
+test('半夜还在打：引用的是记录里的时间戳，不是钟表',()=>{
+ const night=atTime(runOf([1,2,3]),1,20);          // 三局真实记录，时间戳改到凌晨 1:20（改的是时钟，不是战绩）
+ const now=atClock(2,10);
+ const game=play(7);
+ const cross=companionLedger(night,game,now);
+ assert.equal(cross.run.count,3,'同一波：三局之间只隔几分钟');
+ assert.equal(cross.run.active,true,'最后一局刚打完，人还坐在这儿');
+ assert(cross.lateNight,`凌晨还在打必须算得出来：${JSON.stringify(cross.run)}`);
+ assert.equal(cross.lateNight.count,3,'过了零点的局数来自时间戳');
+ const context={turn:1,signals:companionSignals(game),cross,now};
+ const text=proactiveText('late-night',context,'R4',{now});
+ assert(text,'凌晨还在打时必须有话说');
+ assert.match(text,/过了零点你已经打了3局/,`要引用记录里的局数：${text}`);
+ assert.match(text,/到这儿也行/,`要给他许可：${text}`);
+ // 硬线：不是报时（没有钟点数字），也不是劝（说教词一句都不许有）
+ assert(!/\d+点|点钟/.test(text),`不许报时：${text}`);
+ assert(!/该睡|该休息|早点睡|快去睡|别熬夜/.test(text),`不许劝：${text}`);
+ const restraint=checkCompanionRestraint(text,{register:'R4',facts:{allowPast:true,lessons:[]}});
+ assert(restraint.valid,`${text} → ${restraint.reasons.join(',')}`);
+ // 依据里必须有真实的时间戳（ISO），这条断言钉的是「引用记录」而不是「泛泛而谈」
+ const reading=proactiveReading('late-night',context,'R4',{now});
+ assert(reading.evidence.some(x=>/来源：memory\.events\.time 的 ISO 时间戳/.test(x)),reading.evidence.join(' | '));
+ assert(reading.evidence.some(x=>x.includes(night.events.at(-1).time)),`依据里要出现那一条记录的时间：${reading.evidence.join(' | ')}`);
+ // 触发层提议得出来，而且真的说得出口（提议了却说不出来＝白占窗口）
+ const bundle={cross,signals:companionSignals(game),context:{turn:1},now};
+ const proposed=readingsFor('late-night',bundle,{});
+ assert(proposed.length>=1&&fitReading(proposed[0],'R4'),'触发层必须与文案层同口径');
+ // 反向：同一份记录，白天（15:30）就不该提这件事
+ const day=atClock(15,30);
+ assert.equal(proactiveText('late-night',{...context,cross:companionLedger(night,game,day),now:day},'R4',{now:day}),null,
+  '白天不该说「这么晚了」');
+ // 反向：隔了几天再打开，也不该说「你还在打」
+ const stale=atTime(runOf([1,2,3]),1,20,{day:11});
+ const staleNow=atClock(2,10);
+ assert.equal(proactiveText('late-night',{...context,cross:companionLedger(stale,game,staleNow),now:staleNow},'R4',{now:staleNow}),null,
+  '不是刚打完的那一波就不算「还在打」');
+});
+
+test('打久了给的是许可，不是命令：句子里带着这一波真实的局数',()=>{
+ const game=play(9),now=atClock(15,30);
+ const four=atTime(runOf([1,2,3,4]),15,0);
+ const fourCross=companionLedger(four,game,now);
+ assert.equal(fourCross.run.count,4);
+ assert.equal(proactiveText('long-session',{turn:1,signals:companionSignals(game),cross:fourCross,now},'R4',{now}),null,
+  `第 4 局还不到「打久了」：门槛是 ${LONG_SESSION} 局`);
+ const five=atTime(runOf([1,2,3,4,5]),15,0);
+ const cross=companionLedger(five,game,now);
+ assert.equal(cross.run.count,LONG_SESSION);
+ const context={turn:1,signals:companionSignals(game),cross,now};
+ const text=proactiveText('long-session',context,'R4',{now});
+ assert(text,'连着打了 5 局必须说得出话');
+ assert.match(text,new RegExp(`连着第${cross.run.count}局了`),`要引用这一波真实的局数：${text}`);
+ assert.match(text,/到这儿也行/,`给的是许可：${text}`);
+ // 硬线：劝休息 ≠ 命令他休息。许可句留着「停也行」，也留着「接着打也行」——决定权在他。
+ assert(/想接着打/.test(text),`不许替他决定：${text}`);
+ assert(!/你该|应该|必须|快点|去睡|早点睡|别打|不要再/.test(text),`不许命令：${text}`);
+ const restraint=checkCompanionRestraint(text,{register:'R4',facts:{allowPast:true,lessons:[]}});
+ assert(restraint.valid,`${text} → ${restraint.reasons.join(',')}`);
+ // 依据里是真实时间戳与真实间隔判据
+ const reading=proactiveReading('long-session',context,'R4',{now});
+ assert(reading.evidence.some(x=>/ISO 时间戳/.test(x)&&x.includes(five.events.at(-1).time)),reading.evidence.join(' | '));
+ assert(reading.evidence.some(x=>x.includes(String(SESSION_GAP/60000))),'依据里要写明「同一波」是怎么算的');
+ // 机制（与 STANCE_REQUIRED 同一套判据）：许可句必须占一个 presence 位置，拿掉就说不出来
+ assert(PERMISSION_REQUIRED.includes('long-session'));
+ assert(PERMISSION_REQUIRED.includes('late-night'));
+ assert.equal(checkCompanionPermission([{text:'连着第5局了。',kind:'memory'}],'long-session').valid,false);
+ assert.equal(checkCompanionPermission([{text:'到这儿也行。',kind:'presence'}],'late-night').valid,true);
+ assert.equal(checkCompanionPermission([{text:'x',kind:'memory'}],'rematch').valid,true,'别的类别不受这条约束');
+ // 把许可句换成一个纯处境句（结构上仍是一句话，但许可没了）→ 这一类的意义就没了
+ const stripped={id:'long-session:5',klass:'long-session',priority:89,sentences:[
+  {text:'连着第5局了。',kind:'memory',source:'memory.events.time'},
+  {text:'今天打了挺久。',kind:'situation',source:null}]};
+ assert.equal(fitReading(stripped,'R4'),null,'拿掉许可句之后这一条必须说不出口');
+ // 反向：间隔断开就不算同一波（下午那一波与晚上那一波不能被算成「连着第 8 局」）
+ const split={...five,events:five.events.map((e,i)=>({...e,time:new Date(2026,8,18,15,0).getTime()+i*3*3600000>0
+  ?new Date(new Date(2026,8,18,15,0).getTime()+i*3*3600000).toISOString():e.time}))};
+ const splitCross=companionLedger(split,game,now);
+ assert(splitCross.run.count<LONG_SESSION,`隔了三个钟头就不算同一波：${JSON.stringify(splitCross.run)}`);
+});
+
+test('凌晨 + 打久了：合并成一句，不重复说时间',()=>{
+ // 两条同时成立：现在是凌晨 1:40，这一波从 00:50 起连着打了 5 局
+ const memory=atTime(runOf([1,2,3,4,5]),0,50);
+ const now=atClock(1,40),game=play(7);
+ const cross=companionLedger(memory,game,now);
+ assert.equal(cross.run.count,5,'五局在同一波里');
+ assert.equal(cross.lateNight.count,5,'五局都是过了零点打的');
+ assert.equal(cross.run.count>=LONG_SESSION,true,'「打久了」的门槛也确实到了');
+ const bundle={cross,signals:companionSignals(game),context:{turn:6},now};
+ const klasses=companionReadings(bundle).map(r=>r.klass);
+ assert(klasses.includes('late-night'),`凌晨那一档应当成立：${klasses.join('、')}`);
+ assert(!klasses.includes('long-session'),`凌晨成立时「打久了」不再单独出现（合并规则）：${klasses.join('、')}`);
+ const context={turn:6,signals:companionSignals(game),cross,now};
+ const text=proactiveText('late-night',context,'R4',{now});
+ assert(text);
+ assert.equal(proactiveText('long-session',context,'R4',{now}),null,'合并之后另一条必须闭嘴');
+ // 同一句话里时间只说一次，许可也只说一次
+ assert.equal((text.match(/这么晚|过了零点|凌晨|深夜|这个点/g)||[]).length,1,`时间说了两遍：${text}`);
+ assert.equal((text.match(/到这儿也行/g)||[]).length,1,`许可说了两遍：${text}`);
+ assert.match(text,/过了零点你已经打了5局/,`引用记录里的局数：${text}`);
+ // 触发层同样只提议一条：`late-night` 说过之后不再轮到 `long-session`
+ const suggested=companionEvents(game,{said:[],cross,signals:companionSignals(game),winStreak:0,lossStreak:0,now});
+ assert(!suggested.includes('long-session'),`触发层不该提议两条：${suggested.join('、')}`);
+ // 换到白天：同一波五局，这时说的是「打久了」那一句（不是凌晨那一句）
+ const dayNow=atClock(15,30);
+ const dayCross=companionLedger(atTime(runOf([1,2,3,4,5]),15,0),game,dayNow);
+ const dayContext={turn:1,signals:companionSignals(game),cross:dayCross,now:dayNow};
+ assert.equal(proactiveText('late-night',dayContext,'R4',{now:dayNow}),null);
+ assert.match(proactiveText('long-session',dayContext,'R4',{now:dayNow}),/连着第5局了/);
 });
