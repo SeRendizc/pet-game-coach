@@ -1,6 +1,7 @@
 import {CoachScheduler} from './scheduler.js';
 export const RESPONSE_INSTRUCTIONS='\n回答要求：不要向玩家报内部局面评分，用可见的宠物、技能和状态解释。游戏按回合结算，不按秒；不要编造技能冷却。道具名称只能使用回复药、净化药、能量果，不要把它们叫作解药或以太。双方同时决定，不能先看对手本回合出招再决定自己的行动。复盘中hpBefore是回合开始、hpAfter是结束，不能把行动前生命称作打完还剩。逐回合核对实际事件：行动取消不能说成打出了伤害，事前预测和事后结算必须分开。';
 import {runCoach,assembleContext,checkGroundedAnswer} from './runtime.js';
+import {checkCompanionRestraint} from './companion.js';
 let session=null;
 export async function connectionStatus(){const response=await fetch('/api/bootstrap',{cache:'no-store'});if(!response.ok)throw Error('请启动新版本机后端');session=await response.json();return session;}
 const scheduler=new CoachScheduler();
@@ -24,11 +25,23 @@ async function executeCoach(payload,signal){
  const send=async()=>{const r=await fetch('/api/coach',{method:'POST',headers:{'Content-Type':'application/json','X-Coach-CSRF':session.csrf},body:JSON.stringify(assembled.payload),signal});let d;try{d=await r.json();}catch{throw Error('后端响应异常');}return {r,d};};
  let {r:response,d:data}=await send();
  if(response.status===403){session=null;await connectionStatus();if(session.configured!==false)({r:response,d:data}=await send());}
- if(!response.ok){if(response.status===403)session=null;throw Error(data.error||('教练请求失败（HTTP '+response.status+'）'));}const validation=checkGroundedAnswer(data);if(data.provider==='deepseek'&&!validation.valid){const fallback=await runCoach(payload);data={...fallback,provider:'local-fallback',validation,fallbackReason:'模型回答未通过事实检查，显示本局规则分析',stateToken:payload.stateToken};}
+ if(!response.ok){if(response.status===403)session=null;throw Error(data.error||('教练请求失败（HTTP '+response.status+'）'));}const validation=checkGroundedAnswer(data);
+ // 陪练的档位约束与事实检查走同一条降级路径：模型把 R1 写成安慰、或用问句追问时，
+ // 直接回退到 runCoach 已经算好的本机记录模板（local），而不是把越界的话展示给玩家。
+ const restraint=data.route==='companion'?companionRestraint(data,payload):{valid:true,reasons:[]};
+ if(data.provider==='deepseek'&&!validation.valid){const fallback=await runCoach(payload);data={...fallback,provider:'local-fallback',validation,fallbackReason:'模型回答未通过事实检查，显示本局规则分析',stateToken:payload.stateToken};}
+ else if(data.provider==='deepseek'&&!restraint.valid)data={...local,provider:'local-fallback',restraint,fallbackReason:'模型回答超出陪练档位约束（'+restraint.reasons.join('、')+'），显示本机记录模板',stateToken:payload.stateToken};
+ else if(!restraint.valid)data={...data,restraint};
  data.memory={...data.memory,journal:payload.memory.journal||[],reflections:payload.memory.reflections||{},watches:payload.memory.watches||[],quizCount:payload.memory.quizCount||0,goal:data.memory?.goal||payload.memory.goal||null};data.memory.dialogue=(data.memory.dialogue||[]).map(m=>m.role==='user'&&m.content===payload.message?{...m,content:originalMessage}:m);data.contextAudit=assembled.audit;return data;
  }catch(error){if(signal?.aborted||error?.name==='AbortError')throw error;const fallback=await runCoach(payload);
  // 把真实原因带出来，不再一律显示"暂不可用"，否则无法区分会话失效、鉴权失败和超时。
  const why=error?.message||'网络异常';
  const reason=/超时|aborted|timeout/i.test(why)?'模型响应超时（'+why+'），保留本地依据':'模型请求未完成：'+why+'（已保留本地依据）';
  return {...fallback,provider:'local-fallback',fallbackReason:reason,stateToken:payload.stateToken,contextAudit:assembled.audit};}
+}
+// 陪练档位扫描用的最小事实集：只判断「有没有真实经历可以支撑过去陈述」和「课程名是否真的记录过」。
+function companionRestraint(data,payload){
+ const memory=payload.memory||{},dialogue=Array.isArray(memory.dialogue)?memory.dialogue:[];
+ const previousAssistant=[...dialogue].reverse().find(x=>x?.role==='assistant'&&typeof x.content==='string')?.content||'';
+ return checkCompanionRestraint(data.text,{register:data.register||data.companionState?.register||'R2',facts:{allowPast:Boolean((memory.events||[]).length||(memory.lessons||[]).length||dialogue.length),lessons:memory.lessons||[]},previousAssistant});
 }

@@ -1,0 +1,11 @@
+[32.1s] S0 verification {"walks":60,"statesChecked":1416,"mismatch":0,"shippedSwitchDecisions":97,"statesWithSwitchStreakAtLeast1":97,"switchWasTopPickWithStreak":1}
+[56.1s] S1 core matrix done
+[93.2s] S2 tactics done
+[100.8s] S3 loadouts done
+[120.5s] S4 same-type substitution done
+[139.5s] S5 roster sweep done
+[146.7s] S6 mode comparison done
+[152.2s] S7 stall arms done
+[152.4s] S8 stage arms done
+[158.4s] S9 item mirror done
+[175.2s] S10 replication done

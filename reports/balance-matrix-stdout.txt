@@ -1,0 +1,333 @@
+==================== G07 平衡矩阵 ====================
+场次合计: 4836  臂数: 356  用时: 175.2s  规则版本: 0.6
+
+-- 矩阵维度 --
+  S1 核心矩阵  维度={"teams":9,"difficulties":3,"items":3,"policies":1,"mode":"pve"}  种子数=12  场次=972
+  S2 战术多样性  维度={"teams":3,"difficulties":3,"policies":8,"mode":"pve"}  种子数=12  场次=864
+  S3 配招  维度={"teams":9,"loadouts":2,"difficulties":"normal(9 队)+hard(3 队)","mode":"pve"}  种子数=12  场次=288
+  S4 同属性同位置替换  维度={"pairs":6,"petsPerPair":2,"contexts":"每对固定另外两只","difficulties":3,"loadouts":"default(3 难度)+alt(normal)","mode":"pve"}  种子数=20  场次=960
+  S5 同队友轮换扫描  维度={"contexts":2,"slot0Pets":10,"difficulties":3,"mode":"pve"}  种子数=12  场次=720
+  S6 模式对照  维度={"teams":4,"modes":2,"difficulties":2,"mode":"pve / pvp-local"}  种子数=12  场次=192
+  S7 拖延上限  维度={"stallTeams":3,"policies":3,"difficulties":2,"mode":"pve"}  种子数=12  场次=216
+  S8 关卡对照  维度={"stages":2,"teams":2,"difficulty":"normal","mode":"pve"}  种子数=12  场次=48
+  S9 携带物对称对照  维度={"teams":2,"items":3,"difficulties":3,"mode":"pve","mirrorItem":true}  种子数=12  场次=216
+  S10 归档协议复现  维度={"difficulties":3,"policies":5,"stage":"meadow","seedList":"归档 100+i*37"}  种子数=24  场次=360
+
+-- 敌方选择器一致性 --
+  随机游走状态 1416 个，与 chooseEnemy 不一致 0 次（换宠决策 97，其中 streak>=1 状态 97）
+  合成 streak 校验:
+    streak window=3 streak=0  应用分数=0(未设上限时 0)  改判次数=0  与线上不一致=0
+    streak window=3 streak=1  应用分数=6(未设上限时 6)  改判次数=0  与线上不一致=0
+    streak window=3 streak=2  应用分数=12(未设上限时 12)  改判次数=0  与线上不一致=0
+    streak window=3 streak=3  应用分数=18(未设上限时 18)  改判次数=0  与线上不一致=0
+    streak window=3 streak=4  应用分数=18(未设上限时 24)  改判次数=0  与线上不一致=0
+    recent window=3 streak=3  应用分数=18(未设上限时 18)  改判次数=0  [非线上规则]
+    streak window=5 streak=5  应用分数=18(未设上限时 30)  改判次数=1  [非线上规则]
+  chooseEnemy 在"敌方补位"局面: {"easy":{"stateReached":true,"threw":false,"returned":"switch:pet2"},"normal":{"stateReached":true,"threw":false,"returned":"switch:pet1"},"hard":{"stateReached":false,"note":"state not reached (phase=battle, result=null)"},"howStateBuilt":"enemy lead HP set to 1, then one ordinary turn resolved with {manualReplace:true}; the replace phase is produced by engine.js itself.","engineLines":"engine.js:141-147 (chooseEnemy hard branch) -> engine.js:113-140 (rankEnemyActions) -> engine.js:171-174 (resolveTurn validates the reply against actingSide, which is the enemy during its own replace phase)","appLine":"app.js:173 decideEnemyFirst() calls chooseEnemy(game) with no phase check; app.js:177 blocks the player from picking for the AI side.","workaround":"The harness uses enemyReplaceChoice(): chooseEnemy() is attempted, and on throw it falls back to engine.js:248's own auto-replacement score. The fallback count is reported per arm as enemyReplaceFallbacks."}
+
+-- S1 阵容 x 难度 x 携带物（玩家胜率 / 平均回合 / 标准差 / 平局率）--
+  T1 starter 火/水/草 均衡 | easy | none  n=12  胜率=100.0%  回合=10.8±1.3  [8-13]  平局=0.0%
+  T1 starter 火/水/草 均衡 | easy | shellCharm  n=12  胜率=100.0%  回合=11.1±1.5  [8-13]  平局=0.0%
+  T1 starter 火/水/草 均衡 | easy | energySeed  n=12  胜率=100.0%  回合=10.8±1.3  [8-13]  平局=0.0%
+  T1 starter 火/水/草 均衡 | normal | none  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T1 starter 火/水/草 均衡 | normal | shellCharm  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T1 starter 火/水/草 均衡 | normal | energySeed  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T1 starter 火/水/草 均衡 | hard | none  n=12  胜率=100.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T1 starter 火/水/草 均衡 | hard | shellCharm  n=12  胜率=100.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T1 starter 火/水/草 均衡 | hard | energySeed  n=12  胜率=100.0%  回合=14.0±0.0  [14-14]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | easy | none  n=12  胜率=91.7%  回合=10.8±1.0  [9-12]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | easy | shellCharm  n=12  胜率=91.7%  回合=10.9±1.0  [9-12]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | easy | energySeed  n=12  胜率=100.0%  回合=10.8±1.0  [10-12]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | normal | none  n=12  胜率=100.0%  回合=10.5±0.5  [10-11]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | normal | shellCharm  n=12  胜率=100.0%  回合=10.5±0.5  [10-11]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | normal | energySeed  n=12  胜率=100.0%  回合=10.5±0.5  [10-11]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | hard | none  n=12  胜率=0.0%  回合=13.0±0.0  [13-13]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | hard | shellCharm  n=12  胜率=0.0%  回合=13.0±0.0  [13-13]  平局=0.0%
+  T2 双火核心 狐+狮+岩 | hard | energySeed  n=12  胜率=0.0%  回合=13.0±0.0  [13-13]  平局=0.0%
+  T3 双水核心 龟+獭+草 | easy | none  n=12  胜率=58.3%  回合=16.8±1.4  [14-19]  平局=0.0%
+  T3 双水核心 龟+獭+草 | easy | shellCharm  n=12  胜率=66.7%  回合=16.7±1.4  [14-19]  平局=0.0%
+  T3 双水核心 龟+獭+草 | easy | energySeed  n=12  胜率=100.0%  回合=15.7±1.6  [14-19]  平局=0.0%
+  T3 双水核心 龟+獭+草 | normal | none  n=12  胜率=0.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T3 双水核心 龟+獭+草 | normal | shellCharm  n=12  胜率=0.0%  回合=17.0±0.0  [17-17]  平局=0.0%
+  T3 双水核心 龟+獭+草 | normal | energySeed  n=12  胜率=0.0%  回合=16.0±0.0  [16-16]  平局=0.0%
+  T3 双水核心 龟+獭+草 | hard | none  n=12  胜率=0.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T3 双水核心 龟+獭+草 | hard | shellCharm  n=12  胜率=0.0%  回合=17.0±0.0  [17-17]  平局=0.0%
+  T3 双水核心 龟+獭+草 | hard | energySeed  n=12  胜率=0.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | easy | none  n=12  胜率=58.3%  回合=17.4±1.6  [15-20]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | easy | shellCharm  n=12  胜率=58.3%  回合=18.5±2.0  [16-22]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | easy | energySeed  n=12  胜率=83.3%  回合=16.5±1.8  [14-19]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | normal | none  n=12  胜率=0.0%  回合=33.5±2.8  [32-39]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | normal | shellCharm  n=12  胜率=0.0%  回合=30.4±1.5  [29-34]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | normal | energySeed  n=12  胜率=0.0%  回合=33.1±2.2  [32-39]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | hard | none  n=12  胜率=0.0%  回合=20.0±0.0  [20-20]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | hard | shellCharm  n=12  胜率=0.0%  回合=24.0±0.0  [24-24]  平局=0.0%
+  T4 双草消耗 鹿+菇+龟 | hard | energySeed  n=12  胜率=0.0%  回合=25.0±0.0  [25-25]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | easy | none  n=12  胜率=0.0%  回合=23.2±2.5  [20-26]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | easy | shellCharm  n=12  胜率=8.3%  回合=23.5±2.2  [20-26]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | easy | energySeed  n=12  胜率=8.3%  回合=22.4±3.0  [16-26]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | normal | none  n=12  胜率=0.0%  回合=24.1±0.3  [24-25]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | normal | shellCharm  n=12  胜率=0.0%  回合=24.1±0.3  [24-25]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | normal | energySeed  n=12  胜率=0.0%  回合=22.0±0.0  [22-22]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | hard | none  n=12  胜率=0.0%  回合=19.0±0.0  [19-19]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | hard | shellCharm  n=12  胜率=0.0%  回合=20.0±0.0  [20-20]  平局=0.0%
+  T5 慢速坦克 犀+龟+菇 | hard | energySeed  n=12  胜率=0.0%  回合=19.0±0.0  [19-19]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | easy | none  n=12  胜率=100.0%  回合=10.8±1.4  [9-13]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | easy | shellCharm  n=12  胜率=100.0%  回合=10.8±1.4  [9-13]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | easy | energySeed  n=12  胜率=100.0%  回合=10.1±1.3  [8-12]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | normal | none  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | normal | shellCharm  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | normal | energySeed  n=12  胜率=100.0%  回合=9.0±0.0  [9-9]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | hard | none  n=12  胜率=100.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | hard | shellCharm  n=12  胜率=100.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T6 高速速攻 狐+雀+隼 | hard | energySeed  n=12  胜率=100.0%  回合=14.0±0.0  [14-14]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | easy | none  n=12  胜率=100.0%  回合=11.3±2.3  [8-15]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | easy | shellCharm  n=12  胜率=100.0%  回合=11.3±2.3  [8-15]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | easy | energySeed  n=12  胜率=100.0%  回合=11.5±1.2  [10-13]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | normal | none  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | normal | shellCharm  n=12  胜率=100.0%  回合=11.0±0.0  [11-11]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | normal | energySeed  n=12  胜率=100.0%  回合=10.0±0.0  [10-10]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | hard | none  n=12  胜率=100.0%  回合=17.0±0.0  [17-17]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | hard | shellCharm  n=12  胜率=100.0%  回合=17.0±0.0  [17-17]  平局=0.0%
+  T7 高速速攻 隼+貂+獭 | hard | energySeed  n=12  胜率=100.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | easy | none  n=12  胜率=66.7%  回合=18.1±2.1  [15-22]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | easy | shellCharm  n=12  胜率=66.7%  回合=18.7±2.4  [15-24]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | easy | energySeed  n=12  胜率=33.3%  回合=17.4±2.4  [15-23]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | normal | none  n=12  胜率=0.0%  回合=21.6±0.5  [21-22]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | normal | shellCharm  n=12  胜率=0.0%  回合=23.4±0.8  [22-24]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | normal | energySeed  n=12  胜率=0.0%  回合=21.6±0.5  [21-22]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | hard | none  n=12  胜率=0.0%  回合=18.8±1.1  [17-20]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | hard | shellCharm  n=12  胜率=0.0%  回合=19.3±0.8  [18-20]  平局=0.0%
+  T8 消耗拖延 菇+獭+狮 | hard | energySeed  n=12  胜率=0.0%  回合=17.4±0.5  [17-18]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | easy | none  n=12  胜率=58.3%  回合=15.1±1.7  [13-18]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | easy | shellCharm  n=12  胜率=58.3%  回合=15.3±1.7  [13-18]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | easy | energySeed  n=12  胜率=50.0%  回合=15.3±1.8  [13-18]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | normal | none  n=12  胜率=0.0%  回合=16.0±0.0  [16-16]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | normal | shellCharm  n=12  胜率=0.0%  回合=19.0±0.0  [19-19]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | normal | energySeed  n=12  胜率=0.0%  回合=14.0±0.0  [14-14]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | hard | none  n=12  胜率=0.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | hard | shellCharm  n=12  胜率=0.0%  回合=15.0±0.0  [15-15]  平局=0.0%
+  T9 双岩双电混编 獾+犀+雀 | hard | energySeed  n=12  胜率=0.0%  回合=16.0±0.0  [16-16]  平局=0.0%
+
+-- S2 策略 x 难度（玩家行动熵）--
+  S2 | T1 starter 火/水/草 均衡 | easy | greedy-damage | pve | none  n=12  胜率=100.0%  回合=10.8  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | easy | rushed | pve | none  n=12  胜率=100.0%  回合=10.8  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | easy | random | pve | none  n=12  胜率=8.3%  回合=32.8  玩家换宠率=22.1%  玩家熵=1.0  敌方熵=0.8
+  S2 | T1 starter 火/水/草 均衡 | easy | guard-first | pve | none  n=12  胜率=100.0%  回合=20.2  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | easy | switch-first | pve | none  n=12  胜率=0.0%  回合=21.0  玩家换宠率=79.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | easy | support-first | pve | none  n=12  胜率=100.0%  回合=12.7  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | easy | switch-seeking | pve | none  n=12  胜率=100.0%  回合=10.5  玩家换宠率=18.3%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | easy | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=13.6  玩家换宠率=15.3%  玩家熵=1.0  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | normal | greedy-damage | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | normal | rushed | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | normal | random | pve | none  n=12  胜率=0.0%  回合=34.3  玩家换宠率=16.3%  玩家熵=1.0  敌方熵=0.7
+  S2 | T1 starter 火/水/草 均衡 | normal | guard-first | pve | none  n=12  胜率=100.0%  回合=20.0  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.8
+  S2 | T1 starter 火/水/草 均衡 | normal | switch-first | pve | none  n=12  胜率=0.0%  回合=18.0  玩家换宠率=72.2%  玩家熵=0.9  敌方熵=0.8
+  S2 | T1 starter 火/水/草 均衡 | normal | support-first | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | normal | switch-seeking | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=10.0%  玩家熵=1.0  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | normal | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=13.3%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | hard | greedy-damage | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=1.0
+  S2 | T1 starter 火/水/草 均衡 | hard | rushed | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=1.0
+  S2 | T1 starter 火/水/草 均衡 | hard | random | pve | none  n=12  胜率=0.0%  回合=25.6  玩家换宠率=17.3%  玩家熵=1.0  敌方熵=0.8
+  S2 | T1 starter 火/水/草 均衡 | hard | guard-first | pve | none  n=12  胜率=0.0%  回合=35.0  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | hard | switch-first | pve | none  n=12  胜率=0.0%  回合=18.0  玩家换宠率=83.3%  玩家熵=0.9  敌方熵=0.8
+  S2 | T1 starter 火/水/草 均衡 | hard | support-first | pve | none  n=12  胜率=100.0%  回合=16.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T1 starter 火/水/草 均衡 | hard | switch-seeking | pve | none  n=12  胜率=100.0%  回合=19.0  玩家换宠率=21.1%  玩家熵=0.9  敌方熵=1.0
+  S2 | T1 starter 火/水/草 均衡 | hard | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=25.0  玩家换宠率=8.0%  玩家熵=0.9  敌方熵=1.0
+  S2 | T6 高速速攻 狐+雀+隼 | easy | greedy-damage | pve | none  n=12  胜率=100.0%  回合=10.8  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | easy | rushed | pve | none  n=12  胜率=100.0%  回合=10.8  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | easy | random | pve | none  n=12  胜率=8.3%  回合=23.6  玩家换宠率=22.3%  玩家熵=1.0  敌方熵=0.8
+  S2 | T6 高速速攻 狐+雀+隼 | easy | guard-first | pve | none  n=12  胜率=66.7%  回合=18.5  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | easy | switch-first | pve | none  n=12  胜率=0.0%  回合=17.8  玩家换宠率=73.7%  玩家熵=0.8  敌方熵=0.8
+  S2 | T6 高速速攻 狐+雀+隼 | easy | support-first | pve | none  n=12  胜率=100.0%  回合=13.3  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | easy | switch-seeking | pve | none  n=12  胜率=100.0%  回合=11.3  玩家换宠率=8.2%  玩家熵=1.0  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | easy | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=16.9  玩家换宠率=16.3%  玩家熵=0.9  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | normal | greedy-damage | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=0.0%  玩家熵=1.0  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | normal | rushed | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=0.0%  玩家熵=1.0  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | normal | random | pve | none  n=12  胜率=0.0%  回合=21.3  玩家换宠率=23.1%  玩家熵=1.0  敌方熵=0.6
+  S2 | T6 高速速攻 狐+雀+隼 | normal | guard-first | pve | none  n=12  胜率=0.0%  回合=20.0  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.8
+  S2 | T6 高速速攻 狐+雀+隼 | normal | switch-first | pve | none  n=12  胜率=0.0%  回合=16.0  玩家换宠率=68.8%  玩家熵=0.9  敌方熵=0.5
+  S2 | T6 高速速攻 狐+雀+隼 | normal | support-first | pve | none  n=12  胜率=100.0%  回合=13.0  玩家换宠率=0.0%  玩家熵=1.0  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | normal | switch-seeking | pve | none  n=12  胜率=100.0%  回合=10.0  玩家换宠率=0.0%  玩家熵=1.0  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | normal | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=16.0  玩家换宠率=12.5%  玩家熵=1.0  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | hard | greedy-damage | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=1.0
+  S2 | T6 高速速攻 狐+雀+隼 | hard | rushed | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=1.0
+  S2 | T6 高速速攻 狐+雀+隼 | hard | random | pve | none  n=12  胜率=8.3%  回合=19.0  玩家换宠率=16.2%  玩家熵=0.9  敌方熵=0.8
+  S2 | T6 高速速攻 狐+雀+隼 | hard | guard-first | pve | none  n=12  胜率=0.0%  回合=22.0  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | T6 高速速攻 狐+雀+隼 | hard | switch-first | pve | none  n=12  胜率=0.0%  回合=14.0  玩家换宠率=71.4%  玩家熵=0.9  敌方熵=0.8
+  S2 | T6 高速速攻 狐+雀+隼 | hard | support-first | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=1.0
+  S2 | T6 高速速攻 狐+雀+隼 | hard | switch-seeking | pve | none  n=12  胜率=100.0%  回合=15.0  玩家换宠率=6.7%  玩家熵=1.0  敌方熵=1.0
+  S2 | T6 高速速攻 狐+雀+隼 | hard | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=21.0  玩家换宠率=9.5%  玩家熵=0.9  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | greedy-damage | pve | none  n=12  胜率=41.7%  回合=17.1  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | rushed | pve | none  n=12  胜率=41.7%  回合=17.1  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | random | pve | none  n=12  胜率=0.0%  回合=46.3  玩家换宠率=18.6%  玩家熵=0.9  敌方熵=0.7
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | guard-first | pve | none  n=12  胜率=91.7%  回合=27.6  玩家换宠率=0.0%  玩家熵=0.7  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | switch-first | pve | none  n=12  胜率=0.0%  回合=23.1  玩家换宠率=90.3%  玩家熵=0.7  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | support-first | pve | none  n=12  胜率=100.0%  回合=24.9  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | switch-seeking | pve | none  n=12  胜率=41.7%  回合=17.1  玩家换宠率=5.9%  玩家熵=0.8  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | easy | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=22.8  玩家换宠率=8.1%  玩家熵=0.9  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | greedy-damage | pve | none  n=12  胜率=0.0%  回合=36.8  玩家换宠率=0.0%  玩家熵=0.5  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | rushed | pve | none  n=12  胜率=0.0%  回合=36.8  玩家换宠率=0.0%  玩家熵=0.5  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | random | pve | none  n=12  胜率=0.0%  回合=53.8  玩家换宠率=10.7%  玩家熵=0.9  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | guard-first | pve | none  n=12  胜率=0.0%  回合=38.8  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | switch-first | pve | none  n=12  胜率=0.0%  回合=20.0  玩家换宠率=90.0%  玩家熵=0.9  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | support-first | pve | none  n=12  胜率=0.0%  回合=80.0  玩家换宠率=0.0%  玩家熵=0.6  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | switch-seeking | pve | none  n=12  胜率=0.0%  回合=36.8  玩家换宠率=2.3%  玩家熵=0.5  敌方熵=0.7
+  S2 | S1 消耗拖延 龟+菇+獾 | normal | one-turn-rank | pve | none  n=12  胜率=0.0%  回合=44.0  玩家换宠率=4.5%  玩家熵=0.8  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | greedy-damage | pve | none  n=12  胜率=0.0%  回合=17.0  玩家换宠率=0.0%  玩家熵=0.6  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | rushed | pve | none  n=12  胜率=0.0%  回合=17.0  玩家换宠率=0.0%  玩家熵=0.6  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | random | pve | none  n=12  胜率=0.0%  回合=28.3  玩家换宠率=16.8%  玩家熵=1.0  敌方熵=0.6
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | guard-first | pve | none  n=12  胜率=0.0%  回合=22.0  玩家换宠率=0.0%  玩家熵=0.9  敌方熵=0.8
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | switch-first | pve | none  n=12  胜率=0.0%  回合=18.0  玩家换宠率=88.9%  玩家熵=0.9  敌方熵=1.0
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | support-first | pve | none  n=12  胜率=0.0%  回合=23.0  玩家换宠率=0.0%  玩家熵=0.8  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | switch-seeking | pve | none  n=12  胜率=0.0%  回合=18.0  玩家换宠率=5.6%  玩家熵=0.8  敌方熵=0.9
+  S2 | S1 消耗拖延 龟+菇+獾 | hard | one-turn-rank | pve | none  n=12  胜率=100.0%  回合=30.0  玩家换宠率=6.7%  玩家熵=0.9  敌方熵=0.9
+
+-- S4 同属性同位置替换（slot0 宠物）--
+  S4 | fire | fox | turtle+deer | easy | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=10.5  上场率=45.7%  存活率=0.0%
+  S4 | fire | fox | turtle+deer | normal | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=10.0  上场率=50.0%  存活率=0.0%
+  S4 | fire | fox | turtle+deer | hard | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=15.0  上场率=33.3%  存活率=0.0%
+  S4 | fire | lion | turtle+deer | easy | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=11.1  上场率=49.3%  存活率=0.0%
+  S4 | fire | lion | turtle+deer | normal | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=13.0  上场率=61.5%  存活率=0.0%
+  S4 | fire | lion | turtle+deer | hard | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=17.0  上场率=47.1%  存活率=0.0%
+  S4 | water | turtle | fox+deer | easy | default | greedy-damage | pve  n=20  胜率=55.0% [34.2-74.2]  回合=16.6  上场率=54.8%  存活率=0.0%
+  S4 | water | turtle | fox+deer | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=14.0  上场率=57.1%  存活率=0.0%
+  S4 | water | turtle | fox+deer | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=15.0  上场率=53.3%  存活率=0.0%
+  S4 | water | otter | fox+deer | easy | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=13.8  上场率=43.0%  存活率=0.0%
+  S4 | water | otter | fox+deer | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=11.0  上场率=45.5%  存活率=0.0%
+  S4 | water | otter | fox+deer | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=11.0  上场率=27.3%  存活率=0.0%
+  S4 | leaf | deer | fox+turtle | easy | default | greedy-damage | pve  n=20  胜率=80.0% [58.4-91.9]  回合=17.3  上场率=50.1%  存活率=0.0%
+  S4 | leaf | deer | fox+turtle | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=20.0  上场率=65.0%  存活率=0.0%
+  S4 | leaf | deer | fox+turtle | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=19.0  上场率=26.3%  存活率=0.0%
+  S4 | leaf | shroom | fox+turtle | easy | default | greedy-damage | pve  n=20  胜率=50.0% [29.9-70.1]  回合=19.3  上场率=54.0%  存活率=0.0%
+  S4 | leaf | shroom | fox+turtle | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=23.0  上场率=65.2%  存活率=0.0%
+  S4 | leaf | shroom | fox+turtle | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=19.6  上场率=35.6%  存活率=0.0%
+  S4 | rock | badger | fox+deer | easy | default | greedy-damage | pve  n=20  胜率=60.0% [38.7-78.1]  回合=15.6  上场率=53.8%  存活率=0.0%
+  S4 | rock | badger | fox+deer | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=12.0  上场率=50.0%  存活率=0.0%
+  S4 | rock | badger | fox+deer | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=13.0  上场率=46.2%  存活率=0.0%
+  S4 | rock | rhino | fox+deer | easy | default | greedy-damage | pve  n=20  胜率=10.0% [2.8-30.1]  回合=19.4  上场率=60.3%  存活率=0.0%
+  S4 | rock | rhino | fox+deer | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=15.0  上场率=60.0%  存活率=0.0%
+  S4 | rock | rhino | fox+deer | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=15.0  上场率=46.7%  存活率=0.0%
+  S4 | electric | sparrow | turtle+deer | easy | default | greedy-damage | pve  n=20  胜率=5.0% [0.9-23.6]  回合=18.1  上场率=38.0%  存活率=0.0%
+  S4 | electric | sparrow | turtle+deer | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=21.0  上场率=38.1%  存活率=0.0%
+  S4 | electric | sparrow | turtle+deer | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=19.0  上场率=26.3%  存活率=0.0%
+  S4 | electric | marten | turtle+deer | easy | default | greedy-damage | pve  n=20  胜率=65.0% [43.3-81.9]  回合=14.7  上场率=43.3%  存活率=0.0%
+  S4 | electric | marten | turtle+deer | normal | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=18.0  上场率=38.9%  存活率=0.0%
+  S4 | electric | marten | turtle+deer | hard | default | greedy-damage | pve  n=20  胜率=0.0% [0.0-16.1]  回合=17.0  上场率=23.5%  存活率=0.0%
+  S4 | wind | falcon | turtle+deer | easy | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=11.7  上场率=49.8%  存活率=0.0%
+  S4 | wind | falcon | turtle+deer | normal | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=12.0  上场率=58.3%  存活率=0.0%
+  S4 | wind | falcon | turtle+deer | hard | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=20.0  上场率=35.0%  存活率=0.0%
+  S4 | wind | moth | turtle+deer | easy | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=13.6  上场率=56.1%  存活率=0.0%
+  S4 | wind | moth | turtle+deer | normal | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=17.0  上场率=70.6%  存活率=0.0%
+  S4 | wind | moth | turtle+deer | hard | default | greedy-damage | pve  n=20  胜率=100.0% [83.9-100.0]  回合=20.0  上场率=40.0%  存活率=0.0%
+
+-- S6 模式对照 --
+  S6 | T1 starter 火/水/草 均衡 | pve | normal | greedy-damage | none  n=12  胜率=100.0%  回合=10.0±0.0  平局=0.0%  最长=10
+  S6 | T1 starter 火/水/草 均衡 | pve | hard | greedy-damage | none  n=12  胜率=100.0%  回合=15.0±0.0  平局=0.0%  最长=15
+  S6 | T1 starter 火/水/草 均衡 | pvp-local | normal | greedy-damage | none  n=12  胜率=75.0%  回合=16.3±6.5  平局=0.0%  最长=36
+  S6 | T1 starter 火/水/草 均衡 | pvp-local | hard | greedy-damage | none  n=12  胜率=50.0%  回合=17.9±3.3  平局=0.0%  最长=24
+  S6 | T6 高速速攻 狐+雀+隼 | pve | normal | greedy-damage | none  n=12  胜率=100.0%  回合=10.0±0.0  平局=0.0%  最长=10
+  S6 | T6 高速速攻 狐+雀+隼 | pve | hard | greedy-damage | none  n=12  胜率=100.0%  回合=15.0±0.0  平局=0.0%  最长=15
+  S6 | T6 高速速攻 狐+雀+隼 | pvp-local | normal | greedy-damage | none  n=12  胜率=25.0%  回合=12.8±2.1  平局=0.0%  最长=16
+  S6 | T6 高速速攻 狐+雀+隼 | pvp-local | hard | greedy-damage | none  n=12  胜率=25.0%  回合=13.8±4.1  平局=0.0%  最长=19
+  S6 | T5 慢速坦克 犀+龟+菇 | pve | normal | greedy-damage | none  n=12  胜率=0.0%  回合=24.1±0.3  平局=0.0%  最长=25
+  S6 | T5 慢速坦克 犀+龟+菇 | pve | hard | greedy-damage | none  n=12  胜率=0.0%  回合=19.0±0.0  平局=0.0%  最长=19
+  S6 | T5 慢速坦克 犀+龟+菇 | pvp-local | normal | greedy-damage | none  n=12  胜率=41.7%  回合=20.1±6.8  平局=0.0%  最长=39
+  S6 | T5 慢速坦克 犀+龟+菇 | pvp-local | hard | greedy-damage | none  n=12  胜率=25.0%  回合=21.9±5.0  平局=0.0%  最长=31
+  S6 | S1 消耗拖延 龟+菇+獾 | pve | normal | greedy-damage | none  n=12  胜率=0.0%  回合=36.8±1.1  平局=0.0%  最长=39
+  S6 | S1 消耗拖延 龟+菇+獾 | pve | hard | greedy-damage | none  n=12  胜率=0.0%  回合=17.0±0.0  平局=0.0%  最长=17
+  S6 | S1 消耗拖延 龟+菇+獾 | pvp-local | normal | greedy-damage | none  n=12  胜率=50.0%  回合=21.6±9.9  平局=0.0%  最长=43
+  S6 | S1 消耗拖延 龟+菇+獾 | pvp-local | hard | greedy-damage | none  n=12  胜率=66.7%  回合=20.8±4.3  平局=0.0%  最长=29
+
+-- S7 拖延上限 --
+  S7 | S1 消耗拖延 龟+菇+獾 | guard-first | easy | pve | none  n=12  平均回合=27.6  最长=34  平局=0.0%
+  S7 | S1 消耗拖延 龟+菇+獾 | guard-first | normal | pve | none  n=12  平均回合=38.8  最长=40  平局=0.0%
+  S7 | S1 消耗拖延 龟+菇+獾 | random | easy | pve | none  n=12  平均回合=46.3  最长=66  平局=0.0%
+  S7 | S1 消耗拖延 龟+菇+獾 | random | normal | pve | none  n=12  平均回合=53.8  最长=80  平局=25.0%
+  S7 | S1 消耗拖延 龟+菇+獾 | switch-first | easy | pve | none  n=12  平均回合=23.1  最长=27  平局=0.0%
+  S7 | S1 消耗拖延 龟+菇+獾 | switch-first | normal | pve | none  n=12  平均回合=20.0  最长=20  平局=0.0%
+  S7 | S2 慢速坦克 龟+犀+菇 | guard-first | easy | pve | none  n=12  平均回合=27.6  最长=34  平局=0.0%
+  S7 | S2 慢速坦克 龟+犀+菇 | guard-first | normal | pve | none  n=12  平均回合=54.0  最长=54  平局=0.0%
+  S7 | S2 慢速坦克 龟+犀+菇 | random | easy | pve | none  n=12  平均回合=48.7  最长=80  平局=8.3%
+  S7 | S2 慢速坦克 龟+犀+菇 | random | normal | pve | none  n=12  平均回合=45.8  最长=67  平局=0.0%
+  S7 | S2 慢速坦克 龟+犀+菇 | switch-first | easy | pve | none  n=12  平均回合=23.9  最长=28  平局=0.0%
+  S7 | S2 慢速坦克 龟+犀+菇 | switch-first | normal | pve | none  n=12  平均回合=20.0  最长=20  平局=0.0%
+  S7 | S3 防守支援 菇+蛾+龟 | guard-first | easy | pve | none  n=12  平均回合=35.9  最长=57  平局=0.0%
+  S7 | S3 防守支援 菇+蛾+龟 | guard-first | normal | pve | none  n=12  平均回合=36.0  最长=36  平局=0.0%
+  S7 | S3 防守支援 菇+蛾+龟 | random | easy | pve | none  n=12  平均回合=49.5  最长=80  平局=8.3%
+  S7 | S3 防守支援 菇+蛾+龟 | random | normal | pve | none  n=12  平均回合=47.8  最长=80  平局=8.3%
+  S7 | S3 防守支援 菇+蛾+龟 | switch-first | easy | pve | none  n=12  平均回合=23.2  最长=28  平局=0.0%
+  S7 | S3 防守支援 菇+蛾+龟 | switch-first | normal | pve | none  n=12  平均回合=21.0  最长=21  平局=0.0%
+  全局: 平局 28/4836 (0.6%)  达到80回合上限 21 (0.4%)  最长回合=80  全局平均回合=18.4±8.8
+  回合数直方图(前 12 个最长出现的回合): 15→518 10→434 16→346 17→332 19→320 18→312 20→312 11→290 12→284 14→207 13→195 21→178
+
+-- 战术多样性（S2 按策略汇总，玩家侧）--
+  greedy-damage (最高伤害技能)  决策=1711  胜率=71.3%  行动类别={"skill":1,"switch":0,"item":0,"escape":0}  换宠率=0.0%  行动种类=13  熵=3.0bit(归一 0.8)  最高占比=37.1%
+      玩家行动分布: skill:strike×635 skill:wave×185 skill:ember×170 skill:dash×138 skill:vine×134 skill:pursuit×126
+  rushed (最低耗持续输出)  决策=1711  胜率=71.3%  行动类别={"skill":1,"switch":0,"item":0,"escape":0}  换宠率=0.0%  行动种类=13  熵=3.0bit(归一 0.8)  最高占比=37.1%
+      玩家行动分布: skill:strike×635 skill:wave×185 skill:ember×170 skill:dash×138 skill:vine×134 skill:pursuit×126
+  random (随机合法行动)  决策=3418  胜率=2.8%  行动类别={"skill":0.6451,"switch":0.1741,"item":0.1808,"escape":0}  换宠率=17.4%  行动种类=27  熵=4.3bit(归一 0.9)  最高占比=14.7%
+      玩家行动分布: skill:guard×501 skill:strike×414 item:potion×294 skill:spore×199 item:ether×196 skill:dash×154
+  guard-first (优先防御)  决策=2689  胜率=39.8%  行动类别={"skill":1,"switch":0,"item":0,"escape":0}  换宠率=0.0%  行动种类=9  熵=2.2bit(归一 0.7)  最高占比=52.1%
+      玩家行动分布: skill:guard×1402 skill:tide×429 skill:ember×292 skill:stonebreak×140 skill:strike×134 skill:discharge×124
+  switch-first (优先换宠)  决策=1990  胜率=0.0%  行动类别={"skill":0.195,"switch":0.805,"item":0,"escape":0}  换宠率=80.5%  行动种类=17  熵=3.4bit(归一 0.8)  最高占比=17.5%
+      玩家行动分布: switch:fox×348 switch:turtle×316 switch:shroom×273 switch:deer×229 switch:badger×201 switch:falcon×173
+  support-first (续航优先)  决策=2495  胜率=77.8%  行动类别={"skill":0.9006,"switch":0,"item":0.0994,"escape":0}  换宠率=0.0%  行动种类=15  熵=3.2bit(归一 0.8)  最高占比=34.6%
+      玩家行动分布: skill:strike×863 skill:wave×316 item:potion×248 skill:moss×175 skill:ember×166 skill:vine×162
+  switch-seeking (劣势才换宠)  决策=1772  胜率=71.3%  行动类别={"skill":0.921,"switch":0.079,"item":0,"escape":0}  换宠率=7.9%  行动种类=19  熵=3.5bit(归一 0.8)  最高占比=30.8%
+      玩家行动分布: skill:strike×546 skill:wave×195 skill:ember×159 skill:pursuit×120 skill:vine×110 skill:dash×103
+  one-turn-rank (本地一回合枚举)  决策=2451  胜率=88.9%  行动类别={"skill":0.785,"switch":0.0914,"item":0.1236,"escape":0}  换宠率=9.1%  行动种类=24  熵=3.9bit(归一 0.8)  最高占比=15.5%
+      玩家行动分布: skill:guard×380 skill:tide×366 item:potion×303 skill:strike×290 skill:ember×181 skill:pursuit×117
+
+-- 战术多样性（全局按难度汇总，敌方 chooseEnemy 侧）--
+  easy  决策=24299  行动类别={"skill":1,"switch":0,"item":0,"escape":0}  换宠率=0.0%  行动种类=13  熵=3.1bit(归一 0.8)  最高占比=22.6%
+      敌方行动分布: skill:guard×5484 skill:strike×4481 skill:spore×4211 skill:moss×2462 skill:wave×1842 skill:crush×1586 skill:tide×1532 skill:dash×1197
+  normal  决策=38422  行动类别={"skill":0.8484,"switch":0,"item":0.1516,"escape":0}  换宠率=0.0%  行动种类=22  熵=3.0bit(归一 0.7)  最高占比=29.5%
+      敌方行动分布: skill:strike×11327 item:potion×5815 skill:moss×5782 skill:spore×3650 skill:guard×2733 skill:dash×2657 skill:tide×2422 skill:flare×1605
+  hard  决策=26301  行动类别={"skill":0.7132,"switch":0.1265,"item":0.1603,"escape":0}  换宠率=12.7%  行动种类=36  熵=3.7bit(归一 0.7)  最高占比=18.7%
+      敌方行动分布: skill:spore×4908 item:potion×4194 skill:strike×3542 skill:guard×2218 skill:tide×1947 skill:crush×1551 switch:otter×1309 switch:lion×1236
+
+-- 携带物 / 配招 / 模式 汇总 --
+  携带物 none: n=324  胜率=49.4%  回合=16.0
+  携带物 shellCharm: n=324  胜率=50.0%  回合=16.6
+  携带物 energySeed: n=324  胜率=50.9%  回合=15.7
+  配招 default: n=144  胜率=41.7%  回合=17.0  玩家熵=0.8
+  配招 alt: n=144  胜率=41.7%  回合=23.0  玩家熵=0.8
+  模式 pve: n=96  胜率=50.0%  回合=18.4  敌方换宠率=5.5%
+  模式 pvp-local: n=96  胜率=44.8%  回合=18.2  敌方换宠率=6.8%
+
+-- G02 替代性判定（胜率差 + Wilson 95% CI）--
+  S4 同属性同位置 | 配对 fire | 队友 turtle+deer | 3 难度合计
+     fox 100.0% [94.0-100.0] (n=60, 上场率 43.0%, 存活 0.0%) vs lion 100.0% [94.0-100.0] (n=60, 上场率 52.6%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S4 同属性同位置 | 配对 fire | 队友 turtle+deer | normal + alt 配招
+     fox 100.0% [83.9-100.0] (n=20, 上场率 54.5%, 存活 0.0%) vs lion 100.0% [83.9-100.0] (n=20, 上场率 58.3%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S4 同属性同位置 | 配对 water | 队友 fox+deer | 3 难度合计
+     turtle 18.3% [10.6-29.9] (n=60, 上场率 55.1%, 存活 0.0%) vs otter 0.0% [0.0-6.0] (n=60, 上场率 38.6%, 存活 0.0%)  Δ=18.3pp → A 明显占优（置信区间不重叠）
+  S4 同属性同位置 | 配对 water | 队友 fox+deer | normal + alt 配招
+     turtle 0.0% [0.0-16.1] (n=20, 上场率 62.5%, 存活 0.0%) vs otter 0.0% [0.0-16.1] (n=20, 上场率 41.7%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S4 同属性同位置 | 配对 leaf | 队友 fox+turtle | 3 难度合计
+     deer 26.7% [17.1-39.0] (n=60, 上场率 47.1%, 存活 0.0%) vs shroom 16.7% [9.3-28.0] (n=60, 上场率 51.6%, 存活 0.0%)  Δ=10.0pp → A 占优但未分离（CI 重叠）
+  S4 同属性同位置 | 配对 leaf | 队友 fox+turtle | normal + alt 配招
+     deer 0.0% [0.0-16.1] (n=20, 上场率 60.9%, 存活 0.0%) vs shroom 0.0% [0.0-16.1] (n=20, 上场率 57.1%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S4 同属性同位置 | 配对 rock | 队友 fox+deer | 3 难度合计
+     badger 20.0% [11.8-31.8] (n=60, 上场率 50.0%, 存活 0.0%) vs rhino 3.3% [0.9-11.4] (n=60, 上场率 55.7%, 存活 0.0%)  Δ=16.7pp → A 明显占优（置信区间不重叠）
+  S4 同属性同位置 | 配对 rock | 队友 fox+deer | normal + alt 配招
+     badger 0.0% [0.0-16.1] (n=20, 上场率 46.7%, 存活 0.0%) vs rhino 0.0% [0.0-16.1] (n=20, 上场率 60.0%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S4 同属性同位置 | 配对 electric | 队友 turtle+deer | 3 难度合计
+     sparrow 1.7% [0.3-8.9] (n=60, 上场率 34.2%, 存活 0.0%) vs marten 21.7% [13.1-33.6] (n=60, 上场率 35.3%, 存活 0.0%)  Δ=-20.0pp → B 明显占优（置信区间不重叠）
+  S4 同属性同位置 | 配对 electric | 队友 turtle+deer | normal + alt 配招
+     sparrow 0.0% [0.0-16.1] (n=20, 上场率 26.7%, 存活 0.0%) vs marten 100.0% [83.9-100.0] (n=20, 上场率 37.5%, 存活 0.0%)  Δ=-100.0pp → B 明显占优（置信区间不重叠）
+  S4 同属性同位置 | 配对 wind | 队友 turtle+deer | 3 难度合计
+     falcon 100.0% [94.0-100.0] (n=60, 上场率 47.7%, 存活 0.0%) vs moth 100.0% [94.0-100.0] (n=60, 上场率 55.6%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S4 同属性同位置 | 配对 wind | 队友 turtle+deer | normal + alt 配招
+     falcon 100.0% [83.9-100.0] (n=20, 上场率 75.0%, 存活 0.0%) vs moth 100.0% [83.9-100.0] (n=20, 上场率 70.6%, 存活 0.0%)  Δ=0.0pp → 无差异（<2pp）
+  S5 队友与位置固定（turtle+deer），slot0 = 旧六宠合计 vs 新六宠合计 | 3 难度合计
+     旧六宠合计 54.2% [46.0-62.1] (n=144, 上场率 41.6%, 存活 0.0%) vs 新六宠合计 39.8% [33.5-46.5] (n=216, 上场率 41.8%, 存活 0.0%)  Δ=14.4pp → A 占优但未分离（CI 重叠）
+  S5 队友与位置固定（fox+turtle），slot0 = 旧六宠合计 vs 新六宠合计 | 3 难度合计
+     旧六宠合计 29.9% [23.0-37.8] (n=144, 上场率 44.5%, 存活 0.0%) vs 新六宠合计 45.8% [39.3-52.5] (n=216, 上场率 44.9%, 存活 0.0%)  Δ=-16.0pp → B 明显占优（置信区间不重叠）
+
+-- S10 与归档 studyC 复现对照（胜率/平均回合）--
+  easy: greedy-damage=75.0%/14.5  one-turn-rank=100.0%/10.7  rushed=75.0%/14.5  switch-seeking=100.0%/10.7  random=20.8%/25.5
+  normal: greedy-damage=0.0%/16.0  one-turn-rank=100.0%/11.0  rushed=0.0%/16.0  switch-seeking=100.0%/11.0  random=0.0%/22.3
+  hard: greedy-damage=0.0%/17.6  one-turn-rank=100.0%/22.0  rushed=0.0%/17.6  switch-seeking=0.0%/16.0  random=0.0%/21.8
+
+报告已写入 reports/balance-matrix.json

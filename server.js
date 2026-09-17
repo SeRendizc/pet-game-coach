@@ -7,7 +7,7 @@ import {dirname,join} from 'node:path';
 import {generateKeyPairSync,privateDecrypt,constants,randomBytes,timingSafeEqual} from 'node:crypto';
 import {runCoach,fitModelMessages} from './coach/runtime.js';
 const root=dirname(fileURLToPath(import.meta.url));
-const publicAssets=new Set(['index.html','style.css','app.js','engine.js','progression.js','content.js','coach.js','connect.html','connect.js','connect.css','coach/experience.js','coach/client.js','coach/scheduler.js','coach/toolbox.js','coach/policy.js','coach/runtime.js','coach/memory.js','coach/strategist.js','coach/teacher.js','coach/companion.js']);
+const publicAssets=new Set(['index.html','style.css','app.js','engine.js','progression.js','rules.js','content.js','coach.js','connect.html','connect.js','connect.css','coach/experience.js','coach/client.js','coach/scheduler.js','coach/toolbox.js','coach/policy.js','coach/runtime.js','coach/memory.js','coach/strategist.js','coach/teacher.js','coach/companion.js']);
 const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const equal=(a,b)=>typeof a==='string'&&typeof b==='string'&&Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual(Buffer.from(a),Buffer.from(b));

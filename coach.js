@@ -1,15 +1,15 @@
 import {isLiveMatch} from './coach/policy.js';
+import {active} from './engine.js';
+import {proactiveRegister,proactiveText,cleanStage} from './coach/companion.js';
 // Local interaction adapter, not an LLM. Replace this boundary with a server-backed agent later.
 export const COACH_NAME='小芽';
+// 主动侧的门控（说不说）与档位（怎么说）分开：
+// 门控在这里，档位在 coach/companion.js 的 proactiveRegister。
 export function coachEvent(event,context,session){
   if(isLiveMatch(context)||context.preference==='quiet'||session.dismissed||session.count>=2)return null;
   if(session.lastTurn!==null&&context.turn-session.lastTurn<3&&event!=='result')return null;
-  let text=null;
-  if(event==='result'){
-    if(context.result==='loss') text=context.lossStreak>=2?'这两局先告一段落也可以。想继续的话，我陪你换个搭配。':'这局结束了。想再来就再来，想看关键回合我也在。';
-    if(context.result==='win')text='拿下了！这次的经验和训练点已经收好，回营地可以继续培养。';
-  }
-  if(event==='first-faint')text='还有队友在。先按自己的想法选，想聊这回合时叫我。';
+  if(!['result','first-faint'].includes(event))return null;
+  const text=proactiveText(event,context,proactiveRegister({lossStreak:context.lossStreak||0}));
   if(!text)return null;
   session.count++;session.lastTurn=context.turn;return text;
 }
@@ -21,5 +21,14 @@ export function localReply(question,context){
   if(/复盘|回顾/.test(question))return context.lastTurn?'最近一回合：'+context.lastTurn.events.filter(x=>!x.startsWith('──')).join(' '):'先完成一个回合，我就能帮你找到对应记录。';
   return '我现在是本地互动演示，还没有接入语言模型。可以先问我“怎么培养”“狐狸和狮子有什么不同”或“回顾上一回合”。';
 }
-// Read-only allowlist: intentionally excludes RNG, opponent's pending action, and private server state.
-export function coachContext(game,profile){return {mode:game?.mode||'camp',turn:game?.turn||0,result:game?.result||null,preference:profile.coach.mode,lossStreak:profile.lossStreak,lastTurn:game?.history.filter(h=>h.type==='turn').at(-1)||null};}
+// Read-only allowlist: intentionally excludes RNG, the opponent's pending action, and private server state.
+// 主动侧只拿得到 game 与 profile（app.js 不把 memory 传进来），所以这里的事实全部读自
+// 这一局本身：关卡、当前对位、已倒下的伙伴、剩余只数。跨局记忆只在被动通道（runCoach）可用。
+export function coachContext(game,profile){
+  const pets=Array.isArray(game?.player?.pets)?game.player.pets:[];
+  const mine=game?active(game,'player'):null,opponent=game?active(game,'enemy'):null;
+  return {mode:game?.mode||'camp',turn:game?.turn||0,result:game?.result||null,preference:profile.coach.mode,lossStreak:profile.lossStreak,
+    stage:cleanStage(game?.stageName||null),current:mine?.name||null,opponent:opponent?.name||null,
+    fallen:pets.filter(p=>p&&p.hp<=0).map(p=>p.name),alive:pets.filter(p=>p&&p.hp>0).length,
+    lastTurn:game?.history?.filter(h=>h.type==='turn').at(-1)||null};
+}

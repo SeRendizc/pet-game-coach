@@ -1,32 +1,57 @@
 export const RULES_VERSION='0.6';
+// ── 统一规则数据源（P05）───────────────────────────────────────────────────────
+// 结算函数与界面文案都从这里取数。数值只在本对象里写一次：
+// engine.js 的 damage/resolveTurn 直接引用它，rules.js 生成的规则说明与技能数值行也引用它，
+// 因此改这里不会出现「提示写的数字」与「实际结算的数字」不一致。
+export const RULES={
+ typeAdvantage:1.5,typeResist:.75,
+ damage:{atkCoefficient:.6,defCoefficient:.4,min:1},
+ buff:{perStack:.15,maxStacks:2,turns:3},
+ guard:{reduction:.65,energy:2},
+ priority:{switch:5,item:4},
+ energy:{start:5,max:6,perTurn:1},
+ status:{burn:{tick:6,turns:2},poison:{tick:8,turns:3}},
+ slow:{turns:2},
+ shellCharm:{reduction:.15},
+ energySeed:{threshold:1,restore:2},
+ recoil:{rounding:'ceil'},drain:{rounding:'round'},
+ turnLimit:80,
+ learnset:6,loadout:4,
+ level:{hp:5,atk:1,def:1},
+ // 培养收益与 progression.js 的 TRAINING 必须一致，rules.test.js 逐字段断言。
+ training:{hp:12,atk:4,speed:3},
+};
+export const percent=n=>`${Math.round(n*100)}%`;
+// desc 可以是字符串，也可以是接收自身字段的函数；后者保证文案里的数字与字段同源。
+const withDesc=o=>{const {desc,...fields}=o;return {...fields,desc:typeof desc==='function'?desc(fields):desc};};
 export const DIFFICULTIES = {easy:{name:'轻松',description:'简单出招，适合熟悉技能'},normal:{name:'标准',description:'优先伤害与治疗，适合日常训练'},hard:{name:'挑战',description:'模拟双方行动，兼顾收益与风险'}};
 export const TYPES = { fire: '火', water: '水', leaf: '草', normal: '普通', rock:'岩', electric:'雷',wind:'风' };
-export const SKILLS = {
- focus:{name:'蓄势',type:'normal',cost:2,buff:'atk',desc:'攻击提高15%，最多2层；持续3次在场回合末，主动换宠清空'},
- shell:{name:'护甲',type:'normal',cost:2,buff:'def',desc:'防御提高15%，最多2层；持续3次在场回合末，主动换宠清空'},
- dispel:{name:'破势',type:'normal',cost:2,power:16,dispel:true,desc:'命中后清除目标攻防强化；防御可阻挡驱散'},
- gust:{name:'风刃',type:'wind',cost:2,power:27,desc:'稳定风系攻击'},
- tempest:{name:'回旋风暴',type:'wind',cost:4,power:42,desc:'高消耗风系爆发'},
- clearwind:{name:'清风',type:'wind',cost:1,clearEnvironment:true,desc:'移除当前环境；不造成伤害，不移除异常'},
+export const SKILLS = Object.fromEntries(Object.entries({
+ focus:{name:'蓄势',type:'normal',cost:2,buff:'atk',desc:()=>`攻击提高${percent(RULES.buff.perStack)}，最多${RULES.buff.maxStacks}层；持续${RULES.buff.turns}次在场回合末，主动换宠清空`},
+ shell:{name:'护甲',type:'normal',cost:2,buff:'def',desc:()=>`防御提高${percent(RULES.buff.perStack)}，最多${RULES.buff.maxStacks}层；持续${RULES.buff.turns}次在场回合末，主动换宠清空`},
+ dispel:{name:'破势',type:'normal',cost:2,power:16,dispel:true,desc:()=>'命中后清除目标攻防强化；防御可阻挡驱散'},
+ gust:{name:'风刃',type:'wind',cost:2,power:27,desc:()=>'稳定风系攻击'},
+ tempest:{name:'回旋风暴',type:'wind',cost:4,power:42,desc:()=>'高消耗风系爆发'},
+ clearwind:{name:'清风',type:'wind',cost:1,clearEnvironment:true,desc:()=>'移除当前环境；不造成伤害，不移除异常'},
 
-  stonebreak:{name:'碎岩冲击',type:'rock',power:26,cost:3,pierce:true,desc:'岩系攻击，穿过防御技能减伤'},
-  gravel:{name:'砾石弹',type:'rock',power:22,cost:2,desc:'稳定的岩系攻击'},
-  staticbolt:{name:'迟滞电弧',type:'electric',power:18,cost:2,slow:6,desc:'命中后目标速度降低6，影响下一回合；防御可挡，换宠后保留但暂停计时'},
-  discharge:{name:'蓄能放电',type:'electric',power:40,cost:4,desc:'高消耗雷系爆发，注意后续能量'},
-  strike: {name:'撞击',type:'normal',power:18,cost:0,desc:'无消耗，稳定攻击'},
-  ember: {name:'火花',type:'fire',power:27,cost:2,desc:'火系攻击；施加灼烧 2 回合',status:'burn'},
-  flare: {name:'舍身烈焰',type:'fire',power:50,cost:4,recoil:.2,desc:'高爆发；承受实际伤害 20% 的反伤'},
-  pursuit: {name:'余烬追猎',type:'fire',power:24,cost:2,burnBonus:18,desc:'对灼烧目标威力 +18，适合火花后追击'},
-  dash: {name:'疾爪',type:'normal',power:16,cost:0,priority:1,desc:'先制攻击，优先于普通攻击'},
-  crush: {name:'破甲重击',type:'normal',power:30,cost:3,pierce:true,desc:'无视防御技能减伤，不施加灼烧'},
-  drain: {name:'生息藤',type:'leaf',power:24,cost:2,drain:.4,desc:'吸取实际伤害 40% 的生命'},
-  moss: {name:'苔息',cost:3,heal:28,desc:'恢复自身 28 HP，按速度行动'},
-  wave: {name:'水流弹',type:'water',power:29,cost:2,desc:'水系攻击'},
-  tide: {name:'潮汐重击',type:'water',power:42,cost:4,desc:'高伤害水系攻击'},
-  vine: {name:'藤鞭',type:'leaf',power:29,cost:2,desc:'草系攻击'},
-  spore: {name:'毒孢子',type:'leaf',power:12,cost:2,desc:'草系攻击；施加中毒 3 回合',status:'poison'},
-  guard: {name:'防御',cost:0,priority:3,desc:'本回合减伤 65%，阻挡新异常，额外恢复 2 能量；不可连续使用'},
-};
+ stonebreak:{name:'碎岩冲击',type:'rock',power:26,cost:3,pierce:true,desc:()=>'岩系攻击，穿过防御技能减伤'},
+ gravel:{name:'砾石弹',type:'rock',power:22,cost:2,desc:()=>'稳定的岩系攻击'},
+ staticbolt:{name:'迟滞电弧',type:'electric',power:18,cost:2,slow:6,desc:s=>`命中后目标速度降低${s.slow}，影响下一回合；防御可挡，换宠后保留但暂停计时`},
+ discharge:{name:'蓄能放电',type:'electric',power:40,cost:4,desc:()=>'高消耗雷系爆发，注意后续能量'},
+ strike: {name:'撞击',type:'normal',power:18,cost:0,desc:()=>'无消耗，稳定攻击'},
+ ember: {name:'火花',type:'fire',power:27,cost:2,desc:()=>`火系攻击；施加灼烧 ${RULES.status.burn.turns} 回合`,status:'burn'},
+ flare: {name:'舍身烈焰',type:'fire',power:50,cost:4,recoil:.2,desc:s=>`高爆发；承受实际伤害 ${percent(s.recoil)} 的反伤`},
+ pursuit: {name:'余烬追猎',type:'fire',power:24,cost:2,burnBonus:18,desc:s=>`对灼烧目标威力 +${s.burnBonus}，适合火花后追击`},
+ dash: {name:'疾爪',type:'normal',power:16,cost:0,priority:1,desc:()=>'先制攻击，优先于普通攻击'},
+ crush: {name:'破甲重击',type:'normal',power:30,cost:3,pierce:true,desc:()=>'无视防御技能减伤，不施加灼烧'},
+ drain: {name:'生息藤',type:'leaf',power:24,cost:2,drain:.4,desc:s=>`吸取实际伤害 ${percent(s.drain)} 的生命`},
+ moss: {name:'苔息',cost:3,heal:28,desc:s=>`恢复自身 ${s.heal} HP，按速度行动`},
+ wave: {name:'水流弹',type:'water',power:29,cost:2,desc:()=>'水系攻击'},
+ tide: {name:'潮汐重击',type:'water',power:42,cost:4,desc:()=>'高伤害水系攻击'},
+ vine: {name:'藤鞭',type:'leaf',power:29,cost:2,desc:()=>'草系攻击'},
+ spore: {name:'毒孢子',type:'leaf',power:12,cost:2,desc:()=>`草系攻击；施加中毒 ${RULES.status.poison.turns} 回合`,status:'poison'},
+ guard: {name:'防御',cost:0,priority:3,desc:()=>`本回合减伤 ${percent(RULES.guard.reduction)}，阻挡新异常，额外恢复 ${RULES.guard.energy} 能量；不可连续使用`},
+}).map(([id,s])=>[id,withDesc(s)]));
 export const SPECIES = [
   {id:'fox',name:'烬尾狐',icon:'🦊',type:'fire',maxHp:98,atk:27,def:17,speed:38,skills:['dash','ember','pursuit','guard'],bio:'高速游击',trait:'火花挂灼烧，追猎增伤；疾爪先制收尾'},
   {id:'turtle',name:'潮甲龟',icon:'🐢',type:'water',maxHp:132,atk:22,def:30,speed:13,skills:['strike','wave','tide','guard'],bio:'守势水盾',trait:'防御时额外恢复 8 HP，适合承接换入伤害',guardHeal:8},
@@ -43,24 +68,37 @@ export const SPECIES = [
 ];
 const extraSkills={fox:['focus','dispel'],turtle:['shell','dispel'],deer:['focus','shell'],lion:['focus','dispel'],otter:['focus','dispel'],shroom:['shell','dispel'],badger:['shell','dispel'],sparrow:['focus','dispel'],falcon:['clearwind','dispel'],moth:['dispel','tempest'],rhino:['shell','dispel'],marten:['staticbolt','dispel']};
 for(const p of SPECIES)p.learnset=[...p.skills,...extraSkills[p.id]];
-export const HELD_ITEMS={none:{name:'不携带',desc:'没有被动效果'},shellCharm:{name:'守心石',desc:'满血时第一次受攻击伤害减少15%，每局一次'},energySeed:{name:'蓄能籽',desc:'在场存活回合末能量≤1时额外恢复2点，每局一次'}};
-export const ENVIRONMENTS={rain:{name:'细雨',turns:4,multipliers:{water:1.1,fire:.9},desc:'前4回合水系伤害×1.1、火系×0.9；清风可提前移除'},gale:{name:'山风',turns:4,multipliers:{wind:1.1,rock:.9},desc:'前4回合风系伤害×1.1、岩系×0.9；清风可提前移除'}};
+export const HELD_ITEMS={
+  none:withDesc({name:'不携带',desc:'没有被动效果'}),
+  shellCharm:withDesc({name:'守心石',desc:()=>`满血时第一次受攻击伤害减少${percent(RULES.shellCharm.reduction)}，每局一次`}),
+  energySeed:withDesc({name:'蓄能籽',desc:()=>`在场存活回合末能量≤${RULES.energySeed.threshold}时额外恢复${RULES.energySeed.restore}点，每局一次`}),
+};
+export const ENVIRONMENTS={rain:withDesc({name:'细雨',turns:4,multipliers:{water:1.1,fire:.9},desc:o=>`前${o.turns}回合${Object.entries(o.multipliers).map(([t,m])=>`${TYPES[t]}系伤害×${m}`).join('、')}；清风可提前移除`}),gale:withDesc({name:'山风',turns:4,multipliers:{wind:1.1,rock:.9},desc:o=>`前${o.turns}回合${Object.entries(o.multipliers).map(([t,m])=>`${TYPES[t]}系伤害×${m}`).join('、')}；清风可提前移除`})};
 export const ITEMS = {
-  potion:{name:'回复药',desc:'为任意存活队友恢复 45 HP',count:3},
-  cleanse:{name:'净化药',desc:'清除任意存活队友的异常',count:2},
-  ether:{name:'能量果',desc:'为任意存活队友恢复 4 能量',count:2},
+  potion:withDesc({name:'回复药',heal:45,count:3,desc:o=>`为任意存活队友恢复 ${o.heal} HP`}),
+  cleanse:withDesc({name:'净化药',count:2,desc:'清除任意存活队友的异常'}),
+  ether:withDesc({name:'能量果',restore:4,count:2,desc:o=>`为任意存活队友恢复 ${o.restore} 能量`}),
 };
 // Relationships are explicit; no type immunities or same-type attack bonus.
 export const TYPE_ADVANTAGES={fire:['leaf'],water:['fire','rock'],leaf:['water','rock'],rock:['fire','electric','wind'],electric:['water','wind'],wind:['leaf']};
+// 属性关系的一句话摘要，供开局日志与规则弹窗共用，避免各写一份。
+export function typeChartLine(){return Object.entries(TYPE_ADVANTAGES).map(([type,targets])=>`${TYPES[type]}克${targets.map(x=>TYPES[x]).join('、')}`).join('；');}
 export function multiplier(a,b){
  if(a==='normal')return 1;
- if(TYPE_ADVANTAGES[a]?.includes(b))return 1.5;
- if(a===b||TYPE_ADVANTAGES[b]?.includes(a))return .75;
+ if(TYPE_ADVANTAGES[a]?.includes(b))return RULES.typeAdvantage;
+ if(a===b||TYPE_ADVANTAGES[b]?.includes(a))return RULES.typeResist;
  return 1;
 }
 export function effectiveSpeed(p){return Math.max(1,p.speed-(p.speedDown?.amount||0));}
 export function damage(attacker,defender,skill,guard=false) {
-  return Math.max(1,Math.round((skill.power+(skill.burnBonus&&defender.status?.kind==='burn'?skill.burnBonus:0)+attacker.atk*(1+.15*(attacker.buffs?.atk?.stacks||0))*.6-defender.def*(1+.15*(defender.buffs?.def?.stacks||0))*.4)*multiplier(skill.type,defender.type)*(guard&&!skill.pierce?.35:1)*(attacker.environment?.multipliers?.[skill.type]||1)*(defender.heldItem==='shellCharm'&&!defender.heldUsed&&defender.hp===defender.maxHp?.85:1)));
+  const {atkCoefficient,defCoefficient,min}=RULES.damage;
+  const burnBonus=skill.burnBonus&&defender.status?.kind==='burn'?skill.burnBonus:0;
+  const atk=attacker.atk*(1+RULES.buff.perStack*(attacker.buffs?.atk?.stacks||0))*atkCoefficient;
+  const def=defender.def*(1+RULES.buff.perStack*(defender.buffs?.def?.stacks||0))*defCoefficient;
+  const guardMultiplier=guard&&!skill.pierce?1-RULES.guard.reduction:1;
+  const environment=attacker.environment?.multipliers?.[skill.type]||1;
+  const held=defender.heldItem==='shellCharm'&&!defender.heldUsed&&defender.hp===defender.maxHp?1-RULES.shellCharm.reduction:1;
+  return Math.max(min,Math.round((skill.power+burnBonus+atk-def)*multiplier(skill.type,defender.type)*guardMultiplier*environment*held));
 }
 export function createGame(seed=17,team=['fox','turtle','deer'],options={}) {
   if (team.length!==3 || new Set(team).size!==3 || team.some(id=>!SPECIES.some(p=>p.id===id))) throw Error('请选择三只不同的宠物');
@@ -69,14 +107,14 @@ export function createGame(seed=17,team=['fox','turtle','deer'],options={}) {
     const trained=enemy?options.enemyPets?.[id]:options.pets?.[id];
     const level=trained?.level||(enemy?(options.enemyLevel||1):1);
     const points=trained?.points||{};
-    if(Array.isArray(trained?.loadout)&&trained.loadout.length===4&&new Set(trained.loadout).size===4&&trained.loadout.every(x=>p.learnset.includes(x)))p.skills=[...trained.loadout];
+    if(Array.isArray(trained?.loadout)&&trained.loadout.length===RULES.loadout&&new Set(trained.loadout).size===RULES.loadout&&trained.loadout.every(x=>p.learnset.includes(x)))p.skills=[...trained.loadout];
     p.heldItem=Object.hasOwn(HELD_ITEMS,trained?.heldItem)?trained.heldItem:'none';p.heldUsed=false;p.buffs={};p.environment=options.environment?structuredClone(ENVIRONMENTS[options.environment]):null;
-    p.level=level;p.maxHp+=(level-1)*5+(points.hp||0)*12;
-    p.atk+=(level-1)+(points.atk||0)*4;p.def+=level-1;p.speed+=(points.speed||0)*3;
-    return {...p,hp:p.maxHp,energy:5,status:null,lastGuard:false};
+    p.level=level;p.maxHp+=(level-1)*RULES.level.hp+(points.hp||0)*RULES.training.hp;
+    p.atk+=(level-1)*RULES.level.atk+(points.atk||0)*RULES.training.atk;p.def+=(level-1)*RULES.level.def;p.speed+=(points.speed||0)*RULES.training.speed;
+    return {...p,hp:p.maxHp,energy:RULES.energy.start,status:null,lastGuard:false};
   }),items:Object.fromEntries(Object.entries(ITEMS).map(([k,v])=>[k,v.count]))});
   const enemyTeams=[['shroom','otter','lion'],['lion','turtle','deer'],['otter','fox','shroom']];
-  return {version:RULES_VERSION,environment:options.environment?structuredClone(ENVIRONMENTS[options.environment]):null,stageId:options.stageId||null,stageName:options.stageName||null,preview:!!options.preview,difficulty:DIFFICULTIES[options.difficulty]?options.difficulty:'hard',mode:options.mode||'pve',seed:seed>>>0,initialSeed:seed>>>0,turn:1,phase:'battle',result:null,replaceQueue:null,replaceSide:null,player:make(team),enemy:make(options.enemyTeam||enemyTeams[(seed>>>0)%3],true),history:[],log:[options.mode==='pvp-local'?'本地对战开始。双方各选行动后同时结算；换宠占用整回合。':'PVE 训练开始。双方行动同时决定；火克草，草克水，水克火。']};
+  return {version:RULES_VERSION,environment:options.environment?structuredClone(ENVIRONMENTS[options.environment]):null,stageId:options.stageId||null,stageName:options.stageName||null,preview:!!options.preview,difficulty:DIFFICULTIES[options.difficulty]?options.difficulty:'hard',mode:options.mode||'pve',seed:seed>>>0,initialSeed:seed>>>0,turn:1,phase:'battle',result:null,replaceQueue:null,replaceSide:null,player:make(team),enemy:make(options.enemyTeam||enemyTeams[(seed>>>0)%3],true),history:[],log:[options.mode==='pvp-local'?'本地对战开始。双方各选行动后同时结算；换宠占用整回合。':`PVE 训练开始。双方行动同时决定；${typeChartLine()}。`]};
 }
 export function active(g,side) {return g[side].pets[g[side].active];}
 function random(g) {g.seed=(Math.imul(g.seed,1664525)+1013904223)>>>0;return g.seed/4294967296;}
@@ -86,7 +124,7 @@ export function legalActions(g,side='player') {
   if(p.hp<=0) return swaps;
   if(g.phase==='replace' && side===(g.replaceSide||'player')) return swaps;
   const skills=p.skills.filter(id=>SKILLS[id].cost<=p.energy && !(id==='guard'&&p.lastGuard) && !(SKILLS[id].heal&&p.hp===p.maxHp) && !(SKILLS[id].clearEnvironment&&!g.environment)).map(id=>({kind:'skill',id}));
-  const items=Object.keys(ITEMS).flatMap(id=>s.items[id]>0?s.pets.flatMap((p,i)=>p.hp>0&&((id==='potion'&&p.hp<p.maxHp)||(id==='ether'&&p.energy<6)||(id==='cleanse'&&p.status))?[{kind:'item',id,target:i}]:[]):[]);
+  const items=Object.keys(ITEMS).flatMap(id=>s.items[id]>0?s.pets.flatMap((p,i)=>p.hp>0&&((id==='potion'&&p.hp<p.maxHp)||(id==='ether'&&p.energy<RULES.energy.max)||(id==='cleanse'&&p.status))?[{kind:'item',id,target:i}]:[]):[]);
   return [...skills,...swaps,...items,{kind:'escape'}];
 }
 function same(a,b) {return a.kind===b.kind && a.id===b.id && a.target===b.target;}
@@ -191,7 +229,7 @@ export function resolveTurn(original,action,opponent,options={}) {
     g.result='escaped';g.phase='ended';g.log.push('你撤离了训练赛。本场记为撤退，可重新挑战。');
     g.history.push({type:'turn',before,action:structuredClone(action),opponent:null,events:g.log.slice(start),after:snapshot(g),result:g.result});return g;
   }
-  const priority=a=>a.kind==='switch'?5:a.kind==='item'?4:SKILLS[a.id].priority||0;
+  const priority=a=>a.kind==='switch'?RULES.priority.switch:a.kind==='item'?RULES.priority.item:SKILLS[a.id].priority||0;
   const moves=[{side:'player',a:action},{side:'enemy',a:opponent}].map(m=>({...m,actor:g[m.side].active,speed:effectiveSpeed(active(g,m.side)),tie:options.tieFirst?(options.tieFirst===m.side?1:0):random(g)})).sort((a,b)=>priority(b.a)-priority(a.a)||b.speed-a.speed||b.tie-a.tie);
   const guards={player:false,enemy:false};
   for(const side of ['player','enemy']) for(const p of g[side].pets) p.lastGuard=false;
@@ -202,14 +240,14 @@ export function resolveTurn(original,action,opponent,options={}) {
     if(a.kind==='switch') {active(g,side).buffs={};s.active=a.target;g.log.push(`${label}换上了${active(g,side).name}。`);continue;}
     if(a.kind==='item') {
       const target=s.pets[a.target];s.items[a.id]--;
-      if(a.id==='potion') {const healed=Math.min(45,target.maxHp-target.hp);target.hp+=healed;g.log.push(`${label}对${target.name}使用回复药，恢复 ${healed} HP。`);}
-      if(a.id==='ether') {const recovered=Math.min(4,6-target.energy);target.energy+=recovered;g.log.push(`${label}对${target.name}使用能量果，恢复 ${recovered} 能量。`);}
+      if(a.id==='potion') {const healed=Math.min(ITEMS.potion.heal,target.maxHp-target.hp);target.hp+=healed;g.log.push(`${label}对${target.name}使用回复药，恢复 ${healed} HP。`);}
+      if(a.id==='ether') {const recovered=Math.min(ITEMS.ether.restore,RULES.energy.max-target.energy);target.energy+=recovered;g.log.push(`${label}对${target.name}使用能量果，恢复 ${recovered} 能量。`);}
       if(a.id==='cleanse') {target.status=null;g.log.push(`${label}净化了${target.name}的异常。`);}
       continue;
     }
     const p=active(g,side), q=active(g,other), sk=SKILLS[a.id];p.energy-=sk.cost;
-    if(a.id==='guard') {guards[side]=true;p.lastGuard=true;p.energy=Math.min(6,p.energy+2);if(p.guardHeal){const n=Math.min(p.guardHeal,p.maxHp-p.hp);p.hp+=n;g.log.push(`${p.name}的守势特性恢复 ${n} HP。`);}g.log.push(`${label}的${p.name}防御：本回合减伤 65%，阻挡新异常，额外恢复 2 能量。`);continue;}
-    if(sk.buff){p.buffs??={};p.buffs[sk.buff]={stacks:Math.min(2,(p.buffs[sk.buff]?.stacks||0)+1),remaining:3};g.log.push(`${p.name}使用${sk.name}，${sk.buff==='atk'?'攻击':'防御'}强化${p.buffs[sk.buff].stacks}层。`);continue;}
+    if(a.id==='guard') {guards[side]=true;p.lastGuard=true;p.energy=Math.min(RULES.energy.max,p.energy+RULES.guard.energy);if(p.guardHeal){const n=Math.min(p.guardHeal,p.maxHp-p.hp);p.hp+=n;g.log.push(`${p.name}的守势特性恢复 ${n} HP。`);}g.log.push(`${label}的${p.name}防御：本回合减伤 ${percent(RULES.guard.reduction)}，阻挡新异常，额外恢复 ${RULES.guard.energy} 能量。`);continue;}
+    if(sk.buff){p.buffs??={};p.buffs[sk.buff]={stacks:Math.min(RULES.buff.maxStacks,(p.buffs[sk.buff]?.stacks||0)+1),remaining:RULES.buff.turns};g.log.push(`${p.name}使用${sk.name}，${sk.buff==='atk'?'攻击':'防御'}强化${p.buffs[sk.buff].stacks}层。`);continue;}
     if(sk.clearEnvironment){g.environment=null;for(const team of ['player','enemy'])for(const pet of g[team].pets)pet.environment=null;g.log.push(`${p.name}使用清风，场地环境已移除。`);continue;}
     if(sk.heal){const n=Math.min(sk.heal,p.maxHp-p.hp);p.hp+=n;g.log.push(`${label}的${p.name}使用${sk.name}，恢复 ${n} HP。`);continue;}
     if(q.hp<=0) {g.log.push(`${label}失去攻击目标。`);continue;}
@@ -217,20 +255,20 @@ export function resolveTurn(original,action,opponent,options={}) {
     if(q.heldItem==='shellCharm'&&!q.heldUsed&&q.hp+actual===q.maxHp){q.heldUsed=true;g.log.push(`${q.name}的守心石触发一次减伤。`);}
     if(sk.dispel&&!guards[other]){q.buffs={};g.log.push(`${q.name}的攻防强化被清除。`);}
     g.log.push(`${label}的${p.name}使用${sk.name}，对${q.name}造成 ${actual} 伤害${multiplier(sk.type,q.type)>1?'（属性克制）':''}${guards[other]?(sk.pierce?'（穿透防御）':'（防御减伤）'):''}。`);
-    if(sk.recoil){const n=Math.min(p.hp,Math.ceil(actual*sk.recoil));p.hp-=n;g.log.push(`${p.name}受到 ${n} 反伤。`);}
-    if(sk.drain){const n=Math.min(p.maxHp-p.hp,Math.round(actual*sk.drain));p.hp+=n;g.log.push(`${p.name}吸取生命，恢复 ${n} HP。`);}
-    if(sk.slow&&q.hp>0&&!guards[other]){q.speedDown={amount:sk.slow,remaining:2};g.log.push(`${q.name}速度降低 ${sk.slow}，下一回合生效。`);}
+    if(sk.recoil){const n=Math.min(p.hp,RULES.recoil.rounding==='ceil'?Math.ceil(actual*sk.recoil):Math.round(actual*sk.recoil));p.hp-=n;g.log.push(`${p.name}受到 ${n} 反伤。`);}
+    if(sk.drain){const n=Math.min(p.maxHp-p.hp,RULES.drain.rounding==='ceil'?Math.ceil(actual*sk.drain):Math.round(actual*sk.drain));p.hp+=n;g.log.push(`${p.name}吸取生命，恢复 ${n} HP。`);}
+    if(sk.slow&&q.hp>0&&!guards[other]){q.speedDown={amount:sk.slow,remaining:RULES.slow.turns};g.log.push(`${q.name}速度降低 ${sk.slow}，下一回合生效。`);}
     if(guards[other]&&q.guardCounter&&q.hp>0&&p.hp>0){const n=Math.min(p.hp,q.guardCounter);p.hp-=n;g.log.push(`${q.name}的守势反击造成 ${n} 伤害。`);}
-    if(sk.status && q.hp>0 && !guards[other] && !q.status) {q.status={kind:sk.status,remaining:sk.status==='burn'?2:3};g.log.push(`${q.name}陷入${sk.status==='burn'?'灼烧':'中毒'}。`);}
+    if(sk.status && q.hp>0 && !guards[other] && !q.status) {q.status={kind:sk.status,remaining:RULES.status[sk.status].turns};g.log.push(`${q.name}陷入${sk.status==='burn'?'灼烧':'中毒'}。`);}
     } finally {capture(side);}
   }
   for(const side of ['player','enemy']) {
     const p=active(g,side);
-    if(p.hp>0 && p.status) {const tick=Math.min(p.hp,p.status.kind==='burn'?6:8);p.hp-=tick;g.log.push(`${p.name}受到${p.status.kind==='burn'?'灼烧':'中毒'}伤害 ${tick}。`);if(--p.status.remaining<=0)p.status=null;}
+    if(p.hp>0 && p.status) {const tick=Math.min(p.hp,RULES.status[p.status.kind].tick);p.hp-=tick;g.log.push(`${p.name}受到${p.status.kind==='burn'?'灼烧':'中毒'}伤害 ${tick}。`);if(--p.status.remaining<=0)p.status=null;}
     if(p.speedDown&&--p.speedDown.remaining<=0)p.speedDown=null;
-    if(p.hp>0&&p.heldItem==='energySeed'&&!p.heldUsed&&p.energy<=1){p.energy=Math.min(6,p.energy+2);p.heldUsed=true;g.log.push(`${p.name}的蓄能籽恢复2能量。`);}
+    if(p.hp>0&&p.heldItem==='energySeed'&&!p.heldUsed&&p.energy<=RULES.energySeed.threshold){p.energy=Math.min(RULES.energy.max,p.energy+RULES.energySeed.restore);p.heldUsed=true;g.log.push(`${p.name}的蓄能籽恢复2能量。`);}
     for(const stat of Object.keys(p.buffs||{}))if(--p.buffs[stat].remaining<=0)delete p.buffs[stat];
-    if(p.hp>0) p.energy=Math.min(6,p.energy+1);
+    if(p.hp>0) p.energy=Math.min(RULES.energy.max,p.energy+RULES.energy.perTurn);
     capture(side);
   }
   if(g.environment&&--g.environment.turns<=0){g.environment=null;for(const side of ['player','enemy'])for(const pet of g[side].pets)pet.environment=null;g.log.push('场地环境结束。');}
@@ -249,7 +287,7 @@ export function resolveTurn(original,action,opponent,options={}) {
       if(active(g,'player').hp<=0)g.phase='replace';
     }
     g.turn++;
-    if(g.turn>80){g.result='draw';g.phase='ended';g.log.push('达到 80 回合上限，本场平局。');}
+    if(g.turn>RULES.turnLimit){g.result='draw';g.phase='ended';g.log.push(`达到 ${RULES.turnLimit} 回合上限，本场平局。`);}
   }
   if(!options.simulation)g.history.push({type:'turn',before,action:structuredClone(action),opponent,events:g.log.slice(start),after:snapshot(g),result:g.result});
   return g;

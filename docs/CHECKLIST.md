@@ -68,6 +68,8 @@
 - [x] T03 生成有规则证据的相似练习；检验答案，允许退出；固定题库只作基线。
 - [ ] T04 无直接提示的迁移验证；区分提示下成功与独立成功；不以一次答对定终身。
 - [ ] T05 陪练：真实事件关联的克制反馈、胜负后是否说话的判断、偏好跨局保持。
+      - 实现进展（2026-09-17，**不勾此项**）：三项硬要求已各有实现与自动测试——①真实事件关联：`memory.events` 新增对手阵容 / 倒下顺序 / 首个减员（成对记录回合与宠物）/ 剩余道具（`coach/memory.js:20-29`），陪练文本与依据只引用这些字段，测试 `templates cite the real match, the fallen pet and the opponent`；②胜负后是否说话：门控仍在 `coach.js:9-11`，档位改由 `proactiveRegister` 决定（连败 ≥2 → R3 收尾，否则 R1 只陈述事实），测试 `proactive companion cites the live match and stays silent by design`；③偏好跨局保持：`brief` / `detailed`、`稳健` / `速攻`、本命宠都会改变输出并经 `readMemory` 往返保留，测试 `player preferences survive matches and change the reply`。
+      - **为什么不勾**：T05 的验收口径包含真人语言评审（U07 未勾），本轮只有自动测试；而且主动通道在 `app.js` 里没有调用点（`notify()` 无调用处），气泡在真实 UI 中不会弹出。完整说明与未做清单见 `docs/COMPANION-IMPLEMENTATION.md`。
 
 ## P1 上下文和证据链
 

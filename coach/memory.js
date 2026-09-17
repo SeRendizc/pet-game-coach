@@ -1,6 +1,11 @@
 import {SPECIES} from '../engine.js';
 export function freshMemory(){return {version:1,preference:null,lessons:[],events:[],pendingQuiz:null,dialogue:[],lastTopic:null,journal:[],reflections:{},goal:null,favorite:null,ruleReferenceId:null,quizCount:0,watches:[]};}
-export function readMemory(raw){try{const m=JSON.parse(raw);if(m?.version!==1)return freshMemory();return {version:1,preference:['brief','detailed'].includes(m.preference)?m.preference:null,lessons:Array.isArray(m.lessons)?m.lessons.filter(x=>typeof x==='string').slice(-12):[],events:Array.isArray(m.events)?m.events.filter(x=>x&&typeof x.result==='string').slice(-12):[],pendingQuiz:m.pendingQuiz&&typeof m.pendingQuiz.explanation==='string'&&typeof m.pendingQuiz.question==='string'&&['先','后','不确定'].includes(m.pendingQuiz.answer)?m.pendingQuiz:null,dialogue:Array.isArray(m.dialogue)?m.dialogue.filter(x=>x&&['user','assistant'].includes(x.role)&&typeof x.content==='string').slice(-8).map(x=>({...x,content:(x.role==='user'?x.content.split('\n回答要求：不要向玩家报内部局面评分')[0]:x.content).slice(0,600)})):[],lastTopic:typeof m.lastTopic==='string'?m.lastTopic:null,journal:Array.isArray(m.journal)?m.journal.filter(e=>e&&typeof e.id==='string'&&typeof e.time==='string').slice(-240):[],reflections:m.reflections&&typeof m.reflections==='object'?Object.fromEntries(Object.entries(m.reflections).filter(([k,v])=>v&&Array.isArray(v.evidenceIds))):{},watches:Array.isArray(m.watches)?m.watches.filter(w=>w&&['energy','finish'].includes(w.kind)&&typeof w.matchId==='string'&&Number.isInteger(w.expiresTurn)).slice(0,1):[],quizCount:Number.isInteger(m.quizCount)&&m.quizCount>=0?m.quizCount:0,goal:['稳健','速攻'].includes(m.goal)?m.goal:null,ruleReferenceId:typeof m.ruleReferenceId==='string'?m.ruleReferenceId:null,favorite:typeof m.favorite==='string'?m.favorite:null};}catch{return freshMemory();}}
+// 已结束对局里可以核对的事实字段。旧存档没有这些字段，读回来就是空数组 / null，
+// 陪练只能少说一句，不能拿默认值把它补成一句听起来具体的话。
+const factNames=v=>Array.isArray(v)?v.filter(x=>typeof x==='string'&&x.length<=12).slice(0,3):[];
+const factCount=v=>Number.isInteger(v)&&v>=0&&v<=9?v:null;
+const readEventFacts=e=>({enemy:factNames(e.enemy),faints:factNames(e.faints),...(Number.isInteger(e.firstLossTurn)&&e.firstLossTurn>0?{firstLossTurn:e.firstLossTurn}:{}),...(typeof e.firstFallen==='string'&&e.firstFallen.length<=12?{firstFallen:e.firstFallen}:{}),survivors:Number.isInteger(e.survivors)&&e.survivors>=0&&e.survivors<=3?e.survivors:null,items:e.items&&typeof e.items==='object'?{potion:factCount(e.items.potion),cleanse:factCount(e.items.cleanse),ether:factCount(e.items.ether)}:null});
+export function readMemory(raw){try{const m=JSON.parse(raw);if(m?.version!==1)return freshMemory();return {version:1,preference:['brief','detailed'].includes(m.preference)?m.preference:null,lessons:Array.isArray(m.lessons)?m.lessons.filter(x=>typeof x==='string').slice(-12):[],events:Array.isArray(m.events)?m.events.filter(x=>x&&typeof x.result==='string').slice(-12).map(e=>({...e,...readEventFacts(e)})):[],pendingQuiz:m.pendingQuiz&&typeof m.pendingQuiz.explanation==='string'&&typeof m.pendingQuiz.question==='string'&&['先','后','不确定'].includes(m.pendingQuiz.answer)?m.pendingQuiz:null,dialogue:Array.isArray(m.dialogue)?m.dialogue.filter(x=>x&&['user','assistant'].includes(x.role)&&typeof x.content==='string').slice(-8).map(x=>({...x,content:(x.role==='user'?x.content.split('\n回答要求：不要向玩家报内部局面评分')[0]:x.content).slice(0,600)})):[],lastTopic:typeof m.lastTopic==='string'?m.lastTopic:null,journal:Array.isArray(m.journal)?m.journal.filter(e=>e&&typeof e.id==='string'&&typeof e.time==='string').slice(-240):[],reflections:m.reflections&&typeof m.reflections==='object'?Object.fromEntries(Object.entries(m.reflections).filter(([k,v])=>v&&Array.isArray(v.evidenceIds))):{},watches:Array.isArray(m.watches)?m.watches.filter(w=>w&&['energy','finish'].includes(w.kind)&&typeof w.matchId==='string'&&Number.isInteger(w.expiresTurn)).slice(0,1):[],quizCount:Number.isInteger(m.quizCount)&&m.quizCount>=0?m.quizCount:0,goal:['稳健','速攻'].includes(m.goal)?m.goal:null,ruleReferenceId:typeof m.ruleReferenceId==='string'?m.ruleReferenceId:null,favorite:typeof m.favorite==='string'?m.favorite:null};}catch{return freshMemory();}}
 export function rememberPreference(memory,message){
  const next=structuredClone(memory);
  if(/本命|最喜欢|主养/.test(message)){const favorite=SPECIES.find(p=>message.includes(p.name));if(favorite)next.favorite=favorite.id;}
@@ -9,7 +14,19 @@ export function rememberPreference(memory,message){
  if(/记住.{0,10}(详细|多解释)|以后.{0,10}(详细|多解释)/.test(message))next.preference='detailed';
  return next;
 }
-export function rememberBattle(memory,game){if(!game?.result||game.preview)return memory;const m=structuredClone(memory);if(game.id&&m.events.some(e=>e.id===game.id))return m;m.events.push({id:game.id||null,result:game.result,stage:game.stageName||'训练场',turns:game.turn,time:new Date().toISOString(),source:'local-game',rulesVersion:game.version});m.events=m.events.slice(-12);return m;}
+// 记住一局真实对战。除结果与回合数外，一并记住对手阵容、我方倒下顺序、
+// 首个减员发生的回合，以及结束时剩余的道具——陪练的「具体」只能来自这些字段。
+// 首个减员必须成对记录（回合 + 当时倒下的那只），否则「X 在第 N 回合倒下」可能是假的。
+export function matchFacts(game){
+ const pets=game?.player?.pets||[],turns=(game?.history||[]).filter(h=>h.type==='turn');
+ let firstLossTurn=null,firstFallen=null;
+ for(const h of turns){const before=h.before?.player?.pets||[],after=h.after?.player?.pets||[];const i=after.findIndex((p,j)=>p&&p.hp<=0&&before[j]&&before[j].hp>0);if(i>=0){firstLossTurn=h.before.turn;firstFallen=after[i]?.name||pets[i]?.name||null;break;}}
+ const items=game?.player?.items;
+ return {enemy:factNames((game?.enemy?.pets||[]).map(p=>p?.name)),faints:factNames(pets.filter(p=>p&&p.hp<=0).map(p=>p.name)),
+  ...(Number.isInteger(firstLossTurn)?{firstLossTurn,firstFallen}:{}),survivors:pets.filter(p=>p&&p.hp>0).length,
+  items:{potion:factCount(items?.potion),cleanse:factCount(items?.cleanse),ether:factCount(items?.ether)}};
+}
+export function rememberBattle(memory,game){if(!game?.result||game.preview)return memory;const m=structuredClone(memory);if(game.id&&m.events.some(e=>e.id===game.id))return m;m.events.push({id:game.id||null,result:game.result,stage:game.stageName||'训练场',turns:game.turn,time:new Date().toISOString(),source:'local-game',rulesVersion:game.version,...matchFacts(game)});m.events=m.events.slice(-12);return m;}
 
 // Evidence-bearing local memory. Behavioural hypotheses never override explicit controls.
 export function recordCoachEvent(memory,event){

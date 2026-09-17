@@ -48,7 +48,7 @@
 
 - **军师**（`coach/strategist.js`）——实时局面下的行动比较与解释；
 - **老师**（`coach/teacher.js`）——整局复盘、培养建议、参数化练习；
-- **陪练**（`coach/companion.js`）——当前只有 3 个分支，是本项目里最薄的一环，其设计另见 `docs/COMPANION-DESIGN.md`。
+- **陪练**（`coach/companion.js`）——被动通道有状态模型（momentum / consideration / engagement）、语气档位 R0–R3、真实事件模板与克制扫描；主动通道（`coach.js`）有门控与档位但 UI 未接线。设计与实现说明见 `docs/COMPANION-DESIGN.md` 与 `docs/COMPANION-IMPLEMENTATION.md`。
 
 三条链路共用一个原则（`docs/COACH-PLAN.md:11`）：**「就算玩家从不打开聊天，小芽也应有用。」** 下面 13 个难点基本都是这句话逼出来的。
 
