@@ -28,7 +28,8 @@
 - [x] A03 建立版本化 RAG：切块、元数据、关键词/语义检索、版本过滤、引用回查；与关键词基线比较。
 - [x] A04 扩展现有一回合比较，支持目标偏好、多对手分支、风险与近似同优选择；记录假设，不伪造胜率。
       - 已完成（2026-09-17）：`rankEnemyActions(g,{goal})` 用同一批枚举结果重加权——稳健 `平均.45/最坏.55`、速攻 `平均.82/最坏.18`、默认 `.65/.35`，换宠惩罚也随偏好调整（速攻 2.5 / 稳健 1 / 默认 1.5）。只改排序权重，不改规则、不伪造胜率。测试 `goal preference reweights the same enumeration and can flip the recommendation` 用一个真实局面断言：稳健推荐「回复药」、速攻推荐「火花」，且未设偏好时结果稳定。多对手分支此前已由 A09 覆盖。
-- [ ] A05 输出校验：技能/目标合法、数字与证据一致、结论措辞不超出假设；失败降级为可靠短句或沉默。
+- [x] A05 输出校验：技能/目标合法、数字与证据一致、结论措辞不超出假设；失败降级为可靠短句或沉默。
+      - 已完成（2026-09-17）：技能/目标合法性由引擎枚举保证；数字与证据一致（`unsupported-number`）、引用存在（`unsupported-citation`）、措辞不超出假设（`unsupported-certainty`、`simultaneous-action-order`）此前已在；本轮补上最后两块——**道具名称漂移**（`item-name-drift`，拦截「解药/以太」等不存在的道具名）与**因果语义**（`causal-cancelled-action`，事件记录某方行动已取消时，正文不得声称该方造成伤害）。失败一律走客户端降级为本地规则结论。测试 `item-name drift is rejected even when every number is grounded` 与 `an action recorded as cancelled cannot be described as having hit`。
 - [x] A06 注册/取消结构化条件提醒；明确范围、有效期和触发后处理。自然语言解析不执行任意代码。
 - [x] A07 实时任务版本化：玩家行动、换目标、退出、改偏好时取消相关任务；远端未取消也不得展示旧结果。
 - [x] A08 请求合并、并发限制、缓存失效、时间与成本预算；模型等待不能锁住游戏操作。

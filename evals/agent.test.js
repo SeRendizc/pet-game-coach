@@ -278,3 +278,11 @@ test('evidence trimmed out of the prompt is still retrievable from the archive',
  assert(Array.isArray(early.events)&&early.events.length>0);
  assert.equal(early.turn,1);
 });
+test('an action recorded as cancelled cannot be described as having hit',()=>{
+ const events=['你的烬尾狐已倒下，原定行动取消。','对手的芽角鹿使用撞击，对烬尾狐造成 27 伤害。'];
+ const bad=checkGroundedAnswer({text:'你的烬尾狐使用火花，对芽角鹿造成 27 伤害。',evidence:[],latestEvents:events});
+ assert.equal(bad.valid,false,'己方行动已取消却被写成造成伤害');
+ assert(bad.reasons.some(r=>r.startsWith('causal-cancelled-action')),'必须记录因果错误');
+ const good=checkGroundedAnswer({text:'你的烬尾狐原定行动取消，对手的芽角鹿造成 27 伤害。',evidence:[],latestEvents:events});
+ assert.equal(good.valid,true,'如实描述取消不应被拦');
+});

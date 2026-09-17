@@ -1,0 +1,2407 @@
+{
+  "generatedAt": "2026-09-17T10:09:47.762Z",
+  "rulesVersion": "0.6",
+  "method": "Headless engine simulation; simplified player policies, NOT human play. Enemy = engine.js chooseEnemy re-implemented with parameters and asserted identical at shipped values.",
+  "shipped": {
+    "inertiaPenaltyPerConsecutiveSwitch": 6,
+    "inertiaCap": 18,
+    "swiftWinThresholdTurns": 10
+  },
+  "seedsPerArm": 3,
+  "chooserVerification": {
+    "statesChecked": 9777,
+    "mismatch": 0
+  },
+  "studyA_composition": {
+    "starter fox/turtle/deer | greedy-damage": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 18.333333333333332,
+      "p50Rounds": 19,
+      "p90Rounds": 19,
+      "meanWinRounds": 17,
+      "p50WinRounds": 17,
+      "playerSwitchRate": 0.10939112487100104,
+      "enemySwitchRate": 0.12693498452012383,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "starter fox/turtle/deer | one-turn-rank": {
+      "n": 3,
+      "wins": 2,
+      "losses": 1,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.6666666666666666,
+      "meanRounds": 28.666666666666668,
+      "p50Rounds": 30,
+      "p90Rounds": 33,
+      "meanWinRounds": 26.5,
+      "p50WinRounds": 30,
+      "playerSwitchRate": 0.12630654369784802,
+      "enemySwitchRate": 0.10509442248572683,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "starter fox/turtle/deer | switch-seeking": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 18,
+      "p50Rounds": 19,
+      "p90Rounds": 19,
+      "meanWinRounds": 19,
+      "p50WinRounds": 19,
+      "playerSwitchRate": 0.2094298245614035,
+      "enemySwitchRate": 0.2236842105263158,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "starter fox/turtle/deer | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 23,
+      "p50Rounds": 22,
+      "p90Rounds": 27,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.15437710437710436,
+      "enemySwitchRate": 0.06083052749719416,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "starter fox/turtle/deer | ALL": {
+      "n": 12,
+      "wins": 4,
+      "losses": 8,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 22,
+      "p50Rounds": 20,
+      "p90Rounds": 30,
+      "meanWinRounds": 22.25,
+      "p50WinRounds": 23,
+      "playerSwitchRate": 0.14987614937683924,
+      "enemySwitchRate": 0.12913603625734013,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "burn lion/shroom/otter | greedy-damage": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 14.666666666666666,
+      "p50Rounds": 14,
+      "p90Rounds": 18,
+      "meanWinRounds": 18,
+      "p50WinRounds": 18,
+      "playerSwitchRate": 0.1402116402116402,
+      "enemySwitchRate": 0.11243386243386243,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "burn lion/shroom/otter | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 23.666666666666668,
+      "p50Rounds": 23,
+      "p90Rounds": 25,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.21043478260869564,
+      "enemySwitchRate": 0.11130434782608696,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "burn lion/shroom/otter | switch-seeking": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 14.666666666666666,
+      "p50Rounds": 16,
+      "p90Rounds": 16,
+      "meanWinRounds": 16,
+      "p50WinRounds": 16,
+      "playerSwitchRate": 0.20833333333333334,
+      "enemySwitchRate": 0.1111111111111111,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "burn lion/shroom/otter | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 21.333333333333332,
+      "p50Rounds": 25,
+      "p90Rounds": 26,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.15641025641025644,
+      "enemySwitchRate": 0.11743589743589744,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "burn lion/shroom/otter | ALL": {
+      "n": 12,
+      "wins": 2,
+      "losses": 10,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.16666666666666666,
+      "meanRounds": 18.583333333333332,
+      "p50Rounds": 18,
+      "p90Rounds": 25,
+      "meanWinRounds": 17,
+      "p50WinRounds": 18,
+      "playerSwitchRate": 0.1788475031409814,
+      "enemySwitchRate": 0.11307130470173948,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "speed sparrow/badger/moth | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17,
+      "p50Rounds": 17,
+      "p90Rounds": 17,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.1176470588235294,
+      "enemySwitchRate": 0.0784313725490196,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "speed sparrow/badger/moth | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 23.333333333333332,
+      "p50Rounds": 24,
+      "p90Rounds": 25,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.18571428571428572,
+      "enemySwitchRate": 0.07031746031746032,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "speed sparrow/badger/moth | switch-seeking": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 16,
+      "p50Rounds": 17,
+      "p90Rounds": 17,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.18907563025210083,
+      "enemySwitchRate": 0.12605042016806722,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "speed sparrow/badger/moth | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 16,
+      "p50Rounds": 14,
+      "p90Rounds": 22,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.16125541125541124,
+      "enemySwitchRate": 0.04292929292929293,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "speed sparrow/badger/moth | ALL": {
+      "n": 12,
+      "wins": 0,
+      "losses": 12,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 18.083333333333332,
+      "p50Rounds": 17,
+      "p90Rounds": 24,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.1634230965113318,
+      "enemySwitchRate": 0.07943213649096002,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "wind falcon/rhino/marten | greedy-damage": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 17.333333333333332,
+      "p50Rounds": 14,
+      "p90Rounds": 27,
+      "meanWinRounds": 27,
+      "p50WinRounds": 27,
+      "playerSwitchRate": 0.13291646624979958,
+      "enemySwitchRate": 0.10349527016193683,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "wind falcon/rhino/marten | one-turn-rank": {
+      "n": 3,
+      "wins": 2,
+      "losses": 1,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.6666666666666666,
+      "meanRounds": 25.666666666666668,
+      "p50Rounds": 25,
+      "p90Rounds": 28,
+      "meanWinRounds": 24.5,
+      "p50WinRounds": 25,
+      "playerSwitchRate": 0.11595238095238096,
+      "enemySwitchRate": 0.07968253968253967,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "wind falcon/rhino/marten | switch-seeking": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 14.666666666666666,
+      "p50Rounds": 14,
+      "p90Rounds": 20,
+      "meanWinRounds": 20,
+      "p50WinRounds": 20,
+      "playerSwitchRate": 0.20476190476190473,
+      "enemySwitchRate": 0.12380952380952381,
+      "maxEnemySwitchStreakP95": 2,
+      "consecutiveEnemySwitchMatches": 0.3333333333333333,
+      "longestEnemySwitchStreakEver": 2
+    },
+    "wind falcon/rhino/marten | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17,
+      "p50Rounds": 16,
+      "p90Rounds": 22,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.18953962703962704,
+      "enemySwitchRate": 0.046474358974358976,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "wind falcon/rhino/marten | ALL": {
+      "n": 12,
+      "wins": 4,
+      "losses": 8,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 18.666666666666668,
+      "p50Rounds": 20,
+      "p90Rounds": 27,
+      "meanWinRounds": 24,
+      "p50WinRounds": 25,
+      "playerSwitchRate": 0.16079259475092808,
+      "enemySwitchRate": 0.08836542315708983,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0.08333333333333333,
+      "longestEnemySwitchStreakEver": 2
+    },
+    "stall turtle/shroom/badger | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17.666666666666668,
+      "p50Rounds": 17,
+      "p90Rounds": 19,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.11351909184726522,
+      "enemySwitchRate": 0.09391124871001033,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "stall turtle/shroom/badger | one-turn-rank": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 30.666666666666668,
+      "p50Rounds": 31,
+      "p90Rounds": 31,
+      "meanWinRounds": 30,
+      "p50WinRounds": 30,
+      "playerSwitchRate": 0.12974910394265232,
+      "enemySwitchRate": 0.07598566308243727,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "stall turtle/shroom/badger | switch-seeking": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 19.333333333333332,
+      "p50Rounds": 18,
+      "p90Rounds": 23,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.13824950269963057,
+      "enemySwitchRate": 0.10012314104385715,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "stall turtle/shroom/badger | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 24.333333333333332,
+      "p50Rounds": 24,
+      "p90Rounds": 35,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.2023809523809524,
+      "enemySwitchRate": 0.037698412698412696,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "stall turtle/shroom/badger | ALL": {
+      "n": 12,
+      "wins": 1,
+      "losses": 11,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.08333333333333333,
+      "meanRounds": 23,
+      "p50Rounds": 23,
+      "p90Rounds": 31,
+      "meanWinRounds": 30,
+      "p50WinRounds": 30,
+      "playerSwitchRate": 0.14597466271762513,
+      "enemySwitchRate": 0.07692961638367937,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "glass fox/sparrow/falcon | greedy-damage": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 15,
+      "p50Rounds": 15,
+      "p90Rounds": 15,
+      "meanWinRounds": 15,
+      "p50WinRounds": 15,
+      "playerSwitchRate": 0.13333333333333333,
+      "enemySwitchRate": 0.15555555555555556,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "glass fox/sparrow/falcon | one-turn-rank": {
+      "n": 3,
+      "wins": 2,
+      "losses": 0,
+      "draws": 1,
+      "stuck": 0,
+      "winRate": 0.6666666666666666,
+      "meanRounds": 22.666666666666668,
+      "p50Rounds": 23,
+      "p90Rounds": 24,
+      "meanWinRounds": 22.5,
+      "p50WinRounds": 24,
+      "playerSwitchRate": 0.11749482401656314,
+      "enemySwitchRate": 0.06012767425810903,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "glass fox/sparrow/falcon | switch-seeking": {
+      "n": 3,
+      "wins": 1,
+      "losses": 2,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 15,
+      "p50Rounds": 15,
+      "p90Rounds": 17,
+      "meanWinRounds": 17,
+      "p50WinRounds": 17,
+      "playerSwitchRate": 0.20583207642031173,
+      "enemySwitchRate": 0.08969331322272499,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "glass fox/sparrow/falcon | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 15.666666666666666,
+      "p50Rounds": 17,
+      "p90Rounds": 18,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.24400871459694987,
+      "enemySwitchRate": 0.05773420479302832,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "glass fox/sparrow/falcon | ALL": {
+      "n": 12,
+      "wins": 4,
+      "losses": 7,
+      "draws": 1,
+      "stuck": 0,
+      "winRate": 0.3333333333333333,
+      "meanRounds": 17.083333333333332,
+      "p50Rounds": 17,
+      "p90Rounds": 23,
+      "meanWinRounds": 19.25,
+      "p50WinRounds": 21,
+      "playerSwitchRate": 0.1751672370917895,
+      "enemySwitchRate": 0.09077768695735448,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    }
+  },
+  "studyB_training": {
+    "meadow | L1_none | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17.666666666666668,
+      "p50Rounds": 18,
+      "p90Rounds": 18,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.11328976034858389,
+      "enemySwitchRate": 0.11328976034858389,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "meadow | L1_none | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 22,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.2727272727272727,
+      "enemySwitchRate": 0.22727272727272727,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "meadow | L3_partial | greedy-damage": {
+      "n": 3,
+      "wins": 2,
+      "losses": 1,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.6666666666666666,
+      "meanRounds": 19.666666666666668,
+      "p50Rounds": 20,
+      "p90Rounds": 20,
+      "meanWinRounds": 20,
+      "p50WinRounds": 20,
+      "playerSwitchRate": 0.10175438596491228,
+      "enemySwitchRate": 0.15263157894736842,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "meadow | L3_partial | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 32,
+      "p50Rounds": 32,
+      "p90Rounds": 32,
+      "meanWinRounds": 32,
+      "p50WinRounds": 32,
+      "playerSwitchRate": 0.1875,
+      "enemySwitchRate": 0.1875,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "meadow | L5_full | greedy-damage": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 20.333333333333332,
+      "p50Rounds": 21,
+      "p90Rounds": 21,
+      "meanWinRounds": 20.333333333333332,
+      "p50WinRounds": 21,
+      "playerSwitchRate": 0.0810359231411863,
+      "enemySwitchRate": 0.14786967418546365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "meadow | L5_full | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 19.333333333333332,
+      "p50Rounds": 20,
+      "p90Rounds": 22,
+      "meanWinRounds": 19.333333333333332,
+      "p50WinRounds": 20,
+      "playerSwitchRate": 0.046969696969696974,
+      "enemySwitchRate": 0.15795454545454546,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "river | L1_none | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 14,
+      "p50Rounds": 14,
+      "p90Rounds": 14,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.14285714285714285,
+      "enemySwitchRate": 0.07142857142857142,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "river | L1_none | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 28.666666666666668,
+      "p50Rounds": 29,
+      "p90Rounds": 29,
+      "meanWinRounds": 28.666666666666668,
+      "p50WinRounds": 29,
+      "playerSwitchRate": 0.06978653530377668,
+      "enemySwitchRate": 0.06978653530377668,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "river | L3_partial | greedy-damage": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 25,
+      "p50Rounds": 25,
+      "p90Rounds": 25,
+      "meanWinRounds": 25,
+      "p50WinRounds": 25,
+      "playerSwitchRate": 0.08,
+      "enemySwitchRate": 0.12,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "river | L3_partial | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 21,
+      "p50Rounds": 21,
+      "p90Rounds": 21,
+      "meanWinRounds": 21,
+      "p50WinRounds": 21,
+      "playerSwitchRate": 0.047619047619047616,
+      "enemySwitchRate": 0.14285714285714285,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "river | L5_full | greedy-damage": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 22,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.0909090909090909,
+      "enemySwitchRate": 0.0909090909090909,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "river | L5_full | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 26,
+      "p50Rounds": 26,
+      "p90Rounds": 26,
+      "meanWinRounds": 26,
+      "p50WinRounds": 26,
+      "playerSwitchRate": 0.07692307692307693,
+      "enemySwitchRate": 0.07692307692307693,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "embers | L1_none | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 15,
+      "p50Rounds": 15,
+      "p90Rounds": 15,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.13333333333333333,
+      "enemySwitchRate": 0.13333333333333333,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "embers | L1_none | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 25,
+      "p50Rounds": 25,
+      "p90Rounds": 25,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.16,
+      "enemySwitchRate": 0.08,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "embers | L3_partial | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 16,
+      "p50Rounds": 16,
+      "p90Rounds": 16,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.125,
+      "enemySwitchRate": 0.125,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "embers | L3_partial | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 25,
+      "p50Rounds": 25,
+      "p90Rounds": 25,
+      "meanWinRounds": 25,
+      "p50WinRounds": 25,
+      "playerSwitchRate": 0.12,
+      "enemySwitchRate": 0.12,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "embers | L5_full | greedy-damage": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 20,
+      "p50Rounds": 20,
+      "p90Rounds": 20,
+      "meanWinRounds": 20,
+      "p50WinRounds": 20,
+      "playerSwitchRate": 0.05000000000000001,
+      "enemySwitchRate": 0.15,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "embers | L5_full | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 25,
+      "p50Rounds": 25,
+      "p90Rounds": 25,
+      "meanWinRounds": 25,
+      "p50WinRounds": 25,
+      "playerSwitchRate": 0.08,
+      "enemySwitchRate": 0.12,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "grove | L1_none | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 15,
+      "p50Rounds": 15,
+      "p90Rounds": 15,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.13333333333333333,
+      "enemySwitchRate": 0.06666666666666667,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "grove | L1_none | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 26,
+      "p50Rounds": 26,
+      "p90Rounds": 26,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.15384615384615385,
+      "enemySwitchRate": 0.07692307692307693,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "grove | L3_partial | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 18,
+      "p50Rounds": 18,
+      "p90Rounds": 18,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.1111111111111111,
+      "enemySwitchRate": 0.1111111111111111,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "grove | L3_partial | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 32,
+      "p50Rounds": 32,
+      "p90Rounds": 32,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.125,
+      "enemySwitchRate": 0.0625,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "grove | L5_full | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 23,
+      "p50Rounds": 23,
+      "p90Rounds": 23,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.08695652173913043,
+      "enemySwitchRate": 0.13043478260869565,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "grove | L5_full | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 34,
+      "p50Rounds": 34,
+      "p90Rounds": 34,
+      "meanWinRounds": 34,
+      "p50WinRounds": 34,
+      "playerSwitchRate": 0.0588235294117647,
+      "enemySwitchRate": 0.14705882352941177,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "summit | L1_none | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 14,
+      "p50Rounds": 14,
+      "p90Rounds": 14,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.14285714285714285,
+      "enemySwitchRate": 0,
+      "maxEnemySwitchStreakP95": 0,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 0
+    },
+    "summit | L1_none | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 13,
+      "p50Rounds": 13,
+      "p90Rounds": 13,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.3076923076923077,
+      "enemySwitchRate": 0,
+      "maxEnemySwitchStreakP95": 0,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 0
+    },
+    "summit | L3_partial | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 20,
+      "p50Rounds": 20,
+      "p90Rounds": 20,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.10000000000000002,
+      "enemySwitchRate": 0.15,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "summit | L3_partial | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 24,
+      "p50Rounds": 24,
+      "p90Rounds": 24,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.16666666666666666,
+      "enemySwitchRate": 0.08333333333333333,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "summit | L5_full | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 19,
+      "p50Rounds": 19,
+      "p90Rounds": 19,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.10526315789473684,
+      "enemySwitchRate": 0.15789473684210525,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "summit | L5_full | one-turn-rank": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 27,
+      "p50Rounds": 27,
+      "p90Rounds": 27,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.1111111111111111,
+      "enemySwitchRate": 0.037037037037037035,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    }
+  },
+  "studyC_difficulty": {
+    "easy | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17.666666666666668,
+      "p50Rounds": 18,
+      "p90Rounds": 18,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.11328976034858389,
+      "enemySwitchRate": 0.11328976034858389,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "easy | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 22,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.2727272727272727,
+      "enemySwitchRate": 0.22727272727272727,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "easy | switch-seeking": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 16,
+      "p50Rounds": 16,
+      "p90Rounds": 16,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.25,
+      "enemySwitchRate": 0.25,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "easy | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 20.333333333333332,
+      "p50Rounds": 19,
+      "p90Rounds": 23,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.20976353928299007,
+      "enemySwitchRate": 0.14874141876430205,
+      "maxEnemySwitchStreakP95": 2,
+      "consecutiveEnemySwitchMatches": 0.3333333333333333,
+      "longestEnemySwitchStreakEver": 2
+    },
+    "normal | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17.666666666666668,
+      "p50Rounds": 18,
+      "p90Rounds": 18,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.11328976034858389,
+      "enemySwitchRate": 0.11328976034858389,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "normal | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 22,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.2727272727272727,
+      "enemySwitchRate": 0.22727272727272727,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "normal | switch-seeking": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 16,
+      "p50Rounds": 16,
+      "p90Rounds": 16,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.25,
+      "enemySwitchRate": 0.25,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "normal | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 20.333333333333332,
+      "p50Rounds": 19,
+      "p90Rounds": 23,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.20976353928299007,
+      "enemySwitchRate": 0.14874141876430205,
+      "maxEnemySwitchStreakP95": 2,
+      "consecutiveEnemySwitchMatches": 0.3333333333333333,
+      "longestEnemySwitchStreakEver": 2
+    },
+    "hard | greedy-damage": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 17.666666666666668,
+      "p50Rounds": 18,
+      "p90Rounds": 18,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.11328976034858389,
+      "enemySwitchRate": 0.11328976034858389,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "hard | one-turn-rank": {
+      "n": 3,
+      "wins": 3,
+      "losses": 0,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 1,
+      "meanRounds": 22,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.2727272727272727,
+      "enemySwitchRate": 0.22727272727272727,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "hard | switch-seeking": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 16,
+      "p50Rounds": 16,
+      "p90Rounds": 16,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.25,
+      "enemySwitchRate": 0.25,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1
+    },
+    "hard | random": {
+      "n": 3,
+      "wins": 0,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0,
+      "meanRounds": 20.333333333333332,
+      "p50Rounds": 19,
+      "p90Rounds": 23,
+      "meanWinRounds": null,
+      "p50WinRounds": null,
+      "playerSwitchRate": 0.20976353928299007,
+      "enemySwitchRate": 0.14874141876430205,
+      "maxEnemySwitchStreakP95": 2,
+      "consecutiveEnemySwitchMatches": 0.3333333333333333,
+      "longestEnemySwitchStreakEver": 2
+    }
+  },
+  "studyD_inertia": {
+    "penalty=0,cap=18": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=3,cap=18": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=6,cap=18": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=9,cap=18": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=12,cap=18": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=18,cap=18": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=6,cap=12": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=6,cap=24": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    },
+    "penalty=6,cap=18, 5-turn window": {
+      "n": 6,
+      "wins": 3,
+      "losses": 3,
+      "draws": 0,
+      "stuck": 0,
+      "winRate": 0.5,
+      "meanRounds": 19,
+      "p50Rounds": 22,
+      "p90Rounds": 22,
+      "meanWinRounds": 22,
+      "p50WinRounds": 22,
+      "playerSwitchRate": 0.26136363636363635,
+      "enemySwitchRate": 0.23863636363636365,
+      "maxEnemySwitchStreakP95": 1,
+      "consecutiveEnemySwitchMatches": 0,
+      "longestEnemySwitchStreakEver": 1,
+      "byPolicy": {
+        "switch-seeking": {
+          "n": 3,
+          "wins": 0,
+          "losses": 3,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 0,
+          "meanRounds": 16,
+          "p50Rounds": 16,
+          "p90Rounds": 16,
+          "meanWinRounds": null,
+          "p50WinRounds": null,
+          "playerSwitchRate": 0.25,
+          "enemySwitchRate": 0.25,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        },
+        "one-turn-rank": {
+          "n": 3,
+          "wins": 3,
+          "losses": 0,
+          "draws": 0,
+          "stuck": 0,
+          "winRate": 1,
+          "meanRounds": 22,
+          "p50Rounds": 22,
+          "p90Rounds": 22,
+          "meanWinRounds": 22,
+          "p50WinRounds": 22,
+          "playerSwitchRate": 0.2727272727272727,
+          "enemySwitchRate": 0.22727272727272727,
+          "maxEnemySwitchStreakP95": 1,
+          "consecutiveEnemySwitchMatches": 0,
+          "longestEnemySwitchStreakEver": 1
+        }
+      }
+    }
+  },
+  "studyD_suppression": {
+    "shipped": {
+      "switchOpportunities": 7,
+      "suppressed": 0,
+      "suppressedRate": 0,
+      "meanScoreGivenUp": null,
+      "byStreak": {
+        "0": {
+          "n": 7,
+          "suppressed": 0
+        }
+      }
+    },
+    "none": {
+      "switchOpportunities": 7,
+      "suppressed": 0,
+      "suppressedRate": 0,
+      "meanScoreGivenUp": null,
+      "byStreak": {
+        "0": {
+          "n": 7,
+          "suppressed": 0
+        }
+      }
+    },
+    "strong": {
+      "switchOpportunities": 7,
+      "suppressed": 0,
+      "suppressedRate": 0,
+      "meanScoreGivenUp": null,
+      "byStreak": {
+        "0": {
+          "n": 7,
+          "suppressed": 0
+        }
+      }
+    }
+  },
+  "studyE_swift": {
+    "shippedThreshold": 10,
+    "overallWindow": {
+      "6": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "8": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "10": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "12": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "14": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "16": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "20": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "25": {
+        "ofWins": 0.5,
+        "ofAllMatches": 0.1,
+        "n": 6
+      },
+      "30": {
+        "ofWins": 1,
+        "ofAllMatches": 0.2,
+        "n": 12
+      },
+      "40": {
+        "ofWins": 1,
+        "ofAllMatches": 0.2,
+        "n": 12
+      }
+    },
+    "byStage": {
+      "meadow": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAllMatches": 0.5,
+          "n": 6
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.5,
+          "n": 6
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.5,
+          "n": 6
+        }
+      },
+      "river": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.5,
+          "n": 6
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.5,
+          "n": 6
+        }
+      },
+      "embers": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      },
+      "grove": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      },
+      "summit": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      }
+    },
+    "byPolicy": {
+      "greedy-damage": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      },
+      "one-turn-rank": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.2,
+          "n": 6
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.4,
+          "n": 12
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.4,
+          "n": 12
+        }
+      }
+    },
+    "byDifficulty": {
+      "normal": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.1,
+          "n": 3
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.2,
+          "n": 6
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.2,
+          "n": 6
+        }
+      },
+      "hard": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.1,
+          "n": 3
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.2,
+          "n": 6
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.2,
+          "n": 6
+        }
+      }
+    },
+    "winRoundDistribution": {
+      "n": 12,
+      "min": 22,
+      "p10": 22,
+      "p25": 22,
+      "p50": 28,
+      "p75": 29,
+      "p90": 29,
+      "max": 29
+    },
+    "sampledMatches": 60
+  },
+  "caveats": [
+    "Player side is a scripted policy, not a human; absolute win rates are not player win rates.",
+    "Only the enemy uses the inertia cost; the player is never charged it (matches engine.js).",
+    "Match length uses history entries of type turn, exactly like progression.js settle().",
+    "The +1 swift bonus is once per stage, so reachability is only meaningful per stage."
+  ]
+}

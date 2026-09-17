@@ -140,6 +140,12 @@ export function checkGroundedAnswer(answer){
  // 由客户端降级为本地规则结论，而不是把错误名称展示给玩家。
  const drift=text.match(/解药|解毒药|以太|回血药|血瓶|蓝瓶|复活药|清醒药/g);
  if(drift)reasons.push('item-name-drift:'+[...new Set(drift)].join('/'));
+ // 因果校验：事件里某一方的行动被注明「取消」时，正文不得声称该方造成了伤害。
+ // 实测模型会把「原定行动取消」写成「命中了」，数字校验抓不到——因为根本没有数字。
+ const events=(answer.latestEvents||[]).map(e=>typeof e==='string'?e:JSON.stringify(e));
+ const cancelledSides=new Set();
+ for(const line of events){const m=/^(你|对手)的(.{1,8}?)已倒下，原定行动取消/.exec(line)||/(你|对手).{0,6}原定行动取消/.exec(line);if(m)cancelledSides.add(m[1]);}
+ for(const side of cancelledSides){const claims=new RegExp(side+'的?.{0,10}(造成|打出|命中)').test(text)||new RegExp(side+'.{0,6}使用.{0,10}造成').test(text);if(claims)reasons.push('causal-cancelled-action:'+side);}
  if(answer.scope!=='match'&&answer.publicState){for(const side of ['player','enemy'])for(const pet of answer.publicState[side]?.pets||[]){const start=text.lastIndexOf(pet.name);if(start<0)continue;const clause=text.slice(start+pet.name.length).split(/[。；，]/)[0];if(/满豆|满能量/.test(clause)&&pet.energy<6)reasons.push('energy-not-full:'+pet.id);}}
  // Bind explicit remaining-HP claims to that turn's after snapshot, not any number in the packet.
  for(const k of answer.textFacts?.keyTurns||[]){
