@@ -1,4 +1,4 @@
-import {TOOL_CONTRACTS,validToolArgs,executeTool} from './toolbox.js';
+import {TOOL_CONTRACTS,HARD_TOOLS,validToolArgs,executeTool} from './toolbox.js';
 import {isLiveMatch} from './policy.js';
 export const MATCH_REVIEW_REQUEST='总结整局：先说这局的走向，再选一个有证据的亮点或值得复盘的选择。没有突出亮点就不硬夸，获胜不必挑错，失利不把单回合评分当必然败因。说清宠物和具体回合，80字以内。';
 import {strategist,searchKnowledge,RULES_VERSION,cards,resolveCitation} from './strategist.js';
@@ -74,13 +74,29 @@ export async function runCoach({message,role='auto',context,memory,conversation=
 
 // Bounded tool loop: planner may choose a different tool after inspecting receipts.
 // No game mutations and no arbitrary code/URL tools are exposed.
+
+// 从玩家这句话里判断"必须调用"的工具。这一步是程序做的，不是把判断留给模型——
+// 因为"证据包看起来够了"正是漏调的原因，而指定回合 / 分支模拟 / 分页这三类
+// 只要不调就永远拿不到。返回工具名或 null。
+export function requiredTool(message='',context={}){
+ const text=String(message);
+ const turns=(context.battle?.history||[]).filter(h=>h.type==='turn').length||0;
+ // 指定回合：提到"第 N 回合"且证据包未必覆盖
+ if(/第\s*\d+\s*回合/.test(text))return 'read_evidence';
+ // 要求模拟或比较两个具体行动
+ if(/(模拟|如果|假如|换成|改成).{0,12}(打|防御|换宠|吃药)|两种顺序|先后手谁|谁先出手/.test(text))return 'simulate_branch';
+ // 整局范围或翻更早的回合
+ if(/(整局|全程|一共|总共|前面几回合|回顾整场)/.test(text))return turns>3?'read_match':'read_match';
+ return null;
+}
+
 export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve=null}){
  if(isLiveMatch(context))return {trace:[],stopped:'policy'};
  const trace=[];const seen=new Set();
  for(let i=0;i<Math.min(4,limit);i++){
   // 规划器解析失败不应该让整轮作废：拿不到工具就用已有证据作答，
   // 这比让玩家看到一次失败要好。实测 44 条里有 3 条走到这里。
-  let choice;try{choice=await plan({message,screen:context.mode,tools:Object.keys(TOOL_CONTRACTS),contracts:TOOL_CONTRACTS,receipts:trace,remaining:limit-i});}
+  let choice;try{choice=await plan({message,screen:context.mode,tools:Object.keys(TOOL_CONTRACTS),contracts:TOOL_CONTRACTS,hard:HARD_TOOLS,hardRequired:requiredTool(message,context),receipts:trace,remaining:limit-i});}
   catch{return {trace,stopped:trace.length?'planner-failed':'planner-failed-no-tools'};}
   if(choice?.stop===true)return {trace,stopped:'complete'};
   const name=choice?.tool,args=choice?.args||{};

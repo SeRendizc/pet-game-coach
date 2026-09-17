@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,legalActions,SPECIES,rankEnemyActions,buildVersusOpponent} from './engine.js';
 import {newProfile} from './progression.js';
-import {runCoach,buildContext} from './coach/runtime.js';
+import {runCoach,buildContext,requiredTool} from './coach/runtime.js';
 import {rosterAdvice} from './coach/strategist.js';
 import {freshMemory,rememberBattle,readMemory} from './coach/memory.js';
 const request=(message,game=createGame(),profile=newProfile(),memory=freshMemory())=>runCoach({message,context:buildContext(game,profile,'fox'),memory});
@@ -143,4 +143,14 @@ test('goal preference reweights the same enumeration and can flip the recommenda
  // 不设偏好时沿用默认权重，结果必须稳定且与设定偏好前一致
  assert.equal(key(top(null)),key(top(undefined)),'不设偏好时结果必须稳定');
  assert.equal(key(top(null)),'item:potion#0','默认权重下仍推荐先吃药');
+});
+test('hard-requirement detection is programmatic, not left to the planner',async()=>{
+ const ctx={mode:'pve',battle:{history:[],version:'0.6'}};
+ // 这三类需求证据包里一定没有，必须程序识别出来，不能等模型自己意识到
+ assert.equal(requiredTool('第 5 回合当时发生了什么',ctx),'read_evidence');
+ assert.equal(requiredTool('如果换成防御会怎样',ctx),'simulate_branch');
+ assert.equal(requiredTool('帮我看看整局的统计',ctx),'read_match');
+ // 普通提问不强制调用，仍然由规划器判断
+ assert.equal(requiredTool('这回合怎么打',ctx),null);
+ assert.equal(requiredTool('谢谢',ctx),null);
 });

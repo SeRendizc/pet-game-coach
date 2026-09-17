@@ -2,6 +2,16 @@ import {isLiveMatch} from './policy.js';
 import {legalActions,resolveTurn,evaluate,actionName} from '../engine.js';
 import {strategist,searchKnowledge,RULES_VERSION} from './strategist.js';
 import {teacher} from './teacher.js';
+// 有些工具拿的是证据包里**永远不会有**的东西：指定回合的原始事件、分页的整局统计、
+// 以及需要计算的对手分支。这类需求不能靠"看看已有证据再决定"来判断，否则模型会
+// 因为包里"看起来够了"而跳过。实测 44 条里有 7 条漏调，其中 6 条所需事实本就在包内、
+// 但另外那类（指定回合 / 分支模拟 / 分页）只要不调就一定拿不到。
+// hard=true 表示：当这一轮出现了对应的需求信号时，必须调用，而不是可选。
+export const HARD_TOOLS={
+ read_evidence:'玩家问到了某个**具体回合**当时发生了什么，而证据包里只有最近的回合事件',
+ simulate_branch:'玩家要求**模拟或比较两个具体行动**的结果，这需要计算，证据包里没有',
+ read_match:'玩家要求**整局范围**的统计，或需要翻看更早的回合（证据包只带最近若干回合）',
+};
 export const TOOL_CONTRACTS={
  read_state:{description:'当前公开局面；不含电脑待执行动作或真实随机种子',arguments:{}},
  search_rules:{description:'检索本地规则和战术反例',arguments:{query:'1..180字符'}},
