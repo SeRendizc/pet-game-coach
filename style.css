@@ -279,3 +279,12 @@
 .enemy-chip{padding:3px 9px;gap:5px}
 .stage-reward{color:#8fa1b2}
 .roster-advice.card{margin:0 0 11px}
+
+/* 分屏同屏对战：两块操作面板并排，战斗记录移到下方通栏 */
+.bottom-grid.versus{grid-template-columns:1fr 1fr}
+.bottom-grid.versus .log-panel{grid-column:1/-1;height:132px}
+.bottom-grid.versus #log{height:92px}
+#panel-enemy .action{width:100%}
+#panel-enemy #enemy-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.side-coach{margin-top:8px;padding:7px 9px;border:1px solid #3c5a48;background:#1a2b26;border-radius:8px;font-size:12px;line-height:1.5;color:#bcd9c6}
+.side-coach strong{display:block;font-size:11px;color:#8fd6a5;margin-bottom:3px}
