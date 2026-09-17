@@ -30,7 +30,11 @@
 \end{tikzpicture}
 \end{figure}
 
-链上七步逐条核过，依据都在仓库里：\textbf{触发不来自请求层}——玩家提问走聊天面板，自动触发由 \code{app.js} 的事件钩子与 \code{coach/experience.js} 的触发层判定（每局上限、理由去重、冷却、安静档都在这一层），\code{coach/client.js} 只做请求调度：去重、会话失效重试、超时与降级；门控在 \code{policy.js}，循环、校验与输出上限都在 \code{runtime.js}，工具与参数契约在 \code{toolbox.js}，证据来自 \code{engine.js} 的合法行动枚举与 \code{strategist.js} 的 93 张知识卡，记忆写在 \code{memory.js}。\textbf{记忆与反思这一环要把两件事分开说}：\textbf{规则与证据驱动的 Reflection 已实现}——同类独立行动满 3 条时，\code{rememberDecision} 写下掌握判断（标签、证据 id、置信度与依据），它真的改变行为：\code{adaptiveGate} 据此降频，\code{observeStruggle} 与 \code{markUnlearned} 据此重教，\code{deleteMemoryEvidence} 还会把证据失效的结论一起撤回；\textbf{LLM 自动总结式 Reflection 未做}，Generative Agents 式的自由合成不在这一版里。还有一处必须说准，否则会把单工具记录包装成多步 Agent：\textbf{有界循环已实现，并由确定性 planner 测试验证，但真实模型评测中还没有观察到多工具链}——44 条既有真实记录的调用次数分布是 $\{0{:}36,\ 1{:}8\}$，本轮又补跑 4 条不同问法的用例，全部不超过 1 次。
+链上七步逐条核过，依据都在仓库里：\textbf{触发不来自请求层}——玩家提问走聊天面板，自动触发由 \code{app.js} 的事件钩子与 \code{coach/experience.js} 的触发层判定（每局上限、理由去重、冷却都在这一层），\code{coach/client.js} 只做请求调度与超时降级；门控在 \code{policy.js}，循环、校验与输出上限都在 \code{runtime.js}，工具与参数契约在 \code{toolbox.js}，证据来自 \code{engine.js} 的合法行动枚举与 \code{strategist.js} 的 93 张知识卡，记忆写在 \code{memory.js}。\textbf{记忆与反思这一环要把两件事分开说}：\textbf{规则与证据驱动的 Reflection 已实现}——同类独立行动满 3 条时，\code{rememberDecision} 写下掌握判断（带证据 id 与依据），它真的改变行为：\code{adaptiveGate} 据此降频，\code{observeStruggle} 与 \code{markUnlearned} 据此重教；\textbf{LLM 自动总结式 Reflection 未做}，Generative Agents 式的自由合成不在这一版里。还有一处必须说准，否则会把单工具记录包装成多步 Agent：\textbf{有界循环已实现，并由确定性 planner 测试验证，但真实模型评测中还没有观察到多工具链}——44 条既有真实记录的调用次数分布是 $\{0{:}36,\ 1{:}8\}$，本轮又补跑 4 条不同问法的用例，全部不超过 1 次。
+
+\subsection{记忆里的结论必须能被撤回}
+
+掌握判断不是模型写的，是本机按证据写的：同一课攒够 3 条独立行动才落一条判断，每条判断带着它依据的事件 id。证据一旦不在记录里，引用它的结论就一起失效——玩家删掉一条证据会撤回对应判断，组装上下文时也会把证据不足 3 条的判断整条丢掉（\code{runtime.js}），所以它宁可说「还没有足够的独立行动证据」，也不拿一条证据已经不在的判断去评价玩家。
 
 \subsection{数字不能让模型算}
 

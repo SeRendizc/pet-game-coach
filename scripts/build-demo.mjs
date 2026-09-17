@@ -2,7 +2,7 @@
 /**
  * scripts/build-demo.mjs — F04 自动生成演示产物（无桌面/无音频环境的替代方案）
  *
- * 本机没有可见桌面、没有音频设备，无法录制真实视频。这个脚本改为：
+ * 本机没有可录制的交互式桌面会话，无法录制真人操作视频。这个脚本改为：
  *   1. 用 child_process 启动 headless Chrome，通过 CDP（Chrome DevTools Protocol）驱动真实应用；
  *   2. 真实鼠标事件点击页面，走完 营地 → 出征 → 对局 → PVP 分屏 → 整局复盘 五段流程；
  *   3. 每一步用 Page.captureScreenshot 抓真实渲染结果，存成 output/demo/NN-<slug>.png；
@@ -790,7 +790,7 @@ function buildStoryboard(meta) {
 
   lines.push('# 小芽 · 图文演示分镜（DEMO-WALKTHROUGH）');
   lines.push('');
-  lines.push('> 本文件由 `scripts/build-demo.mjs` 自动生成。本机没有可见桌面、没有音频设备，无法录制真实视频；');
+  lines.push('> 本文件由 `scripts/build-demo.mjs` 自动生成。本机没有可录制的交互式桌面会话，无法录制真人操作视频；');
   lines.push('> 这里改为用 headless Chrome + CDP 驱动**真实运行中的应用**，逐步抓取真实渲染截图，替代视频演示。');
   lines.push('> 所有图片都是 `Page.captureScreenshot` 的真实输出，不是效果图、不是重绘稿。');
   lines.push('');
@@ -872,7 +872,7 @@ function buildStoryboard(meta) {
   }
   lines.push('## 这份产物不能说明什么');
   lines.push('');
-  lines.push('- 它是**静态图文**，没有真实录屏、没有语音播报：本机没有可见桌面与音频设备，「语音提醒」在演示里没有开启。');
+  lines.push('- 它是**静态图文**，没有真人操作录屏、没有语音播报：截图由无头浏览器驱动真实应用生成，不是录屏；「语音提醒」在演示里没有开启。');
   lines.push('- 每张图只是某一时刻的画面，不能证明连续动画、手感或帧率。');
   lines.push('- 截图证明的是「界面与流程在真实浏览器里跑得通」，不是「教学有效」。学习增益需要人类被试实验，本产物不涉及。');
   lines.push('- 为让整局更快打完，演示把播放速度设成「即时」，这只影响播放节奏，不改变任何数值。');
