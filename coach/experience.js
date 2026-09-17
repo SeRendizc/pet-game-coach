@@ -111,7 +111,7 @@ export function assessDecision(before,action,ranked){
  if(!candidate||!ranked[0]||before.phase==='replace'||action.kind==='escape')return null;
  const gap=ranked[0].score-candidate.score;
  const lesson=action.kind==='switch'?'换宠承伤':action.id==='guard'?'防御节奏':before.player.pets[before.player.active].energy<=2?'能量管理':'行动取舍';
- return {lesson,reasonable:gap<=5,scoreGap:Math.round(gap*10)/10,basis:'一回合启发式分差<=5为近似合理，不等于全局最优'};
+ return {lesson,reasonable:gap<=5,scoreGap:Math.round(gap*10)/10,basis:'把双方下一步可能的行动都算一遍后，两者差距在 5 分以内就算差不多，不涉及更后面的回合'};
 }
 
 export function watchCandidate(game,watches=[]){
@@ -309,7 +309,7 @@ export function dwellVerdict(game,dwell,ranked){
 // 军师的措辞：给台阶，不说「你选错了」，也不催。分差说明这是一回合启发式评分，不是胜率。
 function dwellSuggestText(game,dwell,verdict){
  const mine=actionLabel(game,'player',dwell.action),alt=actionLabel(game,'player',verdict.top.action);
- return `你在「${mine}」上停了大约 ${Math.round(dwell.held/1000)} 秒。如果还没定下来，当时也可以先比较「${alt}」：一回合枚举里它高 ${round1(verdict.gap)} 分（启发式评分，不是胜率）。停在${mine}也不算错，这一手由你决定。`;
+ return `你在「${mine}」上停了大约 ${Math.round(dwell.held/1000)} 秒。如果还没定下来，当时也可以先比较「${alt}」：把双方下一步的可能都算一遍，它大约高 ${round1(verdict.gap)} 分（分数只用来排序，不是胜率）。停在${mine}也不算错，这一手由你决定。`;
 }
 
 // 长停留的唯一入口：说就说，不说返回 null。两个角色共用同一份 session 记账与同一条门控，
@@ -367,7 +367,7 @@ export function hoverLabel(game,record){
  const byState=[...listed].sort((a,b)=>(b.pet.hp+b.pet.energy*10)-(a.pet.hp+a.pet.energy*10));
  const best=listed[0]||null;   // scored 时是分支评分第一，否则已按 HP/能量排好
  const others=byState.filter(x=>x.pet.id!==best?.pet?.id);
- const basis=scored.length?'这是按下一回合攻守分支排的，不是胜率。':'这是按剩余 HP 与能量排的，不是胜率。';
+ const basis=scored.length?'这是把下一回合双方可能的选择都算过一遍后排的，不是胜率。':'这是按剩余生命与能量排的，不是胜率。';
  return `${fallen.name}倒下了。${best?`先让${best.pet.name}补位（还剩 ${best.pet.hp}HP、${best.pet.energy}豆）`:'现在没有健康的伙伴可以补位'}；补位不占回合，选好再决定出招。`
   +(others.length?`另外${others.map(x=>`${x.pet.name}（${x.pet.hp}HP、${x.pet.energy}豆）`).join('、')}也可以比较。`:'')
   +basis;
@@ -381,7 +381,7 @@ function mistakeText(game,incident){
 }
 function hesitateText(game,signal,alt){
  const names=signal.kinds.slice(0,3).map(x=>hoverLabel(game,x)).join('、');
- return `你在${names}之间来回看了大约 ${Math.round(signal.held/1000)} 秒。${alt?`如果只是要找一件先定下来的事：「${actionLabel(game,'player',alt.action)}」是真实枚举里分最高的分支。`:'拿不准时，先比较对手留场和换宠两种分支。'}由你决定，不用回我。`;
+ return `你在${names}之间来回看了大约 ${Math.round(signal.held/1000)} 秒。${alt?`如果只是要找一件先定下来的事：「${actionLabel(game,'player',alt.action)}」是把双方下一步都算过一遍之后最划算的那个。`:'拿不准时，先比较对手留场和换宠两种分支。'}由你决定，不用回我。`;
 }
 
 // 军师该不该开口。纯函数：不碰 DOM、不碰记忆，只读 game / attention / session。

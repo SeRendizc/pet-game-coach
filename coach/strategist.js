@@ -30,9 +30,10 @@ export function strategist(context){
  const text=`这一回合优先考虑「${actionName(g,'player',best)}」。${ranked[1]?'可比较的备选是「'+actionName(g,'player',ranked[1].action)+'」。':''}`;
  const knowledge=searchKnowledge(context.query||'换宠 预判 能量 '+(q.status?'灼烧 追猎':'先手'),{limit:3,game:g,rulesVersion:g.version});
  evidence.push(...knowledge.cards.map(c=>`[${c.id}] ${c.principle} 注意：${c.counterexample} 条件：${c.applicability.status}`));
- evidence.push('这是一回合的启发式比较，用于排序，不是胜率，也不保证后续最优。');
- evidence.push(...ranked.slice(0,2).map(x=>`${actionName(g,'player',x.action)}：平均局面分 ${x.expected.toFixed(1)}，最坏分 ${x.worst.toFixed(1)}（启发式评分，非胜率）。对方换宠分支：${x.switchScore===null?'无合法换宠':x.switchScore.toFixed(1)}。`));
- return {text,evidence,knowledge:knowledge.cards,actions:ranked.slice(0,2).map(x=>x.action),method:'合法行动枚举 → 共用结算器 → 平均收益与最坏情况比较'};
+ evidence.push('这里是按双方下一步各自可能的选择算过一遍，用来看哪个更划算；不是胜率，也管不了更后面的回合。');
+ evidence.push(...ranked.slice(0,2).map(x=>`${actionName(g,'player',x.action)}：把对手各种应对都算一遍，多数情况下是 ${x.expected.toFixed(1)} 分，最糟的一种是 ${x.worst.toFixed(1)} 分（分数只用来排序，不是胜率）。对方换宠分支：${x.switchScore===null?'无合法换宠':x.switchScore.toFixed(1)}。`));
+ return {text,evidence,knowledge:knowledge.cards,actions:ranked.slice(0,2).map(x=>x.action),// method 是给日志和证据包用的内部字段，不是玩家可见文案；保留术语是为了排查问题。
+ method:'合法行动枚举 → 共用结算器 → 平均收益与最坏情况比较'};
 }
 
 const aliases = [['奶', '治疗'], ['秒杀', '击倒 收尾'], ['蓝量', '能量'], ['先动', '先手 速度'], ['肉盾', '承伤 防御']];
