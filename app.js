@@ -228,22 +228,44 @@ function renderGrowthCoach(){
 function logCoachEvent(kind,channel){if(!game||preview)return;coachMemory=recordCoachEvent(coachMemory,{id:`${matchId}:${game.turn}:${kind}:${channel}`,kind,channel,matchId,turn:game.turn,rulesVersion:game.version,confidence:1});saveCoachMemory();}
 
 let voiceEnabled=false,voiceVolume=.5,lastSpoken='';
-try{const setting=JSON.parse(localStorage.getItem('xiaoya-voice')||'{}');voiceEnabled=setting.enabled===true;voiceVolume=Number.isFinite(setting.volume)?Math.max(0,Math.min(1,setting.volume)):.5;}catch{}
+try{const setting=JSON.parse(localStorage.getItem('xiaoya-voice')||'{}');voiceEnabled=setting.enabled===true;voiceVolume=Number.isFinite(setting.volume)?Math.max(0,Math.min(1,setting.volume)):.5;voiceName=typeof setting.voice==='string'?setting.voice:'';}catch{}
 $('voice-enabled').checked=voiceEnabled;$('voice-volume').value=voiceVolume;
 if(!('speechSynthesis' in window)){$('voice-enabled').disabled=true;$('voice-status').textContent='当前浏览器不支持语音，仍可查看文字';}
-let utterance=null,chosenVoice=null;
+let utterance=null,chosenVoice=null,voiceName='';
 function voiceStatus(text){$('voice-status').textContent=text;}
 // 只挑普通话。zext 的 startsWith('zh') 会命中 zh-HK（粤语）与 zh-TW，
 // 而 getVoices() 首次调用常常返回空数组 —— 这正是"第一次普通话、之后粤语"的原因。
-function pickMandarinVoice(){
- const list=window.speechSynthesis?.getVoices?.()||[];if(!list.length)return null;
- const norm=v=>String(v.lang||'').toLowerCase().replace('_','-');
- return list.find(v=>norm(v)==='zh-cn')
-     || list.find(v=>norm(v).startsWith('zh-cn'))
-     || list.find(v=>norm(v).startsWith('zh')&&!/(hk|tw|yue|hant|hans-hk)/.test(norm(v)))
-     || null;
+// 已知的普通话声音，优先于系统里排在前面但可能不是普通话的声音。
+const MANDARIN=/婷婷|Ting-?Ting|Google 普通话|Mei-?Jia|美佳|美嘉|Yaoyao|Xiaoxiao|Xiaoyi|Yunxi|Yunyang|普通话/i;
+// macOS 的英文趣味语音（Eddy/Flo/Grandma…）会被 Chrome 按 zh-CN 列出来，但它们是英文
+// 声音在读中文，听起来像怪腔或粤语。自动选择时排除；用户仍可在下拉里手动选。
+const NOVELTY=/^(Eddy|Flo|Grandma|Grandpa|Reed|Rocko|Sandy|Shelley|Junior|Ralph|Kathy|Princess|Fred|Albert|Bahh|Bells|Boing|Bubbles|Cellos|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Good News|Bad News)\b/i;
+const CN_ONLY=v=>/^zh/i.test(String(v.lang||''));
+function chineseVoices(){return (window.speechSynthesis?.getVoices?.()||[]).filter(CN_ONLY);}
+function findVoice(name){
+ if(!name)return null;const list=window.speechSynthesis?.getVoices?.()||[];
+ return list.find(v=>v.name===name)||null;
 }
-if(window.speechSynthesis)window.speechSynthesis.onvoiceschanged=()=>{chosenVoice=pickMandarinVoice();};
+// 用户显式选过就用他的；否则挑一个已知普通话，再不行退回任何 zh-CN。
+function resolveVoice(){
+ const picked=findVoice(voiceName);if(picked)return picked;
+ const list=chineseVoices();
+ const mainland=list.filter(v=>/^zh-cn/i.test(String(v.lang||'').replace('_','-')));
+ const real=mainland.filter(v=>!NOVELTY.test(v.name));
+ return real.find(v=>MANDARIN.test(v.name))||real[0]||mainland.find(v=>MANDARIN.test(v.name))||mainland[0]||null;
+}
+function renderVoiceOptions(){
+ const sel=$('voice-pick');if(!sel)return;
+ const list=chineseVoices();
+ const best=resolveVoice();
+ sel.innerHTML='<option value="">（自动选择）</option>'+list.map(v=>`<option value="${escape(v.name)}">${escape(v.name)} · ${escape(v.lang)}</option>`).join('');
+ sel.value=voiceName&&list.some(v=>v.name===voiceName)?voiceName:'';
+ return best;
+}
+if(window.speechSynthesis){
+ window.speechSynthesis.onvoiceschanged=()=>{const best=renderVoiceOptions();chosenVoice=best;};
+ renderVoiceOptions();
+}
 function cancelVoice(){const s=window.speechSynthesis;if(!s)return;utterance=null;if(s.speaking||s.pending)s.cancel();}
 function playVoice(text,{test=false}={}){
  if(!window.speechSynthesis){voiceStatus('当前浏览器不支持语音，请使用文字');return;}
@@ -251,10 +273,10 @@ function playVoice(text,{test=false}={}){
  const synth=window.speechSynthesis,wasSpeaking=!!(synth.speaking||synth.pending);
  cancelVoice();
  const u=new SpeechSynthesisUtterance(concise(text,90));utterance=u;
- const v=chosenVoice||pickMandarinVoice();if(v)chosenVoice=v;
- u.voice=v||null;u.lang=v?v.lang:'zh-CN';u.volume=voiceVolume;u.rate=1.05;u.pitch=1;
- voiceStatus(test?'正在试听…':'准备播报…');
- u.onstart=()=>voiceStatus('正在播报');u.onend=()=>{if(utterance===u){utterance=null;voiceStatus(voiceEnabled?'语音已开启':'试听结束，自动语音未开启');}};
+ const v=resolveVoice();if(v)chosenVoice=v;
+ u.voice=v||null;u.lang=v?v.lang:'zh-CN';u.volume=voiceVolume;u.rate=1;u.pitch=1;
+ if(v)voiceStatus((test?'试听 · ':'播报 · ')+v.name+'（'+v.lang+'）');else voiceStatus(test?'正在试听…':'准备播报…');
+ u.onstart=()=>voiceStatus('正在播报 · '+(u.voice?u.voice.name:'系统默认'));u.onend=()=>{if(utterance===u){utterance=null;voiceStatus('播报结束 · '+(u.voice?u.voice.name+'（'+u.voice.lang+'）':'系统默认'));}};
  u.onerror=e=>{if(!['interrupted','canceled'].includes(e.error))voiceStatus('语音未播放：'+({ 'not-allowed':'请点试听解锁播放', 'voice-unavailable':'系统没有可用语音', 'language-unavailable':'系统缺少中文语音','audio-busy':'音频设备忙'}[e.error]||'请检查浏览器及系统声音设置'));};
  // 上一句还在播时先 cancel 再立刻 speak 会产生爆音；让音频管线先静下来。
  const start=()=>{if(utterance!==u)return;if(synth.paused)synth.resume();synth.speak(u);};
@@ -262,9 +284,10 @@ function playVoice(text,{test=false}={}){
  setTimeout(()=>{if(utterance===u&&!window.speechSynthesis.speaking&&!window.speechSynthesis.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},1500);
 }
 function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||game?.mode!=='pve')return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
-function saveVoice(){try{localStorage.setItem('xiaoya-voice',JSON.stringify({enabled:voiceEnabled,volume:voiceVolume}));}catch{}}
+function saveVoice(){try{localStorage.setItem('xiaoya-voice',JSON.stringify({enabled:voiceEnabled,volume:voiceVolume,voice:voiceName}));}catch{}}
 $('voice-test').onclick=()=>playVoice('我是小芽。有需要时，我会简短提醒。',{test:true});
 $('voice-enabled').onchange=()=>{voiceEnabled=$('voice-enabled').checked;cancelVoice();saveVoice();if(voiceEnabled)playVoice('语音已开启，我会按你的陪伴风格提醒。',{test:true});else voiceStatus('语音已关闭');};
+$('voice-pick').onchange=()=>{voiceName=$('voice-pick').value;cancelVoice();saveVoice();const v=resolveVoice();voiceStatus(voiceName?('已选择 '+voiceName+'（'+(v?v.lang:'')+'）'):('自动选择：'+(v?v.name+'（'+v.lang+'）':'无可用中文声音')));if(voiceEnabled)playVoice('这是当前的播报声音。',{test:true});};
 $('voice-volume').oninput=()=>{voiceVolume=Number($('voice-volume').value);cancelVoice();saveVoice();voiceStatus(voiceVolume===0?'音量为0':voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');};
 if('speechSynthesis' in window)voiceStatus(voiceEnabled?'语音已开启，可点试听':'语音未开启，可点试听');
 $('reset-habits').onclick=()=>{coachMemory.journal=[];coachMemory.reflections={};saveCoachMemory();addChat('小芽','已清除行动观察和提醒习惯。你设置的提醒档位、游戏成长和战报都保留。');};

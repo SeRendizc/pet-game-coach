@@ -237,3 +237,6 @@
 /* 配招：四个技能等宽两行 */
 .chosen-chips{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .chosen-chips span{text-align:center;justify-content:center}
+
+#voice-pick{max-width:170px}
+.coach-pref select{max-width:170px}
