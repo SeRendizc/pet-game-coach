@@ -45,12 +45,35 @@ async function startServer(){
 async function connect(base){
  // 端口写 0 让系统分配，真实端口在 user-data-dir/DevToolsActivePort 里
  const profile=mkdtempSync(join(tmpdir(),'replace-e2e-'));
+ // stderr 要收着：原来这里是 stdio:'ignore'，Chrome 起不来时原因被吞掉，
+ // 外面只能看到一句「没有在预期时间内起来」，查不出是路径、权限还是资源问题。
+ let chromeErr='';
  const chrome=spawn(chromePath,['--headless=new','--no-sandbox','--disable-gpu','--no-first-run','--disable-crash-reporter',
-  `--user-data-dir=${profile}`,'--remote-debugging-port=0','--window-size=1440,1000','about:blank'],{stdio:'ignore'});
+  `--user-data-dir=${profile}`,'--remote-debugging-port=0','--window-size=1440,1000','about:blank'],
+  {stdio:['ignore','ignore','pipe']});
+ chrome.stderr?.on('data',d=>{chromeErr=(chromeErr+String(d)).slice(-800);});
  const kill=()=>{try{chrome.kill('SIGKILL');}catch{}try{rmSync(profile,{recursive:true,force:true});}catch{}};
+ // 超时放宽到 60 秒（原来 15 秒）：加载重的机器上 headless Chrome 起得慢，
+ // 15 秒会把「慢」误报成「坏」。可用 CHROME_START_MS 覆盖。
+ const startMs=Number(process.env.CHROME_START_MS||60000);
  let port=null;
- for(let i=0;i<60&&!port;i++){await sleep(250);try{port=readFileSync(join(profile,'DevToolsActivePort'),'utf8').split('\n')[0].trim();}catch{}}
- if(!port){kill();throw Error('Chrome 没有在预期时间内起来');}
+ for(let i=0;i<startMs/250&&!port;i++){
+  await sleep(250);
+  try{port=readFileSync(join(profile,'DevToolsActivePort'),'utf8').split('\n')[0].trim();}catch{}
+  if(chrome.exitCode!==null||chrome.signalCode)break;   // 已经退出，再等没意义
+ }
+ if(!port){
+  const state=chrome.exitCode!==null?`已退出，code=${chrome.exitCode}`
+   :chrome.signalCode?`被信号 ${chrome.signalCode} 杀掉`:'仍在运行但没写出 DevToolsActivePort';
+  kill();
+  throw Error(`Chrome 没有起来（等了 ${startMs}ms）。\n`
+   +`  可执行文件：${chromePath}\n`
+   +`  进程状态：${state}\n`
+   +`  profile：${profile}\n`
+   +`  stderr 末尾：${chromeErr?chromeErr.trim().slice(-400):'（空）'}\n`
+   +'  排查方向：这个路径能不能执行、有没有图形/沙箱限制、机器是否负载过重。'
+   +'如确认本机起不来 Chrome，这条用例应当跳过而不是失败——那是环境问题，不是接口问题。');
+ }
  let targets=null;
  for(let i=0;i<40&&!targets;i++){try{targets=await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();}catch{await sleep(250);}}
  const ws=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);

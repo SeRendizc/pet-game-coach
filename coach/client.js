@@ -52,7 +52,7 @@ async function executeCoach(payload,signal){
 function companionRestraint(data,payload){
  const memory=payload.memory||{},dialogue=Array.isArray(memory.dialogue)?memory.dialogue:[];
  const previousAssistant=[...dialogue].reverse().find(x=>x?.role==='assistant'&&typeof x.content==='string')?.content||'';
- return checkCompanionRestraint(data.text,{register:data.register||data.companionState?.register||'R2',facts:{allowPast:Boolean((memory.events||[]).length||(memory.lessons||[]).length||dialogue.length),lessons:memory.lessons||[]},previousAssistant,playerMessage:playerWords(payload.message)});
+ return checkCompanionRestraint(data.text,{register:data.register||data.companionState?.register||'R2',facts:{allowPast:Boolean((memory.events||[]).length||(memory.lessons||[]).length||dialogue.length),metBefore:Boolean((memory.events||[]).length),lessons:memory.lessons||[]},previousAssistant,playerMessage:playerWords(payload.message)});
 }
 
 // ── 小芽的对话记录：会话列表 + 上限（与「跨局账本」是两回事）──────────────────

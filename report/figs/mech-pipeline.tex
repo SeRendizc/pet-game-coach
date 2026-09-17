@@ -3,44 +3,60 @@
 %
 % 图号：走 preamble.tex 的 \shotcaption（\refstepcounter{shot}），与 \shot、\shotpair
 %       共用同一个计数器，因此全文图号连续、不会重号。正文用 \ref 引用。
-%       \shotcaption 自带 \par\vspace{3pt}，图注与 TikZ 画布之间另有 6pt 上文间距。
 %
 % 为什么竖排：正文栏只有 453pt 宽，七个框横排需要 500pt 以上，放不下。
 %       竖排还有个好处——主链只有「向下」一种走向，顺序不可能读反。
-%       反馈回路沿左侧向上，不横穿任何框。
 %
-% 行距 1.35cm 是这张图的关键参数：改小会让箭头顶到下一个框，改大会把图顶到下一页。
+% 每框一行：左边步骤号，中间机制名，右边出处文件。步骤号与机制名贴着框的左边界，
+%       出处文件贴着右边界——一行两头都有内容，框里不留半边空白，七行等宽、居中、上下对齐。
+%       之前每框两行（机制名 + 出处文件）把框高翻了一倍，框又窄又散，七个框看着像浮着的
+%       标签，不像一条链。
+%
+% 行距 0.8cm（框心到框心；框高 16pt，箭头净长 6.7pt）：
+%       这是这张图的关键参数。再小箭头顶到框，再大七个框就散成七张标签。
+%       整个图连图注约 170pt，不到正文高度（706pt）的 1/3。
+%
+% 反馈回路不画线：记忆回流到下一轮触发，这件事原来画成一条从最底框拉到最顶框的虚线，
+%       那条线与整图等高，读者第一眼看到的是线，不是链。链本身只有「向下」一种走向，
+%       顺序已经说明了不回头；回流放在链末一行注里，一句话讲清，不占一行竖线。
+%
+% 字号：机制名 \footnotesize（10pt），步骤号与出处文件 \scriptsize（8pt），都 ≥7pt，
+%       缩到正文栏宽也认得出。出处文件用 \scriptsize 而不是 \tiny（6pt）——\tiny 在这个
+%       字号下已经认不清文件名，而文件名是这张图的第二份信息。
 \begin{figure}[htbp]\centering
-\vspace{6pt}
+\vspace{4pt}
+% 一行的画法：#1 步骤号（同时用作节点名 s#1）、#2 y 坐标、#3 框样式、#4 机制名、#5 出处文件
+\newcommand{\prow}[5]{%
+  \node[#3] (s#1) at (0,#2) {};
+  \node[pnum] at ([xshift=18pt]s#1.west) {#1};
+  \node[anchor=west,inner sep=0pt,font=\footnotesize\bfseries]
+       at ([xshift=35pt]s#1.west) {#4};
+  \node[anchor=east,inner sep=0pt,font=\scriptsize\ttfamily,text=black!65]
+       at ([xshift=-15pt]s#1.east) {#5};}
 \begin{tikzpicture}[
   font=\scriptsize,
-  >={Latex[length=2.4pt,width=2.4pt]},
-  cbox/.style={draw=black!60,rounded corners=3pt,align=center,inner sep=2.4pt,
-               text width=118pt},
-  terminal/.style={cbox,fill=black!9},
-  flow/.style={->,thick,draw=black!75},
-  fb/.style={->,densely dashed,draw=black!55}]
+  >={Latex[length=2.2pt,width=2.2pt]},
+  prow/.style={draw=black!55,rounded corners=2.5pt,minimum width=196pt,minimum height=16pt},
+  pterm/.style={prow,fill=black!8},
+  pnum/.style={circle,draw=black!45,minimum size=11pt,inner sep=0pt,
+               font=\scriptsize,text=black!70},
+  flow/.style={->,draw=black!70,line width=0.5pt}]
 
-  \node[terminal] (s1) at (0,0)     {\textbf{玩家提问 / 自动触发}\quad{\tiny\ttfamily app.js}};
-  \node[cbox]     (s2) at (0,-1.35) {\textbf{硬策略门控}\quad{\tiny\ttfamily policy.js}};
-  \node[cbox]     (s3) at (0,-2.7)  {\textbf{有界工具循环}\quad{\tiny\ttfamily runtime.js}};
-  \node[cbox]     (s4) at (0,-4.05) {\textbf{引擎 / RAG 回执}\quad{\tiny\ttfamily toolbox.js}};
-  \node[cbox]     (s5) at (0,-5.4)  {\textbf{一致性校验}\quad{\tiny\ttfamily runtime.js}};
-  \node[cbox]     (s6) at (0,-6.75) {\textbf{有界输出 / 沉默}\quad{\tiny\ttfamily runtime.js}};
-  \node[terminal] (s7) at (0,-8.1)  {\textbf{事件记忆与反思}\quad{\tiny\ttfamily memory.js}};
+  % 头尾两框加浅底纹：第一框是入口（谁触发），第七框是出口（记忆落地）
+  \prow{1}{0}    {pterm}{玩家提问 / 自动触发}{app.js}
+  \prow{2}{-0.8} {prow} {硬策略门控}          {policy.js}
+  \prow{3}{-1.6} {prow} {有界工具循环}        {runtime.js}
+  \prow{4}{-2.4} {prow} {引擎 / RAG 回执}     {toolbox.js}
+  \prow{5}{-3.2} {prow} {一致性校验}          {runtime.js}
+  \prow{6}{-4.0} {prow} {有界输出 / 沉默}     {runtime.js}
+  \prow{7}{-4.8} {pterm}{事件记忆与反思}      {memory.js}
 
-  % 主链：七步一路向下，每一步只有一个向下的箭头
-  \draw[flow] (s1) -- (s2);
-  \draw[flow] (s2) -- (s3);
-  \draw[flow] (s3) -- (s4);
-  \draw[flow] (s4) -- (s5);
-  \draw[flow] (s5) -- (s6);
-  \draw[flow] (s6) -- (s7);
+  % 主链：七步一路向下，每一步只有一个向下的箭头，六个箭头等长、都落在框的正中
+  \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6,s6/s7} {\draw[flow] (\a) -- (\b);}
 
-  % 反馈回路：记忆回到下一轮的触发。沿左侧向上走，与所有框都不相交。
-  \draw[fb] (s7.west) -- (-2.05,-8.1);
-  \draw[fb] (-2.05,-8.1) -- (-2.05,0);
-  \draw[fb] (-2.05,0) -- (s1.west);
+  % 回流：不画线，只在链末写一行注
+  \node[anchor=north,inner sep=0pt,font=\scriptsize,text=black!65]
+       at ([yshift=-9pt]s7.south) {记忆回流到下一次触发（下一轮从第一步重新开始）};
 \end{tikzpicture}
 \shotcaption{三种角色共用的执行链，以及链上七步各自的出处}\label{fig:pipeline-chain}
 \end{figure}

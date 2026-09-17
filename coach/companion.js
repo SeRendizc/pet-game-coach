@@ -1930,14 +1930,14 @@ function publicPacket({text,register,state,intent,reading=null,chat=null,mood=fa
  const settings=[`交流偏好${f.preference||'未设置'}`,`玩法目标${f.goal||'未设置'}`,`本命${f.favorite||'未设置'}`].join('、');
  evidence.push(`你的设置：${settings}（来源：你明确表达过才会记录）。`);
  if(f.lessons.length)evidence.push(`课程记录：${f.lessons.join('、')}（${f.lessons.length}条答对过的练习，不等于熟练掌握）。`);
- return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat),mood,greeting}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
+ return {text,evidence,register,companionState:{register,engagement:state.engagement,consideration:state.consideration,momentum:state.momentum,lossStreak:state.lossStreak,winStreak:state.winStreak,reasons:state.reasons},replyConstraints:replyConstraints(register,'companion',{emptyLedger:!history.length&&!f.lessons.length,continuing:Boolean(chat?.continued),chat:Boolean(chat),mood,greeting,metBefore:history.length>0}),intent,chatThread:chat?.thread||null,chatContinued:Boolean(chat?.continued),silent:register==='R0'};
 }
 
 // 模型路径下的档位约束：随证据包一起送到服务端（server.js 把整个证据包作为 game_evidence 发给模型）。
 // forbid 里的每一条与 checkCompanionRestraint / checkCompanionInformation 的硬线一一对应：
 // 复述屏幕、播报自己的情绪、空泛安慰、评价水平、说教、战术指挥，一条都不留。
 // allow 里写清这一轮**该有**的东西：情绪不是被禁止的，被禁止的是把情绪落在自己身上。
-export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false,mood=false,greeting=false}={}){
+export function replyConstraints(register,voice='companion',{emptyLedger=false,continuing=false,chat=false,mood=false,greeting=false,metBefore=false}={}){
  const r=REGISTERS[register];
  // 没有记录时送模型的那句话要换掉：原来写的是「至少一句要来自跨局记录（memory.events）」，
  // 而 memory.events 是空的——照这句写，模型只能编一局出来；
@@ -1979,7 +1979,9 @@ export function replyConstraints(register,voice='companion',{emptyLedger=false,c
  // 问候轮的全量禁令（第九次修正）。它和 checkCompanionRestraint 的 greeting 分支、
  // GREETING_TALK 是同一句话的两种写法：送给模型的与事后扫描的必须一致，
  // 否则模型会一直踩线、玩家拿到的一直是回退文案。
- const greet=greeting?'这一轮玩家只是打了个招呼：回一句问候或一声同样短的应声就够，不要报回合数、胜负、连胜连败、血线，不要做速度对比或先后手判断（「你比它快」「可以先动」「先手在你」这类一句都不许有），也不要给下一步该做什么的建议（「换上/换成/别用/留着/建议你…」），更不要顺势讲本局局面——拐回战斗是后面几轮的事，不是这一轮。':'';
+ const greet=greeting?(('这一轮玩家只是打了个招呼：回一句问候或一声同样短的应声就够，'
+  +'也不要自我介绍（「我是小芽」只在真正的第一次见面说一次'+(metBefore?'——他打过好几局了，不必再报名字':'，这一轮是第一次见面，可以报一次')+'），'
+  +'不要报回合数、胜负、连胜连败、血线，不要做速度对比或先后手判断（「你比它快」「可以先动」「先手在你」这类一句都不许有），也不要给下一步该做什么的建议（「换上/换成/别用/留着/建议你…」），更不要顺势讲本局局面——拐回战斗是后面几轮的事，不是这一轮。')):'';
  // 速度对比与先手判断是军师的语言，不是陪练的。它单列一条，因为它不属于上面任何一类：
  // 模型把它当成「复述屏幕上看得见的事实」（publicState 里确实有双方速度），
  // 所以「不要复述屏幕」那条约束拦不住它——实测那句正是这样穿过去的。
@@ -2048,6 +2050,11 @@ export function checkCompanionRestraint(text,{register='R2',facts={},previousAss
  // 问候轮：上面那些都是「说得对不对」，这一条是「该不该说」——玩家只打了个招呼，
  // 回合数、胜负、血线、速度比较、战术词一个都不该出现（见文件头第九次修正）。
  if(greetingTurn&&GREETING_TALK.test(t))reasons.push('greeting-turn-talk');
+ // 自我介绍：本机模板只在**真正的第一次见面**（memory.events 为空）报一次名字，
+ // 模型那一侧同样被写死（replyConstraints 的 greet 分支）——两边说的是同一句话。
+ // facts.metBefore 由调用方给（coach/client.js 传 memory.events 是否非空）；不给就不判，
+ // 所以既有调用点一个都不受影响。
+ if(greetingTurn&&facts.metBefore&&/我是小芽|我叫小芽|叫我小芽/.test(t))reasons.push('greeting-self-intro');
  if(/(记得|上次|之前|上回|我们已经|上一场|那一局|连着|最近)/.test(t)&&!facts.allowPast)reasons.push('unsupported-past-claim');
  if(/速度判断/.test(t)&&!(facts.lessons||[]).includes('速度判断'))reasons.push('lesson-not-recorded');
  if(register!=='R3'&&register!=='R0'&&/[？?]\s*$/.test(t.trim())&&/[？?]\s*$/.test(String(previousAssistant||'').trim()))reasons.push('consecutive-questions');

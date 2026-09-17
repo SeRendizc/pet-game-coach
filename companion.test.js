@@ -2145,6 +2145,22 @@ test('问候轮②：模型那一侧的同一条硬线——实测那句整段�
  // 这一条防的是「刀磨得太快」——把「先手」整词拦掉会误伤合法的情绪句。
  for(const fine of ['这一手先手抢得漂亮，它还没来得及回血。','那个收尾机会差8点血，可惜了。'])
   assert.deepEqual(checkCompanionRestraint(fine,{register:'R4',facts:{allowPast:true,lessons:[]}}).reasons,[],fine);
+ // 自我介绍也要跟本机同源：本机模板只在**真正的第一次见面**报一次名字，模型那一侧不许
+ // 在他打过好几局时再报。这一条同样是实测里真的出现的（有记录时回「上午好，我是小芽。」），
+ // 而且正是用户更早点名过的那一处（「『我是小芽』是认真的吗」）。
+ const intro='上午好，我是小芽。';
+ assert(checkCompanionRestraint(intro,{register:'R1',facts:{allowPast:true,metBefore:true},greeting:true})
+  .reasons.includes('greeting-self-intro'),'有记录时模型不该再自我介绍');
+ assert.equal(checkCompanionRestraint(intro,{register:'R1',facts:{allowPast:false,metBefore:false},greeting:true}).valid,true,
+  '第一次见面时这句话是对的，不能一起拦掉');
+ const ledger2=history([winGame(),lossGame()]);
+ assert.equal(companion({mode:'camp'},ledger2,'你好',atClock(9,20)).text.includes('我是小芽'),false,'本机模板有记录时不自我介绍');
+ assert.equal(companion({mode:'camp'},freshMemory(),'你好',atClock(9,20)).text.includes('我是小芽'),true,'本机模板第一次见面要报一次名字');
+ // 约束那一侧写着同一句话，而且**分了两种口径**（有没有记录，说给模型的不是同一句）
+ const met=companion({mode:'camp'},ledger2,'你好',atClock(9,20)).replyConstraints.instruction;
+ const first=companion({mode:'camp'},freshMemory(),'你好',atClock(9,20)).replyConstraints.instruction;
+ assert(met.includes('不必再报名字'),met.slice(0,200));
+ assert(first.includes('可以报一次'),first.slice(0,200));
 });
 
 // ── 负向验证：把三条约束分别撤掉，上面两条验收必须变红 ────────────────────────
@@ -2180,6 +2196,14 @@ test('negative verification: 拆掉问候轮的三道约束，上一条验收必
  assert.equal(GREETING_TALK.test(legacyLocal),true,`旧模板那一句必须命中问候轮禁令：${legacyLocal}`);
  assert(checkCompanionRestraint(legacyLocal,{register:'R1',facts:{allowPast:true,lessons:[]},playerMessage:'你好'})
   .reasons.includes('greeting-turn-talk'),`旧模板那一句必须判红：${legacyLocal}`);
+ // ④ 拆掉「有记录时不自我介绍」：只给 greeting、不给 metBefore（旧调用点的样子），
+ //    同一句就过得去——这正是实测里有记录时被回「上午好，我是小芽。」的那条路。
+ const intro='上午好，我是小芽。';
+ assert.equal(checkCompanionRestraint(intro,{register:'R1',facts:{allowPast:true},greeting:true}).valid,true,
+  '对照组：没有 metBefore 时这句话确实过得去');
+ assert(checkCompanionRestraint(intro,{register:'R1',facts:{allowPast:true,metBefore:true},greeting:true})
+  .reasons.includes('greeting-self-intro'),'补上 metBefore 之后必须判红');
+
  // 而且旧路径拿得到的素材是**真的存在**的（对照组不是凭空写的）：
  // 观察通道里那条「最近一局」的读数就是模型收到的「事实草稿」。
  const ledger=history([winGame(),lossGame(),play(7)]);
