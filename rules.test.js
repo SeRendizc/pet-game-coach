@@ -250,6 +250,61 @@ test('a rules-version mismatch blocks advice instead of showing stale numbers',a
   for(const card of REFERENCE_CARDS) assert.equal(card.rulesVersion,RULES_VERSION,`知识卡版本不一致：${card.id}`);
 });
 
+test('the tool layer quotes the same rule numbers as the engine',async()=>{
+  // P05 要求"统一规则数据源驱动 UI、引擎、工具、知识库"。工具层最容易偷偷抄一份数值，
+  // buildContext 里的 energyLimit 就是一处：这里断言它与 RULES.energy.max 一致。
+  const {buildContext}=await import('./coach/runtime.js');
+  const game=createGame(17,TEAM);
+  const context=buildContext(game,{tokens:0,pets:{}},null,null,'meadow','这回合怎么打');
+  assert.equal(context.battle.energyLimit,RULES.energy.max,'工具层的能量上限与引擎不一致');
+  assert.equal(context.battle.version,RULES_VERSION);
+  assert.equal(game.version,RULES_VERSION);
+  // 知识库（引擎生成的参考卡）也必须带同一个版本号——已由 knowledge.test.js 覆盖生成一致性，
+  // 这里只锁版本号本身。
+  const {REFERENCE_CARDS}=await import('./content.js');
+  assert.ok(REFERENCE_CARDS.length>0);
+  for(const card of REFERENCE_CARDS) assert.equal(card.rulesVersion,RULES_VERSION,`知识卡版本漂移：${card.id}`);
+});
+
+test('the tactics knowledge base states the same numbers as the engine',async()=>{
+  // 知识卡是手写在 knowledge/tactics.json 里的散文，最容易和引擎数值脱节；
+  // 下面把「引擎字段 → 卡里应有的那句话」直接拼出来比对，改任何一处都会失败。
+  const {TACTIC_CARDS,REFERENCE_CARDS}=await import('./content.js');
+  const all=[...TACTIC_CARDS,...REFERENCE_CARDS].map(c=>`${c.principle} ${c.counterexample}`).join('\n');
+  const badger=SPECIES.find(p=>p.id==='badger');
+  const expected=[
+    `防御减伤${percent(RULES.guard.reduction)}`,
+    `灼烧每次${RULES.status.burn.tick}伤害`,
+    `中毒每次${RULES.status.poison.tick}伤害`,
+    `能量上限${RULES.energy.max}`,
+    `每点敏捷加${RULES.training.speed}速度`,
+    `力量加${RULES.training.atk}攻击`,
+    `耐久加${RULES.training.hp}生命`,
+    `克制${RULES.typeAdvantage}倍`,
+    `抵抗${RULES.typeResist}倍`,
+    `先回复${ITEMS.potion.heal}生命`,
+    `${ITEMS.potion.name}优先级${RULES.priority.item}`,
+    `${ITEMS.ether.name}恢复${ITEMS.ether.restore}`,
+    `环境持续前${ENVIRONMENTS.rain.turns}回合`,
+    `细雨水伤害×${ENVIRONMENTS.rain.multipliers.water}`,
+    `火×${ENVIRONMENTS.rain.multipliers.fire}`,
+    `${HELD_ITEMS.shellCharm.name}在满血首次受攻击时减伤${percent(RULES.shellCharm.reduction)}`,
+    `${HELD_ITEMS.energySeed.name}在场存活回合末能量不超过${RULES.energySeed.threshold}时恢复${RULES.energySeed.restore}豆`,
+    `每层提高对应攻防${percent(RULES.buff.perStack)}`,
+    `最多${RULES.buff.maxStacks}层`,
+    `${RULES.buff.turns}次在场回合末`,
+    `${SKILLS.staticbolt.name}使目标速度降低${SKILLS.staticbolt.slow}`,
+    `反击${badger.guardCounter}点`,
+    `恢复${percent(SKILLS.drain.drain)}`,
+    `反伤按实际伤害${percent(SKILLS.flare.recoil)}`,
+    `增加${SKILLS.pursuit.burnBonus}威力`,
+    `恢复${SKILLS.moss.heal}生命`,
+    `额外恢复${RULES.guard.energy}能量`,
+    `回合末回${RULES.energy.perTurn}`,
+  ].filter(Boolean).map(String);
+  for(const phrase of expected) assert.ok(all.includes(phrase),`知识卡里的数值与引擎不一致，找不到：${phrase}`);
+});
+
 test('the difficulty list on the page comes from DIFFICULTIES',()=>{
   const app=readFileSync(new URL('./app.js',import.meta.url),'utf8');
   assert.ok(app.includes("Object.entries(DIFFICULTIES).map"),'app.js 仍在手写难度选项');

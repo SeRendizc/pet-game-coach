@@ -262,3 +262,13 @@ export function proactiveText(event,context={},register='R1'){
  }
  return null;
 }
+
+// 陪练何时开口：只有「本局第一次有伙伴倒下」和「整局结束」两个真实事件。
+// 门控与措辞在 coachEvent 里，这里只判断事件是否成立、以及本局是否已经报过。
+// 放在这个模块而不是 app.js，是为了能脱开 DOM 单测。
+export function companionEvents(g,{faintShown,resultAnnounced}={}){
+ const out=[];
+ if(!faintShown&&(g?.player?.pets||[]).some(p=>p.hp<=0))out.push('first-faint');
+ if(g?.result&&!resultAnnounced)out.push('result');
+ return out;
+}

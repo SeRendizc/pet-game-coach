@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {createGame,step,legalActions,rankEnemyActions,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {freshMemory,rememberBattle,readMemory,recordCoachEvent} from './coach/memory.js';
-import {companion,companionState,companionFacts,checkCompanionRestraint,decideRegister,proactiveRegister,proactiveText,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER} from './coach/companion.js';
+import {companion,companionState,companionFacts,checkCompanionRestraint,decideRegister,proactiveRegister,proactiveText,intentOf,trailingStreak,REGISTERS,REGISTER_ORDER,companionEvents} from './coach/companion.js';
 import {runCoach,buildContext} from './coach/runtime.js';
 import {coachEvent,coachContext} from './coach.js';
 
@@ -311,4 +311,17 @@ test('companion facts degrade to null instead of default values',()=>{
  const text=companion({mode:'camp'},legacy,'随便聊聊').text;
  assert.match(text,/青芽草地9回合/);
  assert(!/倒下|回合倒下|回复药/.test(text));
+});
+test('the proactive bubble fires on exactly two events, once each per match',()=>{
+ const mk=(hp,result=null)=>({result,player:{pets:[{hp},{hp:10},{hp:10}]}});
+ // 没有减员、也没结束：一次都不该开口
+ assert.deepEqual(companionEvents(mk(50),{faintShown:false,resultAnnounced:false}),[]);
+ // 第一次减员：开口一次
+ assert.deepEqual(companionEvents(mk(0),{faintShown:false,resultAnnounced:false}),['first-faint']);
+ // 已经报过就不再重复
+ assert.deepEqual(companionEvents(mk(0),{faintShown:true,resultAnnounced:false}),[]);
+ // 整局结束：开口一次
+ assert.deepEqual(companionEvents(mk(0,'win'),{faintShown:true,resultAnnounced:false}),['result']);
+ // 结束后不再重复
+ assert.deepEqual(companionEvents(mk(0,'win'),{faintShown:true,resultAnnounced:true}),[]);
 });

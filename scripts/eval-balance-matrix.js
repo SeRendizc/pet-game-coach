@@ -24,10 +24,12 @@ import {STAGES,stageOptions} from '../content.js';
 
 // ── reproducibility ─────────────────────────────────────────────────────────────────────────
 // Fixed seed lists. No Date/Math.random anywhere: same file => same numbers.
-const SEEDS12=[211,223,227,229,233,239,241,251,257,263,269,271];
-const SEEDS20=[...SEEDS12,277,281,283,293,307,311,313,317];
-// The archived calibration study used 100+i*37 for i<24; reuse it for the replication arm only.
+// The list is the archived calibration list (100+i*37). It is used deliberately: 37 mod 3 == 1, so
+// consecutive seeds rotate through all three built-in enemy squads (engine.js:78 enemyTeams[seed%3])
+// evenly, and using it keeps this matrix comparable with the archived reports.
 const ARCHIVE_SEEDS=Array.from({length:24},(_,i)=>100+i*37);
+const SEEDS12=ARCHIVE_SEEDS.slice(0,12);
+const SEEDS20=ARCHIVE_SEEDS.slice(0,20);
 const SCALE=Number(process.env.MATRIX_SCALE||1);          // <1 = smoke run, only for local checks
 const seedsOf=list=>list.slice(0,Math.max(2,Math.round(list.length*SCALE)));
 
@@ -200,11 +202,13 @@ function labelOf(g,side,a){
 }
 function playMatch(cfg){
  const {seed,team,mode='pve',difficulty='normal',item='none',loadout='default',policy='greedy-damage',
-   mirrorItem=false,stage=null,enemyTeam=null}=cfg;
+   mirrorItem=false,stage=null,enemyTeam=null,enemySpec='rotating'}=cfg;
  const options={mode,difficulty,pets:petProfiles(team,item,loadout)};
  if(stage){Object.assign(options,stageOptions(stage));}
  else if(mode==='pvp-local'){Object.assign(options,buildVersusOpponent(seed,{level:1}));}
- else {options.enemyTeam=enemyTeam||PVE_ENEMY;}
+ else if(enemySpec==='fixed'){options.enemyTeam=enemyTeam||PVE_ENEMY;}
+ /* enemySpec 'rotating' passes no enemyTeam, so engine.js itself picks enemyTeams[seed%3]:
+    three different squads across the seed list instead of one fixed opponent. */
  if(mirrorItem){
   const ids=options.enemyTeam||[];
   options.enemyPets=Object.fromEntries(ids.map(id=>[id,{level:1,points:{hp:0,atk:0,speed:0},heldItem:item}]));
@@ -467,15 +471,20 @@ function probeEnemyReplace(){
     const atk=noEscape(g).filter(isAttack).sort((x,y)=>damage(active(g,'player'),active(g,'enemy'),SKILLS[y.id])
       -damage(active(g,'player'),active(g,'enemy'),SKILLS[x.id]))[0];
     if(!atk){note='no legal attack in the opening state';continue;}
-    g=resolveTurn(g,atk,chooseEnemy(g),{manualReplace:true});
+    // The enemy reply is fixed to a legal NON-switch action on purpose: at hard difficulty the
+    // chooser normally switches a 1-HP pet out, which would hide the replace phase entirely.
+    const legalEnemy=legalActions(g,'enemy').filter(a=>a.kind!=='escape'&&a.kind!=='switch');
+    const reply=legalEnemy.find(a=>a.kind==='skill'&&SKILLS[a.id].power)||legalEnemy[0];
+    if(!reply){note='enemy has no legal non-switch action';continue;}
+    g=resolveTurn(g,atk,reply,{manualReplace:true});
    }catch(e){note='turn resolution threw: '+e.message;continue;}
    if(g.phase==='replace'&&g.replaceSide==='enemy')found=g;else note='state not reached (phase='+g.phase+', result='+g.result+')';
   }
   if(!found){out[diff]={stateReached:false,note};continue;}
   try{const a=chooseEnemy(found);out[diff]={stateReached:true,threw:false,returned:a.kind+(a.id?':'+a.id:':pet'+a.target)};}
-  catch(e){out[diff]={stateReached:true,threw:true,error:e.message};}
+  catch(e){out[diff]={stateReached:true,threw:true,error:e.message,phase:found.phase,replaceSide:found.replaceSide};}
  }
- out.howStateBuilt='enemy lead HP set to 1, then one ordinary turn resolved with {manualReplace:true}; the replace phase is produced by engine.js itself.';
+ out.howStateBuilt='enemy lead HP set to 1 and the enemy reply fixed to a legal non-switch action, then one ordinary turn resolved with {manualReplace:true}; the replace phase itself is produced by engine.js.';
  out.engineLines='engine.js:141-147 (chooseEnemy hard branch) -> engine.js:113-140 (rankEnemyActions) -> engine.js:171-174 (resolveTurn validates the reply against actingSide, which is the enemy during its own replace phase)';
  out.appLine='app.js:173 decideEnemyFirst() calls chooseEnemy(game) with no phase check; app.js:177 blocks the player from picking for the AI side.';
  out.workaround='The harness uses enemyReplaceChoice(): chooseEnemy() is attempted, and on throw it falls back to engine.js:248\'s own auto-replacement score. The fallback count is reported per arm as enemyReplaceFallbacks.';
@@ -493,8 +502,8 @@ save();
  for(const [name,team] of Object.entries(TEAMS))
   for(const diff of DIFFS)
    for(const item of ITEMS){
-    const rows=seeds.map(seed=>playMatch({seed,team,difficulty:diff,item,policy:'greedy-damage'}));
-    push('S1',{team:name,difficulty:diff,item,policy:'greedy-damage',mode:'pve'},rows);
+    const rows=seeds.map(seed=>playMatch({seed,team,difficulty:diff,item,policy:'greedy-damage',enemySpec:'rotating'}));
+    push('S1',{team:name,difficulty:diff,item,policy:'greedy-damage',mode:'pve',enemy:'engine 默认 3 队轮换(seed%3)'},rows);
    }
  cells('S1 核心矩阵',{teams:Object.keys(TEAMS).length,difficulties:3,items:3,policies:1,mode:'pve'},
   Object.keys(TEAMS).length*3*3*seeds.length,seeds);
@@ -510,8 +519,8 @@ save();
  for(const [name,team] of Object.entries(sample))
   for(const diff of DIFFS)
    for(const policy of POLICY_ORDER){
-    const rows=seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy}));
-    push('S2',{team:name,difficulty:diff,policy,mode:'pve',item:'none'},rows);
+    const rows=seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy,enemySpec:'rotating'}));
+    push('S2',{team:name,difficulty:diff,policy,mode:'pve',item:'none',enemy:'engine 默认 3 队轮换'},rows);
    }
  cells('S2 战术多样性',{teams:Object.keys(sample).length,difficulties:3,policies:POLICY_ORDER.length,mode:'pve'},
   Object.keys(sample).length*3*POLICY_ORDER.length*seeds.length,seeds);
@@ -524,14 +533,14 @@ save();
  const seeds=seedsOf(SEEDS12);
  for(const [name,team] of Object.entries(TEAMS))
   for(const loadout of ['default','alt']){
-   push('S3',{team:name,loadout,difficulty:'normal',policy:'greedy-damage',mode:'pve',item:'none'},
-    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',loadout,policy:'greedy-damage'})));
+   push('S3',{team:name,loadout,difficulty:'normal',policy:'greedy-damage',mode:'pve',item:'none',enemy:'engine 默认 3 队轮换'},
+    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',loadout,policy:'greedy-damage',enemySpec:'rotating'})));
   }
  for(const [name,team] of Object.entries({'T1 starter 火/水/草 均衡':TEAMS['T1 starter 火/水/草 均衡'],
    'T5 慢速坦克 犀+龟+菇':TEAMS['T5 慢速坦克 犀+龟+菇'],'T8 消耗拖延 菇+獭+狮':TEAMS['T8 消耗拖延 菇+獭+狮']}))
   for(const loadout of ['default','alt']){
-   push('S3',{team:name,loadout,difficulty:'hard',policy:'greedy-damage',mode:'pve',item:'none'},
-    seeds.map(seed=>playMatch({seed,team,difficulty:'hard',loadout,policy:'greedy-damage'})));
+   push('S3',{team:name,loadout,difficulty:'hard',policy:'greedy-damage',mode:'pve',item:'none',enemy:'engine 默认 3 队轮换'},
+    seeds.map(seed=>playMatch({seed,team,difficulty:'hard',loadout,policy:'greedy-damage',enemySpec:'rotating'})));
   }
  cells('S3 配招',{teams:9,loadouts:2,difficulties:'normal(9 队)+hard(3 队)',mode:'pve'},
   9*2*seeds.length+3*2*seeds.length,seeds);
@@ -546,14 +555,14 @@ save();
   for(const pet of [pair.a,pair.b])
    for(const diff of DIFFS){
     const team=[pet,...pair.ctx];
-    push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:diff,loadout:'default',policy:'greedy-damage',mode:'pve'},
-     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage'})));
+    push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:diff,loadout:'default',policy:'greedy-damage',mode:'pve',enemy:'固定 菇/獭/狮 L1 无携带物'},
+     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage',enemySpec:'fixed'})));
    }
  for(const pair of TYPE_PAIRS)
   for(const pet of [pair.a,pair.b]){
    const team=[pet,...pair.ctx];
-   push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:'normal',loadout:'alt',policy:'greedy-damage',mode:'pve'},
-    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',loadout:'alt',policy:'greedy-damage'})));
+   push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:'normal',loadout:'alt',policy:'greedy-damage',mode:'pve',enemy:'固定 菇/獭/狮 L1 无携带物'},
+    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',loadout:'alt',policy:'greedy-damage',enemySpec:'fixed'})));
   }
  cells('S4 同属性同位置替换',{pairs:6,petsPerPair:2,contexts:'每对固定另外两只',difficulties:3,loadouts:'default(3 难度)+alt(normal)',mode:'pve'},
   6*2*3*seeds.length+6*2*seeds.length,seeds);
@@ -568,8 +577,8 @@ save();
   for(const pet of SPECIES.map(p=>p.id).filter(id=>!ctx.includes(id)))
    for(const diff of DIFFS){
     const team=[pet,...ctx];
-    push('S5',{ctx:ctx.join('+'),slot0:pet,difficulty:diff,policy:'greedy-damage',mode:'pve',loadout:'default'},
-     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage'})));
+    push('S5',{ctx:ctx.join('+'),slot0:pet,difficulty:diff,policy:'greedy-damage',mode:'pve',loadout:'default',enemy:'固定 菇/獭/狮 L1 无携带物'},
+     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage',enemySpec:'fixed'})));
    }
  cells('S5 同队友轮换扫描',{contexts:2,slot0Pets:10,difficulties:3,mode:'pve'},2*10*3*seeds.length,seeds);
  log('S5 roster sweep done');
@@ -586,8 +595,9 @@ save();
  for(const [name,team] of Object.entries(sample))
   for(const mode of ['pve','pvp-local'])
    for(const diff of ['normal','hard']){
-    const rows=seeds.map(seed=>playMatch({seed,team,mode,difficulty:diff,policy:'greedy-damage'}));
-    push('S6',{team:name,mode,difficulty:diff,policy:'greedy-damage',item:'none'},rows);
+    const rows=seeds.map(seed=>playMatch({seed,team,mode,difficulty:diff,policy:'greedy-damage',enemySpec:'rotating'}));
+    push('S6',{team:name,mode,difficulty:diff,policy:'greedy-damage',item:'none',
+     enemy:mode==='pve'?'engine 默认 3 队轮换':'buildVersusOpponent 随机队+随机配招+携带物'},rows);
    }
  cells('S6 模式对照',{teams:4,modes:2,difficulties:2,mode:'pve / pvp-local'},4*2*2*seeds.length,seeds);
  log('S6 mode comparison done');
@@ -600,8 +610,8 @@ save();
  for(const [name,team] of Object.entries(STALL_TEAMS))
   for(const policy of ['guard-first','random','switch-first'])
    for(const diff of ['easy','normal']){
-    push('S7',{team:name,policy,difficulty:diff,mode:'pve',item:'none'},
-     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy})));
+    push('S7',{team:name,policy,difficulty:diff,mode:'pve',item:'none',enemy:'engine 默认 3 队轮换'},
+     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy,enemySpec:'rotating'})));
    }
  cells('S7 拖延上限',{stallTeams:3,policies:3,difficulties:2,mode:'pve'},3*3*2*seeds.length,seeds);
  log('S7 stall arms done');
@@ -630,23 +640,25 @@ save();
  for(const [name,team] of Object.entries(sample))
   for(const item of ITEMS)
    for(const diff of DIFFS){
-    push('S9',{team:name,item,difficulty:diff,mirrorItem:true,policy:'greedy-damage',mode:'pve'},
-     seeds.map(seed=>playMatch({seed,team,difficulty:diff,item,mirrorItem:true,policy:'greedy-damage'})));
+    push('S9',{team:name,item,difficulty:diff,mirrorItem:true,policy:'greedy-damage',mode:'pve',enemy:'固定 菇/獭/狮 同携带物'},
+     seeds.map(seed=>playMatch({seed,team,difficulty:diff,item,mirrorItem:true,policy:'greedy-damage',enemySpec:'fixed'})));
    }
  cells('S9 携带物对称对照',{teams:2,items:3,difficulties:3,mode:'pve',mirrorItem:true},2*3*3*seeds.length,seeds);
  log('S9 item mirror done');
  save();
 }
 
-// ── S10: replication of the archived studyC_difficulty protocol (exact) ────────────────────
-// Same seeds, same stage, same policies, same replacement rule as scripts/eval-balance-calibration.js.
+// ── S10: replication of the archived protocols (exact) ─────────────────────────────────────
+// studyC_difficulty: same seeds, same stage, same policies, same replacement rule as
+// scripts/eval-balance-calibration.js. studyA_composition: same 6 compositions x 5 policies x
+// 24 seeds at normal difficulty with the engine's own rotating enemy squad.
 {
  const legacy={'greedy-damage':g=>bestDamage(g),'one-turn-rank':g=>oneTurnRank(g),'rushed':g=>rushed(g),
   'switch-seeking':g=>switchSeeking(g),'random':(g,c)=>randomPolicy(g,c.rand)};
- function legacyMatch(seed,diff,polName){
+ function legacyMatch(seed,team,diff,polName,stage){
   const rand=rng(seed*7919+13);
-  let g=createGame(seed,['fox','turtle','deer'],{mode:'pve',...stageOptions('meadow'),difficulty:diff});
-  const r={seed,result:null,rounds:0,policy:polName,team:'fox/turtle/deer',enemyTeam:'deer/turtle/fox',
+  let g=createGame(seed,[...team],{mode:'pve',...(stage?stageOptions(stage):{}),difficulty:diff});
+  const r={seed,result:null,rounds:0,policy:polName,team:team.join('/'),enemyTeam:'',
    playerKinds:{skill:0,switch:0,item:0,escape:0},enemyKinds:{skill:0,switch:0,item:0,escape:0},
    playerActions:{},enemyActions:{},petTurns:[0,0,0],petSurvived:[0,0,0],reps:0,
    playerItemsUsed:{potion:0,cleanse:0,ether:0},playerAlive:0,enemyAlive:0};
@@ -670,15 +682,25 @@ save();
   r.enemyAlive=g.enemy.pets.filter(p=>p.hp>0).length;
   r.petSurvived=g.player.pets.map(p=>p.hp>0?1:0);
   r.petHpFrac=g.player.pets.map(p=>+(p.hp/p.maxHp).toFixed(3));
+  r.enemyTeam=g.enemy.pets.map(p=>p.id).join('/');
   return r;
  }
  const seeds=report.seeds.archive24;
  for(const diff of DIFFS)
   for(const pol of Object.keys(legacy)){
-   const rows=seeds.map(seed=>legacyMatch(seed,diff,pol));
-   push('S10',{protocol:'archived studyC_difficulty',difficulty:diff,policy:pol,stage:'meadow',mode:'pve'},rows);
+   const rows=seeds.map(seed=>legacyMatch(seed,['fox','turtle','deer'],diff,pol,'meadow'));
+   push('S10',{protocol:'archived studyC_difficulty',difficulty:diff,policy:pol,stage:'meadow',mode:'pve',enemy:'meadow 关卡敌方'},rows);
   }
- cells('S10 归档协议复现',{difficulties:3,policies:5,stage:'meadow',seedList:'归档 100+i*37'},3*5*seeds.length,seeds);
+ cells('S10a 归档 studyC 复现',{difficulties:3,policies:5,stage:'meadow',seedList:'归档 100+i*37'},3*5*seeds.length,seeds);
+ for(const [name,team] of Object.entries({'starter fox/turtle/deer':['fox','turtle','deer'],
+   'burn lion/shroom/otter':['lion','shroom','otter'],'speed sparrow/badger/moth':['sparrow','badger','moth'],
+   'wind falcon/rhino/marten':['falcon','rhino','marten'],'stall turtle/shroom/badger':['turtle','shroom','badger'],
+   'glass fox/sparrow/falcon':['fox','sparrow','falcon']}))
+  for(const pol of Object.keys(legacy)){
+   const rows=seeds.map(seed=>legacyMatch(seed,team,'normal',pol,null));
+   push('S10',{protocol:'archived studyA_composition',composition:name,difficulty:'normal',policy:pol,mode:'pve',enemy:'engine 默认 3 队轮换'},rows);
+  }
+ cells('S10b 归档 studyA 复现',{compositions:6,policies:5,difficulty:'normal',seedList:'归档 100+i*37'},6*5*seeds.length,seeds);
  log('S10 replication done');
  save();
 }
@@ -699,7 +721,8 @@ report.tactics={
  byPolicy:Object.fromEntries(POLICY_ORDER.map(p=>[p,poolArms(s2.filter(k=>report.arms[k].dims.policy===p))])),
  byPolicyDifficulty:Object.fromEntries(POLICY_ORDER.flatMap(p=>DIFFS.map(d=>
    [p+' | '+d,poolArms(s2.filter(k=>report.arms[k].dims.policy===p&&report.arms[k].dims.difficulty===d))]))),
- byEnemyDifficulty:Object.fromEntries(DIFFS.map(d=>[d,poolArms(Object.keys(report.arms).filter(k=>report.arms[k].dims.difficulty===d))])),
+ byEnemyDifficulty:Object.fromEntries(DIFFS.map(d=>[d,poolArms(Object.keys(report.arms)
+   .filter(k=>report.arms[k].dims.difficulty===d&&report.arms[k].study!=='S10'))])),
  byItem:Object.fromEntries(ITEMS.map(it=>[it,poolArms(byStudyKeys('S1').filter(k=>report.arms[k].dims.item===it))])),
  byLoadout:Object.fromEntries(['default','alt'].map(l=>[l,poolArms(byStudyKeys('S3').filter(k=>report.arms[k].dims.loadout===l))])),
  byMode:Object.fromEntries(['pve','pvp-local'].map(m=>[m,poolArms(byStudyKeys('S6').filter(k=>report.arms[k].dims.mode===m))]))};
@@ -779,6 +802,7 @@ function armLine(k){const a=report.arms[k];return {key:k,n:a.n,win:a.winRate,ci:
  mean:a.meanRounds,sd:a.sdRounds,min:a.minRounds,max:a.maxRounds,draw:a.drawRate,
  pSwitch:a.playerSwitchRate,eSwitch:a.enemySwitchRate,pEnt:a.playerActionEntropyNorm,eEnt:a.enemyActionEntropyNorm};}
 const byStudy=k=>Object.keys(report.arms).filter(x=>report.arms[x].study===k);
+const findArm=(study,pred)=>{const k=Object.keys(report.arms).find(x=>report.arms[x].study===study&&pred(report.arms[x].dims));return k?report.arms[k]:null;};
 console.log('==================== G07 平衡矩阵 ====================');
 console.log('场次合计: '+matchCount+'  臂数: '+armCount+'  用时: '+(report.durationMs/1000).toFixed(1)+'s  规则版本: '+RULES_VERSION);
 console.log('\n-- 矩阵维度 --');
@@ -835,13 +859,21 @@ for(const d of report.dominance)
  console.log('  '+d.design+'\n     '+d.slot0+' '+p1(d.winRateA*100)+'% ['+p1(d.ciA[0]*100)+'-'+p1(d.ciA[1]*100)+'] (n='+d.nA+', 上场率 '+p1(d.slot0TurnShareA*100)+'%, 存活 '+p1(d.slot0SurvivalA*100)+'%)'
   +' vs '+d.other+' '+p1(d.winRateB*100)+'% ['+p1(d.ciB[0]*100)+'-'+p1(d.ciB[1]*100)+'] (n='+d.nB+', 上场率 '+p1(d.slot0TurnShareB*100)+'%, 存活 '+p1(d.slot0SurvivalB*100)+'%)'
   +'  Δ='+p1(d.delta*100)+'pp → '+d.verdict);
-console.log('\n-- S10 与归档 studyC 复现对照（胜率/平均回合）--');
+console.log('\n-- S10 与归档复现对照（胜率/平均回合；括号内为归档值）--');
+const ARCH={'easy':{'greedy-damage':[0.75,14.5],'one-turn-rank':[1,10.708333333333334],'rushed':[0.75,14.5],'switch-seeking':[1,10.708333333333334],'random':[0.20833333333333334,25.458333333333332]},
+ 'normal':{'greedy-damage':[0,16],'one-turn-rank':[1,11],'rushed':[0,16],'switch-seeking':[1,11],'random':[0,22.291666666666668]},
+ 'hard':{'greedy-damage':[0,17.583333333333332],'one-turn-rank':[1,22],'rushed':[0,17.583333333333332],'switch-seeking':[0,16],'random':[0,21.75]}};
 for(const diff of DIFFS){
  const line=[];
  for(const pol of ['greedy-damage','one-turn-rank','rushed','switch-seeking','random']){
-  const a=report.arms[['S10','archived studyC_difficulty',diff,pol,'meadow','pve'].join(' | ')];
-  if(a)line.push(pol+'='+p1(a.winRate*100)+'%/'+p1(a.meanRounds));
+  const a=findArm('S10',x=>x.protocol==='archived studyC_difficulty'&&x.difficulty===diff&&x.policy===pol);
+  if(a)line.push(pol+'='+p1(a.winRate*100)+'%/('+p1(ARCH[diff][pol][0]*100)+'%)');
  }
- console.log('  '+diff+': '+line.join('  '));
+ console.log('  studyC '+diff+': '+line.join('  '));
 }
+let exactC=0,totC=0;
+for(const diff of DIFFS)for(const pol of Object.keys(ARCH[diff])){
+ const a=findArm('S10',x=>x.protocol==='archived studyC_difficulty'&&x.difficulty===diff&&x.policy===pol);totC++;
+ if(a&&Math.abs(a.winRate-ARCH[diff][pol][0])<1e-9&&Math.abs(a.meanRounds-ARCH[diff][pol][1])<1e-9)exactC++;}
+console.log('  studyC 与归档逐字一致: '+exactC+'/'+totC);
 console.log('\n报告已写入 reports/balance-matrix.json');
