@@ -404,3 +404,35 @@ test('有界循环能走满两个回执：政策首步之后，planner 读到回
  assert.deepEqual(seen.map(x=>x.remaining),[2,1],'剩余预算要随消耗递减');
  assert.deepEqual(seen[0].tools,['read_evidence'],'第一轮的回执里应当是政策那一步');
 });
+
+test('两回执 loop 回归（用生产路径的六参 buildContext，独立复现过）',async()=>{
+ // 这条是审阅方在自己的工作树上独立跑通后给的 fixture，比上面那条更贴生产路径：
+ // buildContext 在这里是六参调用（game, profile, focus, archive, stageId, message），
+ // 前一条我只传了三个参数。两条都留着——一条钉结构（receipts/remaining 递减），
+ // 一条钉这条真实入口。**不要删。**
+ const {createGame:cg}=await import('../engine.js');
+ const context=buildContext(cg(17),newProfile(),'fox',null,'river','回顾上一回合并解释规则');
+ let calls=0;
+ const seen=[];
+ const r=await gatherAgentEvidence({
+  message:'回顾上一回合并解释规则',
+  context,
+  mustCall:'read_evidence',
+  plan:async p=>{
+   calls++;
+   seen.push({len:p.receipts.length,remaining:p.remaining,tools:p.receipts.map(x=>x.tool)});
+   if(calls===1)return {tool:'search_rules',args:{query:'换宠规则'}};
+   return {stop:true};
+  }});
+ assert.equal(r.stopped,'complete');
+ assert.equal(r.trace.length,2);
+ assert.deepEqual(r.trace.map(t=>t.tool),['read_evidence','search_rules']);
+ assert.equal(r.trace[0].chosenBy,'policy');
+ // 新局没有已结算回合，所以第一步拿到的是「无记录」回执——这正是 R01 的修复行为，
+ // 不是失败：它证明「没有历史时不伪造第 1 回合」在真实入口上生效。
+ assert.equal(r.trace[0].result?.missing,true,'新局的第一步应当返回 missing，而不是伪造第 1 回合');
+ assert.deepEqual(seen,[
+  {len:1,remaining:2,tools:['read_evidence']},
+  {len:2,remaining:1,tools:['read_evidence','search_rules']},
+ ],'planner 每轮必须看到当前回执与剩余预算');
+});
