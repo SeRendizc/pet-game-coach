@@ -320,3 +320,13 @@
 #panel-player #actions,#panel-enemy #enemy-actions{flex:1 1 auto;align-content:start}
 #message,#enemy-message{min-height:17px;margin-top:6px}
 #player-coach,#enemy-coach{margin-top:0}
+
+/* 营地页与出征页 */
+#camp-home,#deploy{display:block}
+#camp-home[hidden],#deploy[hidden]{display:none!important}
+.camp-launch{display:flex;align-items:center;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.camp-launch button{min-width:150px;padding:11px 18px;font-size:15px}
+.deploy-side{min-height:260px}
+.deploy-side h2{margin-bottom:10px}
+.deploy-side .side-row{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid #24313f;color:#bcc9d6}
+.deploy-side .side-row b{color:#e6cf8a;font-weight:600}
