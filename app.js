@@ -128,7 +128,8 @@ function deployView(){
  selected=selected.includes(id)?selected.filter(x=>x!==id):[...selected,id];deployView();});
  document.querySelectorAll('#roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();camp();});
  const pvp=matchMode==='pvp',stage=STAGES.find(x=>x.id===stageId),avg=selected.length?Math.round(selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/selected.length):1;
- $('deploy-side').innerHTML=`<div class="side-row"><span>模式</span><b>${pvp?'对局 · PVP':'训练 · PVE'}</b></div>`
+ // 模式一行删掉：顶部徽标已经在显示同一件事，同一屏上出现两遍是重复。
+ $('deploy-side').innerHTML=''
   +`<div class="side-row"><span>${pvp?'对手':'关卡'}</span><b>${pvp?(pvpOpponent==='human'?'真人同机 · 分屏':'AI 模拟真人 · Lv.'+avg):(stage?stage.name:'—')}</b></div>`
   +`<div class="side-row"><span>难度</span><b>${DIFFICULTIES[$('difficulty').value].name}</b></div>`
   +`<div class="side-row"><span>队伍</span><b>${selected.length} / 3</b></div>`
