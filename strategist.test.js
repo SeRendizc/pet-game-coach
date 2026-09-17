@@ -3,9 +3,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,step,legalActions,active,ITEMS,SKILLS,rankEnemyActions} from './engine.js';
-import {observe,assessDecision,attentionState,trackAttention,STRATEGIST_LIMITS,HESITATION,
+import {observe,assessDecision,attentionState,trackAttention,releaseAttention,shouldNudge,STRATEGIST_LIMITS,HESITATION,
  strategistSession,strategistTrigger,strategicIncident,incidentInfo,
- lethalOption,hesitationSignal,actionLabel,hoverLabel} from './coach/experience.js';
+ lethalOption,hesitationSignal,actionLabel,hoverLabel,
+ dwellSignal,dwellVerdict,dwellIntervention,DWELL} from './coach/experience.js';
+import {freshMemory,rememberDecision,recordCoachEvent,adaptiveGate,markTaught,teachingPlan,observeStruggle,roleSuppressed,ROLE_SILENCE_MS} from './coach/memory.js';
+import {skillLesson,decisionLesson} from './coach/teacher.js';
 
 // 一个确定性的玩家策略：优先用零消耗的「撞击」，否则用第一个非防御技能。
 // 打满一局也只用它，所以每个用例都能重放同一盘。
@@ -259,4 +262,267 @@ test('每条开口都带可读的理由和行动名，不出现胜率或命令�
  assert(!/胜率[：: ]*\d/.test(trigger.text),'不能用胜率数字');
  assert(!/你应该|你必须/.test(trigger.text),'不用命令句');
  assert.equal(typeof trigger.consume,'function');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 六、长停留（盯着同一个选项不动）：同一个信号，两个出口
+//
+// 与「犹豫不决」的区别是这一节的全部要点：
+//   犹豫   = 这段时间里出现过 ≥2 个不同选项（在选项之间来回换）
+//   长停留 = 最后一次换选项之后就没有再换（dwell 游标一直没被打断）
+// 谁开口由「停的是不是当前推荐解」决定：是 → 老师只讲解这一招；不是（分差 > 5）→ 军师委婉建议换掉。
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// 指针停在同一个选项上不动：重复悬停不重开计时，最后一次是每秒巡检（刷新观测时间）。
+function dwellOn(action,{turn='1:battle',since=0,now=12000,seen=null}={}){
+ const s=attentionState(since);
+ trackAttention(s,turn,action,since);
+ trackAttention(s,turn,action,Math.min(now,(since+now)/2));
+ trackAttention(s,turn,null,seen??now);
+ return s;
+}
+// seed 1 第 1 回合：真实枚举第一名是火花（技能），疾爪比它低 6.0 分 → 一个现成的「明显不是最优」。
+function rankedOf(g=createGame(1)){return rankEnemyActions({...g,player:g.enemy,enemy:g.player});}
+const topSkillOf=ranked=>ranked[0].action;
+const suboptimalSkillOf=ranked=>ranked.map(x=>x.action).find(a=>a.kind==='skill'&&ranked[0].score-ranked.find(y=>JSON.stringify(y.action)===JSON.stringify(a)).score>5);
+
+test('长停留：停的就是推荐解 → 老师只讲解这一招，军师闭嘴',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked);
+ assert.equal(ember.id,'ember','测试前提：这一局的枚举第一是火花');
+ const att=dwellOn(ember,{now:12000});
+ const signal=dwellSignal(att,{now:12000,turn:'1:battle'});
+ assert(signal,'盯着同一个技能 12 秒（≥10 秒）成立');
+ assert.equal(signal.held,12000);
+ assert.equal(signal.key,JSON.stringify(ember));
+ assert.equal(dwellVerdict(g,signal,ranked),null,'停的就是当前推荐解 → 没有「更优」的证据');
+ const cue=dwellIntervention({game:g,attention:att,session:strategistSession(),ranked,now:12000,turn:'1:battle',mode:'gentle'});
+ assert(cue);assert.equal(cue.role,'teacher');assert.equal(cue.reason,'dwell-lesson');assert.equal(cue.kind,'dwell-lesson');
+ assert.equal(cue.lesson,decisionLesson(g,ember),'课的标识与军师记账用的是同一套词');
+ assert.match(cue.text,/火花/);
+ assert.match(cue.text,/\d+ 伤害/,'伤害数字来自 engine.damage，不是编的');
+ assert.match(cue.text,/豆/);
+ assert.match(cue.text,/手里同时可选/,'要交代和手里别的选项比什么时候更合适');
+ assert.match(cue.text,/由你决定/);
+ assert(!/你应该|你必须|选错|点这个/.test(cue.text),'老师只解释这一招，不催出招');
+ assert.equal(typeof cue.consume,'function');
+ // 同一个信号交给军师触发层：停在推荐解上必须什么都不说。
+ assert.equal(strategistTrigger({game:g,attention:att,session:strategistSession(),ranked,now:12000,turn:'1:battle',mode:'gentle'}),null,'停在推荐解上时军师不说');
+});
+
+test('长停留：明显不是最优 → 军师委婉建议换掉（给台阶，不判错）',()=>{
+ const g=createGame(1),ranked=rankedOf(g),dash=suboptimalSkillOf(ranked);
+ assert(dash&&dash.id==='dash','测试前提：疾爪在真实枚举里比第一低 6 分以上');
+ const att=dwellOn(dash,{now:13000});
+ const signal=dwellSignal(att,{now:13000,turn:'1:battle'});
+ const verdict=dwellVerdict(g,signal,ranked);
+ assert(verdict);assert(verdict.gap>5);
+ const cue=dwellIntervention({game:g,attention:att,session:strategistSession(),ranked,now:13000,turn:'1:battle',mode:'gentle'});
+ assert(cue);assert.equal(cue.role,'strategist');assert.equal(cue.reason,'dwell');
+ assert.equal(cue.basis.kind,'dwell-suboptimal');
+ assert.equal(cue.basis.notWinRate,true);
+ assert(cue.basis.gap>5);
+ assert.match(cue.text,/疾爪/);assert.match(cue.text,/火花/);
+ assert.match(cue.text,/当时也可以先比较/,'措辞要给台阶');
+ assert.match(cue.text,/不算错/);assert.match(cue.text,/由你决定/);
+ assert.match(cue.text,/不是胜率/);
+ assert(!/选错|你应该|你必须/.test(cue.text));
+ // 军师触发层走的是同一条判定。
+ const trigger=strategistTrigger({game:g,attention:att,session:strategistSession(),ranked,now:13000,turn:'1:battle',mode:'gentle'});
+ assert(trigger);assert.equal(trigger.reason,'dwell');
+});
+
+test('来回换不算长停留：犹豫照旧成立，长停留一定为 null',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked),dash=suboptimalSkillOf(ranked);
+ const att=attentionState(0);
+ trackAttention(att,'1:battle',ember,0);trackAttention(att,'1:battle',dash,4000);trackAttention(att,'1:battle',ember,8000);
+ trackAttention(att,'1:battle',null,12000);
+ assert.equal(dwellSignal(att,{now:12000,turn:'1:battle'}),null,'最后一次换选项只过了 4 秒，不算长停留');
+ assert.equal(dwellSignal(att,{now:28000,turn:'1:battle'}),null,'观测已陈旧（巡检停在 12 秒，超过 15 秒观测窗）同样不算');
+ const scan=hesitationSignal(att,{now:12000,turn:'1:battle'});
+ assert(scan,'两个选项来回扫过 8 秒以上，犹豫仍然成立');
+ const trigger=strategistTrigger({game:g,attention:att,session:strategistSession(),ranked,now:12000,turn:'1:battle',mode:'gentle'});
+ assert(trigger);assert.equal(trigger.reason,'hesitation');
+ assert.match(trigger.text,/来回看了/);
+});
+
+test('长停留优先于犹豫：扫过两个选项后又停在同一个上 ≥10 秒，不说「来回看」',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked),dash=suboptimalSkillOf(ranked);
+ const att=attentionState(0);
+ for(const [action,time] of [[ember,0],[dash,4000],[ember,6000],[dash,8000]])trackAttention(att,'1:battle',action,time);
+ trackAttention(att,'1:battle',null,20000);
+ // 单看 hover 记录，犹豫的四条门槛（≥3 次、≥2 个选项、≥8 秒、shouldNudge）全都满足。
+ assert.equal(hesitationSignal(att,{now:20000,turn:'1:battle'}),null,'已经停在同一个选项上不动了，不是来回换');
+ const signal=dwellSignal(att,{now:20000,turn:'1:battle'});
+ assert(signal);assert.equal(signal.held,12000);
+ assert.equal(signal.key,JSON.stringify(dash));
+ const cue=dwellIntervention({game:g,attention:att,session:strategistSession(),ranked,now:20000,turn:'1:battle',mode:'gentle'});
+ assert(cue);assert.equal(cue.role,'strategist');
+ assert.match(cue.text,/停了大约 12 秒/);
+ assert(!/来回看/.test(cue.text),'不能对玩家说他在来回看');
+});
+
+test('长停留的门槛与克制：不足 10 秒、安静档、点掉、每局限一次、每局总上限',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked),dash=suboptimalSkillOf(ranked);
+ assert.equal(DWELL.minHoldMs,10000);
+ const short=dwellOn(ember,{now:9999});
+ assert.equal(dwellSignal(short,{now:9999,turn:'1:battle'}),null,'差 1 毫秒也不成立');
+ const att=dwellOn(ember,{now:12000});
+ assert.equal(dwellIntervention({game:g,attention:att,session:strategistSession(),ranked,now:12000,turn:'1:battle',mode:'quiet'}),null,'安静档一律不说');
+ const closed=strategistSession();closed.dismissed=true;
+ assert.equal(dwellIntervention({game:g,attention:att,session:closed,ranked,now:12000,turn:'1:battle',mode:'gentle'}),null,'点掉之后本局静音');
+ const capped=strategistSession();capped.hints=STRATEGIST_LIMITS.maxPerMatch;
+ assert.equal(dwellIntervention({game:g,attention:att,session:capped,ranked,now:12000,turn:'1:battle',mode:'gentle'}),null,'每局总上限');
+ // 每类每局限一次：冷却过去、换一个回合，同一类仍然不再说。
+ const session=strategistSession();
+ const first=dwellIntervention({game:g,attention:att,session,ranked,now:12000,turn:'1:battle',mode:'gentle'});
+ assert(first);first.consume();
+ const later=dwellOn(dash,{turn:'2:battle',since:74000,now:87000});
+ assert(dwellSignal(later,{now:87000,turn:'2:battle'}),'新回合的长停留本身是成立的');
+ assert.equal(dwellIntervention({game:{...g,turn:2},attention:later,session,ranked,now:12000+STRATEGIST_LIMITS.cooldownMs+1000,turn:'2:battle',mode:'gentle'}),null,'军师的长停留建议每局限一次');
+});
+
+test('指针离开选项区就不再是长停留（盯着空白处不算盯着技能看）',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked);
+ const att=dwellOn(ember,{now:12000});
+ assert(dwellSignal(att,{now:12000,turn:'1:battle'}));
+ releaseAttention(att);
+ assert.equal(dwellSignal(att,{now:12000,turn:'1:battle'}),null);
+ assert.equal(dwellIntervention({game:g,attention:att,session:strategistSession(),ranked,now:12000,turn:'1:battle',mode:'gentle'}),null);
+ // 换回合也会清掉游标：新回合的悬停记录必须重新攒时间。
+ const next=dwellOn(ember,{turn:'2:battle',since:1000,now:13000});
+ assert.equal(next.dwell.since,1000,'新回合的游标从新回合的第一次悬停开始');
+ assert.equal(dwellSignal(next,{now:13000,turn:'1:battle'}),null,'记录不属于当前回合就用不上');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 七、教学账本：学过就不再教；没学会（军师联动）就再教一次
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// 用真实的 rememberDecision 记账造记忆：prompted=true 表示那一手是被提示之后做的。
+function decisionMemory(rows){
+ let m=freshMemory();
+ rows.forEach((r,i)=>{m=rememberDecision(m,{matchId:r.matchId||`m${i%2}`,turn:i+1,lesson:r.lesson,reasonable:r.reasonable,
+  prompted:Boolean(r.prompted),scoreGap:r.reasonable?1:20,rulesVersion:'0.6',caseKey:r.caseKey||`fox:lion`});});
+ return m;
+}
+const unreasonable={lesson:'行动取舍',reasonable:false};
+const reasonable={lesson:'行动取舍',reasonable:true};
+
+test('学过就不再教：这一课已经教过、又没有新的反证，就不再主动讲',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked);
+ const lesson=skillLesson(g,ember).lesson;
+ assert.equal(lesson,decisionLesson(g,ember));
+ const memory=markTaught(freshMemory(),{lesson});
+ assert(memory.lessons.includes(lesson),'老师讲过这一课就记进账本');
+ const plan=teachingPlan(memory,{lesson});
+ assert.equal(plan.teach,false);assert.match(plan.reason,/已经教过/);
+ assert.equal(dwellIntervention({game:g,attention:dwellOn(ember,{now:12000}),session:strategistSession(),ranked,memory,now:12000,turn:'1:battle',mode:'gentle'}),null,'同一课不再主动讲');
+ // 换个还没教过的课照讲：抑制是按课算的，不是一票否决。
+ const other=markTaught(freshMemory(),{lesson:'换宠承伤'});
+ assert.equal(teachingPlan(other,{lesson}).teach,true);
+ // 已经有「多次独立做对」的证据时，没记过账也不主动教。
+ const evidenced=decisionMemory([reasonable,reasonable,reasonable,reasonable]);
+ assert.equal(evidenced.lessons.includes(lesson),false);
+ const evidencePlan=teachingPlan(evidenced,{lesson});
+ assert.equal(evidencePlan.teach,false);assert.match(evidencePlan.reason,/独立行动合理/);
+});
+
+test('没学会就再教（军师联动）：3 次独立行动都不合理 → 标回未掌握，并且能说出为什么',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked);
+ const lesson=skillLesson(g,ember).lesson;
+ const memory=markTaught(decisionMemory([unreasonable,unreasonable,unreasonable,{...unreasonable,matchId:'m2'}]),{lesson});
+ const plan=teachingPlan(memory,{lesson});
+ assert.equal(plan.teach,true);assert.equal(plan.relearn,true);
+ assert.match(plan.reason,/这一课教过/);
+ assert.match(plan.reason,/4 次独立行动里有 4 次不合理/);
+ const struggle=observeStruggle(memory,{lesson});
+ assert.equal(struggle.relearned,true);
+ assert(!struggle.memory.lessons.includes(lesson),'标回未掌握：移出已学清单');
+ assert.match(struggle.memory.reflections[lesson].label,/教过但没学会/);
+ assert.equal(struggle.memory.reflections[lesson].reduceHints,false);
+ assert(struggle.memory.reflections[lesson].evidenceIds.length>=3,'掌握判断必须带可核对证据');
+ // 老师因此可以再讲一次，而且理由写在提示里。
+ const cue=dwellIntervention({game:g,attention:dwellOn(ember,{now:12000}),session:strategistSession(),ranked,memory:struggle.memory,now:12000,turn:'1:battle',mode:'gentle'});
+ assert(cue);assert.equal(cue.role,'teacher');
+ assert.equal(cue.basis.relearn,true);
+ assert.match(cue.text,/这一课教过/);assert.match(cue.text,/再讲一次/);
+ assert.match(cue.evidence.join(' '),/再教原因/);
+});
+
+test('再教的边界：证据不够、只是被提示后做错、或者独立做对了，都不重新开课',()=>{
+ const lesson='行动取舍';
+ const few=markTaught(decisionMemory([unreasonable,unreasonable]),{lesson});
+ assert.equal(teachingPlan(few,{lesson}).relearn,false,'只有 2 次独立行动，不到重开门槛');
+ assert.equal(teachingPlan(few,{lesson}).teach,false);
+ const hinted=markTaught(decisionMemory([{...unreasonable,prompted:true},{...unreasonable,prompted:true},{...unreasonable,prompted:true}]),{lesson});
+ const hintedPlan=teachingPlan(hinted,{lesson});
+ assert.equal(hintedPlan.relearn,false,'被提示之后才出错不算「独立没做对」');
+ assert.equal(hintedPlan.transfer.independentAttempts,0,'transferAssessment 只数没被提示的独立行动');
+ assert.equal(hintedPlan.teach,false);
+ const good=markTaught(decisionMemory([reasonable,reasonable,reasonable,reasonable]),{lesson});
+ assert.equal(teachingPlan(good,{lesson}).relearn,false,'独立做对了就不重开');
+ assert.equal(observeStruggle(good,{lesson}).relearned,false);
+ const neverTaught=decisionMemory([unreasonable,unreasonable,unreasonable]);
+ assert.equal(teachingPlan(neverTaught,{lesson}).relearn,false,'没教过就没有「没学会」可言');
+ assert.equal(teachingPlan(neverTaught,{lesson}).teach,true);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 八、主动提示的两层抑制：先分角色，再跨角色；点掉即静音永远优先
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function dismiss(memory,channel,{id='d:1',time=null,now=Date.now()}={}){
+ return recordCoachEvent(memory,{id:`m:1:dismiss:${id}`,kind:'dismiss',channel,matchId:'m',turn:1,...(time?{time}:{})});
+}
+
+test('第一层：只叉了一次教学，教学类安静，军师类照常（不该一起哑掉）',()=>{
+ const now=Date.now();
+ const memory=dismiss(freshMemory(),'teacher');
+ assert.equal(roleSuppressed(memory,{role:'teacher',now}),true);
+ assert.equal(roleSuppressed(memory,{role:'strategist',now}),false,'只叉了教学不该连战术也静音');
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',role:'teacher',now}).allow,false);
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',role:'teacher',now}).reason,'role-dismissed');
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',role:'strategist',now}).allow,true);
+ // 反向：只叉了军师，教学照常。
+ const flipped=dismiss(freshMemory(),'strategist');
+ assert.equal(roleSuppressed(flipped,{role:'strategist',now}),true);
+ assert.equal(roleSuppressed(flipped,{role:'teacher',now}),false);
+ assert.equal(adaptiveGate(flipped,{lesson:'行动取舍',role:'teacher',now}).allow,true);
+ // 短期：过了 ROLE_SILENCE_MS 之后分角色抑制自然过期（没有升级成永久静音）。
+ const old=dismiss(freshMemory(),'teacher',{time:new Date(now-ROLE_SILENCE_MS-60000).toISOString()});
+ assert.equal(roleSuppressed(old,{role:'teacher',now}),false);
+ assert.equal(adaptiveGate(old,{lesson:'行动取舍',role:'teacher',now}).allow,true);
+ // 旧的 'inline' 记录是军师面板留下的，不能算成教学。
+ const legacy=dismiss(freshMemory(),'inline');
+ assert.equal(roleSuppressed(legacy,{role:'strategist',now}),true);
+ assert.equal(roleSuppressed(legacy,{role:'teacher',now}),false);
+});
+
+test('第二层：两类都被叉掉 → 接到 adaptiveGate 上一律静默',()=>{
+ const now=Date.now();
+ const memory=dismiss(dismiss(freshMemory(),'teacher',{id:'a'}),'strategist',{id:'b'});
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',role:'teacher',now}).allow,false);
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',role:'strategist',now}).reason,'recent-dismissals');
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',role:'any',now}).allow,false);
+ // 安静档与关键风险仍然各自优先：显式安静永远压过一切。
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',mode:'quiet',now}).reason,'explicit-quiet');
+ assert.equal(adaptiveGate(memory,{lesson:'行动取舍',risk:true,now}).allow,true);
+});
+
+test('点掉即静音优先：本局点掉之后，无论教没教过、有没有再教证据都不再开口',()=>{
+ const g=createGame(1),ranked=rankedOf(g),ember=topSkillOf(ranked);
+ const lesson=skillLesson(g,ember).lesson;
+ const memory=markTaught(decisionMemory([unreasonable,unreasonable,unreasonable]),{lesson});
+ const struggle=observeStruggle(memory,{lesson});
+ assert.equal(struggle.relearned,true,'这一课确实被标回了未掌握');
+ const att=dwellOn(ember,{now:12000});
+ const closed=strategistSession();closed.dismissed=true;
+ assert.equal(dwellIntervention({game:g,attention:att,session:closed,ranked,memory:struggle.memory,now:12000,turn:'1:battle',mode:'gentle'}),null);
+ assert.equal(strategistTrigger({game:g,attention:att,session:closed,ranked,memory:struggle.memory,now:12000,turn:'1:battle',mode:'gentle'}),null);
+ // 提示条被点掉（attention.dismissed）时连信号都不成立。
+ const muted=dwellOn(ember,{now:12000});muted.dismissed=true;
+ assert.equal(dwellSignal(muted,{now:12000,turn:'1:battle'}),null);
+ assert.equal(dwellIntervention({game:g,attention:muted,session:strategistSession(),ranked,memory:struggle.memory,now:12000,turn:'1:battle',mode:'gentle'}),null);
+ // 安静档同样压过教学账本。
+ assert.equal(dwellIntervention({game:g,attention:att,session:strategistSession(),ranked,memory:struggle.memory,now:12000,turn:'1:battle',mode:'quiet'}),null);
 });

@@ -44,16 +44,84 @@ export function rememberDecision(memory,{matchId,turn,lesson,reasonable,prompted
  if(recent.length>=3)m.reflections[lesson]={label:good.length>=3&&good.length/recent.length>=.75?'多次独立选择合理，可减少该类提示':'继续观察，暂不判断掌握',reduceHints:good.length>=3&&good.length/recent.length>=.75,evidenceIds:recent.map(e=>e.id),confidence:.6,updatedAt:new Date().toISOString(),basis:'一回合启发式比较，不等于真正掌握'};
  return m;
 }
-export function adaptiveGate(memory,{lesson,risk=false,mode='gentle',now=Date.now()}){
+export function adaptiveGate(memory,{lesson,risk=false,mode='gentle',role='any',now=Date.now()}){
  if(mode==='quiet')return {allow:false,reason:'explicit-quiet'};
  if(mode==='critical'&&!risk)return {allow:false,reason:'explicit-critical'};
  const journal=memory.journal||[];
  const dismissals=journal.filter(e=>e.kind==='dismiss'&&now-Date.parse(e.time)<7*86400000);
+ // 第二层（跨角色，总体）：近 7 天被叉掉 ≥2 次 → 判定为整体烦扰，一律静默。
+ // 这是原有规则，它天然覆盖「教学和军师两类都被连续叉掉」，所以这里不新增另一套频率判断。
  if(dismissals.length>=2&&!risk)return {allow:false,reason:'recent-dismissals'};
+ // 第一层（分角色，短期）：只被叉过一次时，只让被叉掉的那一类安静一段时间，另一类照常。
+ // 只叉一次教学不该让军师也哑掉——那正是这一层的意义。
+ if(roleSuppressed(memory,{role,now})&&!risk)return {allow:false,reason:'role-dismissed'};
  const reflection=memory.reflections?.[lesson];
  const backed=reflection?.evidenceIds?.length>=3&&reflection.evidenceIds.every(id=>journal.some(e=>e.id===id));
  if(backed&&reflection.reduceHints&&!risk)return {allow:false,reason:'independent-success'};
  return {allow:true,reason:risk?'actionable-risk':'no-reliable-suppression-evidence'};
+}
+
+// ── 主动提示的两层抑制 ───────────────────────────────────────────────────────
+// 第一层（分角色，短期）：叉掉教学卡 → 教学类安静一段时间；叉掉军师提示 → 军师类安静一段时间。
+// 第二层（跨角色，总体）：两类都被连续叉掉 → adaptiveGate 原有的「近 7 天 ≥2 次关闭」一律静默。
+// 两者都只读 journal 里已有的 dismiss 记录（channel 记的是角色），不新建状态。
+// 玩家当场点掉的那一次仍由 app.js / 触发层的 dismissed 标志立即静音，永远优先，不被这里的推断覆盖。
+export const ROLE_SILENCE_MS=30*60*1000;
+const dismissRole=channel=>channel==='teacher'?'teacher':'strategist';   // 旧存档里的 'inline' 是军师面板
+export function roleSuppressed(memory,{role='strategist',now=Date.now(),windowMs=ROLE_SILENCE_MS}={}){
+ if(!role||role==='any')return false;
+ return (memory?.journal||[]).some(e=>e.kind==='dismiss'&&dismissRole(e.channel)===role&&now-Date.parse(e.time)<windowMs);
+}
+
+// ── 教学账本：教过什么、学没学会 ─────────────────────────────────────────────
+// 三件事共用一份已持久化的记忆（都是 readMemory 会读回来的字段，没有新增存储格式）：
+//   memory.lessons      老师主动讲过的课（课程名，与军师记账的 lesson 同一套词）
+//   memory.reflections  当前掌握判断（label/basis/evidenceIds/confidence）
+//   memory.journal      decision 行：lesson + reasonable + prompted + caseKey
+//
+// 「学过就不再教」和「没学会就再教」都用 transferAssessment 作判据——它只统计
+// **没被提示**（prompted=false）的独立行动，区分「独立做对」与「被提示后做对」，
+// 并明确 causalClaim:false，所以这里也不会把「教过」当成「学会」。
+export const RELEARN={minAttempts:3,maxReasonableRate:.5,minConfidence:.6};
+export function teachingPlan(memory,{lesson}={}){
+ const m=memory||{},taught=(Array.isArray(m.lessons)?m.lessons:[]).includes(lesson);
+ const transfer=transferAssessment(m,lesson),reflection=m.reflections?.[lesson]||null;
+ const confidence=Number.isFinite(reflection?.confidence)?reflection.confidence:0;
+ // 被标回过未掌握（markUnlearned 写下的标记）与「教过」同样算有教学历史：
+ // 否则标回未掌握之后这一课会被当成「从没教过」，反而说不出「为什么又教」。
+ const reopened=reflection?.reopened===true,historic=taught||reopened;
+ const attempts=transfer.independentAttempts,rate=attempts?transfer.reasonable/attempts:1;
+ const struggling=attempts>=RELEARN.minAttempts&&rate<RELEARN.maxReasonableRate;
+ if(historic&&struggling)return {lesson,teach:true,relearn:true,confidence,transfer,reason:`这一课教过，但之后 ${attempts} 次独立行动里有 ${attempts-transfer.reasonable} 次不合理`};
+ if(taught)return {lesson,teach:false,relearn:false,confidence,transfer,reason:'这一课已经教过，没有新的反证就不再重复'};
+ if(reopened)return {lesson,teach:true,relearn:false,confidence,transfer,reason:'这一课标回过未掌握，可以再讲一次'};
+ const mastered=Boolean(reflection?.reduceHints)&&confidence>=RELEARN.minConfidence&&attempts>=RELEARN.minAttempts&&rate>=RELEARN.maxReasonableRate;
+ if(mastered)return {lesson,teach:false,relearn:false,confidence,transfer,reason:`已有 ${transfer.reasonable}/${attempts} 次独立行动合理的证据，不再主动教同一课`};
+ return {lesson,teach:true,relearn:false,confidence,transfer,reason:'这一课还没教过'};
+}
+export function markTaught(memory,{lesson}={}){
+ if(typeof lesson!=='string'||!lesson)return memory;
+ const m=structuredClone(memory);m.lessons=Array.isArray(m.lessons)?m.lessons:[];
+ if(!m.lessons.includes(lesson))m.lessons.push(lesson);
+ m.lessons=m.lessons.slice(-12);
+ // 重新讲过之后「未掌握」这个标记就被消费掉了：之后的再教要靠新出现的独立失误。
+ if(m.reflections?.[lesson]?.reopened)m.reflections[lesson]={...m.reflections[lesson],reopened:false,reduceHints:false,label:'这一课重新讲过，继续看之后的独立行动',updatedAt:new Date().toISOString()};
+ return m;
+}
+export function markUnlearned(memory,{lesson,reason,evidenceIds=[],confidence=.6,now=Date.now()}={}){
+ if(typeof lesson!=='string'||!lesson)return memory;
+ const m=structuredClone(memory);const ids=evidenceIds.filter(x=>typeof x==='string').slice(-8);
+ m.lessons=(Array.isArray(m.lessons)?m.lessons:[]).filter(x=>x!==lesson);
+ // 少于 3 条可核对证据时不写掌握判断：runtime 的压缩会把这类条目丢掉，写了也留不住。
+ if(ids.length>=3){m.reflections??={};m.reflections[lesson]={label:`教过但没学会：${reason}`,reopened:true,reduceHints:false,evidenceIds:ids,confidence,updatedAt:new Date(now).toISOString(),basis:'判据是 transferAssessment：只统计没被提示的独立行动，不等于真正掌握'};}
+ return m;
+}
+// 军师在局内反复看到同一课上的失误 → 把这一课标回未掌握，老师才有机会再讲一次。
+// 「为什么现在又教这一课」的答案就是 plan.reason（次数来自真实记账，不是印象）。
+export function observeStruggle(memory,{lesson,now=Date.now()}={}){
+ const plan=teachingPlan(memory,{lesson});
+ if(!plan.teach||!plan.relearn)return {memory,relearned:false,plan};
+ return {memory:markUnlearned(memory,{lesson,reason:plan.reason,evidenceIds:plan.transfer.evidenceIds,now}),relearned:true,plan};
 }
 export function deleteMemoryEvidence(memory,id){
  const m=structuredClone(memory);m.journal=(m.journal||[]).filter(e=>e.id!==id);m.dialogue=[];m.lastTopic=null;

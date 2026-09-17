@@ -1,5 +1,5 @@
 import {stageOptions} from '../content.js';
-import {SPECIES,createGame,SKILLS,damage,rankEnemyActions,actionName} from '../engine.js';
+import {SPECIES,createGame,SKILLS,damage,rankEnemyActions,actionName,active,legalActions,TYPES} from '../engine.js';
 import {trainingCapacity} from '../progression.js';
 function pet(context){const id=context.focus||'fox';return createGame(0,[id,...SPECIES.filter(p=>p.id!==id).slice(0,2).map(p=>p.id)],{pets:context.profile.pets}).player.pets[0];}
 export function teacher(context){
@@ -22,6 +22,62 @@ export function makeQuiz(context,{variant=0}={}){
  return {id:`speed:${p.id}:${p.speed}:${enemy}`,variant,question:`假设练习（不是当前敌人的面板）：${p.name}速度 ${p.speed}，对手速度 ${enemy}。培养一次敏捷（+3），双方技能优先级相同，你会先出手、后出手，还是无法确定？`,answer,explanation:`培养后速度 ${p.speed}+3=${p.speed+3}，对手 ${enemy}。${answer==='不确定'?'同速时由随机过程决定，不能保证先手。':answer==='先'?'同优先级下速度更高，先出手。':'同优先级下速度仍更低，后出手。'}`,lesson:'速度比较：同优先级时，速度更高者先行动。',evidenceIds:['tactic:priority','tactic:speed-tie','tactic:training']};
 }
 export function review(context){const h=context.lastTurn;if(!h)return {text:'暂时没有回合记录。完成一个回合后再来，我会按当时的信息解释。',evidence:[]};return {text:`第 ${h.before.turn} 回合的事实记录：${h.events.filter(x=>!x.startsWith('──')).join(' ')} 下一次先检查属性、出手优先级和速度。单次输赢不能直接证明选择对错。`,evidence:['来源：实际回合日志；未把事后结果当作决策正确性的唯一依据。'],method:'读取已完成回合 → 事实复盘'};}
+
+// 「这一课」的标识：必须和军师记账用的词完全一致，否则「教过但没学会」永远对不上号。
+// assessDecision 记的是同一套：换宠/防御优先，其次看能量，最后落到行动取舍。
+// （coach/experience.js 的 lessonOf 用的是同一套词，多出道具时机与危险血线两个更具体的分支。）
+export function decisionLesson(game,action){
+ const p=game?active(game,'player'):null;
+ if(!action)return '行动取舍';
+ if(action.kind==='switch')return '换宠承伤';
+ if(action.id==='guard')return '防御节奏';
+ if(p&&p.energy<=2)return '能量管理';
+ return '行动取舍';
+}
+
+// 长停留讲解：玩家长时间停在同一个技能上不动，像是在「看它」，而不是在犹豫出哪一招。
+// 只讲这一招本身——做什么、什么条件下有用、和手里别的选项比什么时候更合适；
+// 不催出招，也不出现「你应该点这个」。「该不该说、要不要再教一次」在
+// coach/experience.js 的 dwellIntervention 与 coach/memory.js 的 teachingPlan 里判定。
+export function skillLesson(game,action){
+ if(!game||!action||action.kind!=='skill')return null;
+ const sk=SKILLS[action.id];if(!sk)return null;
+ const p=active(game,'player'),q=active(game,'enemy');if(!p||!q)return null;
+ const hit=sk.power?damage(p,q,sk):null,guarded=sk.power?damage(p,q,sk,true):null;
+ const desc=/[。！？]$/.test(sk.desc)?sk.desc:sk.desc+'。';   // SKILLS 的 desc 不保证带句号
+ const head=`「${sk.name}」是${TYPES[sk.type]||'普通'}系技能，消耗 ${sk.cost} 豆${sk.power?`，对当前目标算 ${hit} 伤害（对方防御时 ${guarded}）`:''}${sk.priority?`，优先级 ${sk.priority}，同回合里先结算`:''}。${desc}`;
+ const left=p.energy-sk.cost;
+ const energy=sk.cost===0?`它零消耗，所以只剩 ${p.energy} 豆时也还能继续出招。`:left<=1?`打完这一手只剩 ${left} 豆，下一回合大概只能出零消耗技能或防御。`:`打完还剩 ${left} 豆。`;
+ // 什么时候更合适：全部读 SKILLS 的字段，不凭印象补文案。
+ const notes=[];
+ if(sk.status==='burn')notes.push('灼烧由它挂上：之后带灼烧加成的招式才吃得到增伤。');
+ if(sk.status==='poison')notes.push('它靠中毒持续扣血，对手换下去会暂停结算，不是立刻见效。');
+ if(sk.burnBonus)notes.push(`对已经灼烧的目标威力 +${sk.burnBonus}；对手现在${q.status?.kind==='burn'?'处于灼烧，这一手能吃满加成':'没有灼烧，要先有别的手段挂上才吃得到'}。`);
+ if(sk.priority)notes.push('优先级比普通技能高：需要抢在对手行动前结算（抢先挂状态或补最后一下）时才有意义。');
+ if(sk.heal)notes.push('它不造成伤害，占掉一整回合的输出机会；满血时用不出来。');
+ if(sk.buff)notes.push(`叠${sk.buff==='atk'?'攻击':'防御'}强化，主动换宠会清空，所以要看它能不能留在场上。`);
+ if(sk.dispel)notes.push('命中后清掉对方的攻防强化，但会被防御挡下。');
+ if(sk.pierce)notes.push('它穿过防御技能的减伤，对手习惯用防御时价值更高。');
+ if(sk.drain)notes.push(`按实际造成的伤害吸血 ${Math.round(sk.drain*100)}%，打不动时回得也少。`);
+ if(sk.recoil)notes.push(`自身承受实际伤害 ${Math.round(sk.recoil*100)}% 的反伤，收尾前要先确认自己还站得住。`);
+ if(sk.slow)notes.push(`命中后对手速度 -${sk.slow}，影响的是下一回合的先后，不改本回合已定的顺序。`);
+ if(sk.clearEnvironment)notes.push('它只移除环境（细雨/山风），不造成伤害，也不清异常。');
+ if(!notes.length)notes.push('它是常规伤害选择：合适与否主要看这一下够不够把对手推到下一个血线。');
+ const others=game.phase==='battle'?legalActions(game).filter(a=>a.kind==='skill'&&a.id!==action.id).map(a=>{
+  const s=SKILLS[a.id],bits=[`${s.cost} 豆`];
+  if(s.power)bits.push(`当前 ${damage(p,q,s)} 伤害`);
+  if(s.priority)bits.push('先制');
+  if(s.heal)bits.push(`回 ${s.heal} HP`);
+  return `${s.name}（${bits.join('、')}）`;
+ }):[];
+ const compare=others.length?`手里同时可选：${others.join('、')}。同一回合只能出一手，要抢先后看优先级，要续航看恢复，要压血线就比当前伤害。`:'';
+ const text=[head,energy,...notes,compare,'以上只是解释这一招，出不出它由你决定。'].filter(Boolean).join('');
+ return {id:`skill:${action.id}`,lesson:decisionLesson(game,action),text,
+  evidence:[`技能字段：${JSON.stringify({name:sk.name,type:sk.type,cost:sk.cost,power:sk.power??null,priority:sk.priority??0})}。`,
+   `当前局面：${p.name} ${p.hp}HP、${p.energy} 豆；对手 ${q.name} ${q.hp}HP${q.status?`、异常 ${q.status.kind}`:''}。`,
+   `伤害来自 engine.damage（不防御 ${hit}／防御 ${guarded}），只按当前面板计算，不预测对手这一回合做什么。`],
+  method:'读取技能字段与当前局面 → 解释这一招 → 不替你决定'};
+}
 
 export function summarizeMatch(match){
  const turns=match?.history?.filter(h=>h.type==='turn')||[];if(!turns.length)return null;

@@ -549,23 +549,32 @@ save();
 }
 
 // ── S4: same-type, same-slot substitution (the G02 question) ───────────────────────────────
+// Main arms use the engine's THREE default squads (rotating by seed) so that a single weak
+// opponent cannot saturate the comparison; a fixed weak opponent is kept as an extra control.
 {
  const seeds=seedsOf(SEEDS20);
+ const ROT='rotating 3 队(seed%3)', FIX='fixed 菇/獭/狮 L1 无携带物';
  for(const pair of TYPE_PAIRS)
   for(const pet of [pair.a,pair.b])
    for(const diff of DIFFS){
     const team=[pet,...pair.ctx];
-    push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:diff,loadout:'default',policy:'greedy-damage',mode:'pve',enemy:'固定 菇/獭/狮 L1 无携带物'},
-     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage',enemySpec:'fixed'})));
+    push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:diff,loadout:'default',policy:'greedy-damage',mode:'pve',foe:ROT,enemy:ROT},
+     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage',enemySpec:'rotating'})));
    }
  for(const pair of TYPE_PAIRS)
   for(const pet of [pair.a,pair.b]){
    const team=[pet,...pair.ctx];
-   push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:'normal',loadout:'alt',policy:'greedy-damage',mode:'pve',enemy:'固定 菇/獭/狮 L1 无携带物'},
-    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',loadout:'alt',policy:'greedy-damage',enemySpec:'fixed'})));
+   push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:'normal',loadout:'alt',policy:'greedy-damage',mode:'pve',foe:ROT,enemy:ROT},
+    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',loadout:'alt',policy:'greedy-damage',enemySpec:'rotating'})));
   }
- cells('S4 同属性同位置替换',{pairs:6,petsPerPair:2,contexts:'每对固定另外两只',difficulties:3,loadouts:'default(3 难度)+alt(normal)',mode:'pve'},
-  6*2*3*seeds.length+6*2*seeds.length,seeds);
+ for(const pair of TYPE_PAIRS)
+  for(const pet of [pair.a,pair.b]){
+   const team=[pet,...pair.ctx];
+   push('S4',{pair:pair.type,slot0:pet,ctx:pair.ctx.join('+'),difficulty:'normal',loadout:'default',policy:'greedy-damage',mode:'pve',foe:FIX,enemy:FIX},
+    seeds.map(seed=>playMatch({seed,team,difficulty:'normal',policy:'greedy-damage',enemySpec:'fixed'})));
+  }
+ cells('S4 同属性同位置替换',{pairs:6,petsPerPair:2,contexts:'每对固定另外两只',difficulties:3,loadouts:'default(3 难度)+alt(normal)',opponents:'engine 3 队轮换 + 固定弱队(normal 对照)',mode:'pve'},
+  6*2*3*seeds.length+6*2*seeds.length+6*2*seeds.length,seeds);
  log('S4 same-type substitution done');
  save();
 }
@@ -577,8 +586,8 @@ save();
   for(const pet of SPECIES.map(p=>p.id).filter(id=>!ctx.includes(id)))
    for(const diff of DIFFS){
     const team=[pet,...ctx];
-    push('S5',{ctx:ctx.join('+'),slot0:pet,difficulty:diff,policy:'greedy-damage',mode:'pve',loadout:'default',enemy:'固定 菇/獭/狮 L1 无携带物'},
-     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage',enemySpec:'fixed'})));
+    push('S5',{ctx:ctx.join('+'),slot0:pet,difficulty:diff,policy:'greedy-damage',mode:'pve',loadout:'default',foe:'rotating 3 队(seed%3)',enemy:'engine 默认 3 队轮换(seed%3)'},
+     seeds.map(seed=>playMatch({seed,team,difficulty:diff,policy:'greedy-damage',enemySpec:'rotating'})));
    }
  cells('S5 同队友轮换扫描',{contexts:2,slot0Pets:10,difficulties:3,mode:'pve'},2*10*3*seeds.length,seeds);
  log('S5 roster sweep done');
@@ -745,17 +754,24 @@ function verdictFor(aKeys,bKeys){
 }
 report.dominance=[];
 const s4=byStudyKeys('S4');
+const ROT_KEY='rotating 3 队(seed%3)',FIX_KEY='fixed 菇/獭/狮 L1 无携带物';
 for(const pair of TYPE_PAIRS){
- const keysFor=pet=>s4.filter(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pet&&report.arms[k].dims.loadout==='default');
- const kA=keysFor(pair.a),kB=keysFor(pair.b);
+ const keysFor=(pet,foe)=>s4.filter(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pet
+   &&report.arms[k].dims.loadout==='default'&&(!foe||report.arms[k].dims.foe===foe));
+ const kA=keysFor(pair.a,ROT_KEY),kB=keysFor(pair.b,ROT_KEY);
  const v=verdictFor(kA,kB);
- report.dominance.push({design:'S4 同属性同位置 | 配对 '+pair.type+' | 队友 '+pair.ctx.join('+')+' | 3 难度合计',
+ report.dominance.push({design:'S4 同属性同位置 | 配对 '+pair.type+' | 队友 '+pair.ctx.join('+')+' | 3 难度合计 | 对手=engine 3 队轮换',
   slot0:pair.a,other:pair.b,...v,
   slot0TurnShareA:+petSlot(kA,0,'turn').toFixed(4),slot0SurvivalA:+petSlot(kA,0,'surv').toFixed(4),
   slot0TurnShareB:+petSlot(kB,0,'turn').toFixed(4),slot0SurvivalB:+petSlot(kB,0,'surv').toFixed(4)});
- const kAalt=keysFor(pair.a).length?[s4.find(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pair.a&&report.arms[k].dims.loadout==='alt')]:[];
- const kBalt=[s4.find(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pair.b&&report.arms[k].dims.loadout==='alt')];
- if(kAalt[0]&&kBalt[0])report.dominance.push({design:'S4 同属性同位置 | 配对 '+pair.type+' | 队友 '+pair.ctx.join('+')+' | normal + alt 配招',
+ const kAfix=keysFor(pair.a,FIX_KEY),kBfix=keysFor(pair.b,FIX_KEY);
+ if(kAfix.length&&kBfix.length)report.dominance.push({design:'S4 对照：同一配对、normal、对手=固定弱队',
+  slot0:pair.a,other:pair.b,...verdictFor(kAfix,kBfix),
+  slot0TurnShareA:+petSlot(kAfix,0,'turn').toFixed(4),slot0SurvivalA:+petSlot(kAfix,0,'surv').toFixed(4),
+  slot0TurnShareB:+petSlot(kBfix,0,'turn').toFixed(4),slot0SurvivalB:+petSlot(kBfix,0,'surv').toFixed(4)});
+ const kAalt=s4.filter(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pair.a&&report.arms[k].dims.loadout==='alt');
+ const kBalt=s4.filter(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pair.b&&report.arms[k].dims.loadout==='alt');
+ if(kAalt.length&&kBalt.length)report.dominance.push({design:'S4 同属性同位置 | 配对 '+pair.type+' | 队友 '+pair.ctx.join('+')+' | normal + alt 配招',
   slot0:pair.a,other:pair.b,...verdictFor(kAalt,kBalt),
   slot0TurnShareA:+petSlot(kAalt,0,'turn').toFixed(4),slot0SurvivalA:+petSlot(kAalt,0,'surv').toFixed(4),
   slot0TurnShareB:+petSlot(kBalt,0,'turn').toFixed(4),slot0SurvivalB:+petSlot(kBalt,0,'surv').toFixed(4)});
@@ -777,7 +793,7 @@ for(const ctx of SWEEP_CONTEXTS){
 report.dominanceByDifficulty=[];
 for(const pair of TYPE_PAIRS)for(const diff of DIFFS){
  const keysFor=pet=>s4.filter(k=>report.arms[k].dims.pair===pair.type&&report.arms[k].dims.slot0===pet
-   &&report.arms[k].dims.loadout==='default'&&report.arms[k].dims.difficulty===diff);
+   &&report.arms[k].dims.loadout==='default'&&report.arms[k].dims.difficulty===diff&&report.arms[k].dims.foe===ROT_KEY);
  if(!keysFor(pair.a).length)continue;
  report.dominanceByDifficulty.push({pair:pair.type,difficulty:diff,slot0:pair.a,other:pair.b,
   ...verdictFor(keysFor(pair.a),keysFor(pair.b))});

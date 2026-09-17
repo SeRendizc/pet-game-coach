@@ -1,4 +1,9 @@
 import {strategist} from './strategist.js';
+// 长停留的讲解文案属于老师（coach/teacher.js 的 skillLesson）；触发与门控留在本文件，
+// 因为「谁开口」要和军师的其它触发共用同一份局内记账（见文件末尾的 dwellIntervention）。
+// 「这一课教过没有」读 coach/memory.js 的教学账本（teachingPlan），不另建存储。
+import {skillLesson} from './teacher.js';
+import {teachingPlan} from './memory.js';
 import {active,multiplier,actionName,legalActions,SKILLS,ITEMS,damage,effectiveSpeed} from '../engine.js';
 // incident 来自 coach/experience.js 军师触发层的真实枚举结果（分差 + after 快照上的后果）。
 // 只有军师判定为「明显错误且造成后果」时才传进来，所以这里只是把理由写成一句可核对的话。
@@ -34,18 +39,42 @@ export function lessonFor(h){
 }
 
 // Interaction signals are weak evidence of hesitation, never evidence of low skill.
-export function attentionState(now=0){return {turn:null,since:now,hovers:[],lastShown:-Infinity,count:0,shownTurn:null,dismissed:false};}
+// 悬停只用一份记录：hovers（每次换选项的一条记录）+ dwell（当前这个选项上「一直没换」的游标）。
+// 「犹豫不决」和本次新增的「长停留」读的是同一份记录的两个侧面，不另造计数：
+//   犹豫   = hovers 里出现过 ≥2 个不同选项（在选项之间来回换）
+//   长停留 = dwell 的 since 起没有被别的选项打断（持续停在这一个选项上不动）
+export const HOVER_WINDOW_MS=15000;
+export const DWELL={minHoldMs:10000};
+// 行动标识：app.js 现在存解析后的对象，早期记录里存的是 data-action 的 JSON 字符串。
+// 对象必须按值比较——直接比引用会把同一个选项算成两个，dwell 游标会永远重开。
+export function actionKey(a){return typeof a==='string'?a:JSON.stringify(a??null);}
+export function attentionState(now=0){return {turn:null,since:now,hovers:[],lastShown:-Infinity,count:0,shownTurn:null,dismissed:false,dwell:null,seen:now};}
 export function trackAttention(state,turn,action,now){
- if(state.turn!==turn){state.turn=turn;state.since=now;state.hovers=[];}
- if(action&&state.hovers.at(-1)?.action!==action)state.hovers.push({action,time:now});
- state.hovers=state.hovers.filter(x=>now-x.time<=15000).slice(-8);
+ if(state.turn!==turn){state.turn=turn;state.since=now;state.hovers=[];state.dwell=null;}
+ state.seen=now;                                   // 每次观测（包括每秒一次的巡检）都刷新，见 dwellSignal 的陈旧判断
+ if(action){
+  if(state.hovers.at(-1)?.action!==action)state.hovers.push({action,time:now});
+  // 只有真的换到别的选项才重开计时：在同一个选项上继续悬停（包括在按钮内部移动触发的
+  // 重复 pointerover）不重置，否则「盯着一个看」永远攒不够时间。
+  const key=actionKey(action);
+  if(!state.dwell||state.dwell.key!==key)state.dwell={key,action,since:now};
+ }
+ state.hovers=state.hovers.filter(x=>now-x.time<=HOVER_WINDOW_MS).slice(-8);
  return state;
 }
-export function shouldNudge(state,{now,turn,mode='gentle',active=true,risk=false}){
+// 指针离开选项区（app.js 的 pointerout / focusout 调用）：长停留到此结束。
+// 没有这一步，「鼠标移开后一直没动」会被当成盯着某个技能看。
+export function releaseAttention(state){
+ if(state)state.dwell=null;
+ return state;
+}
+export function shouldNudge(state,{now,turn,mode='gentle',active=true,risk=false,holdMs=0}){
  if(!active||mode==='quiet'||state.dismissed||state.count>=2||state.shownTurn===turn||now-state.lastShown<45000)return false;
  if(mode==='critical'&&!risk)return false;
- const scanning=state.hovers.length>=3&&new Set(state.hovers.map(x=>x.action)).size>=2&&now-state.since>=8000;
- return scanning||now-state.since>=20000;
+ const seen=(state.hovers||[]).filter(x=>x&&x.action);        // 没有 action 的记录不算一个选项
+ const scanning=seen.length>=3&&new Set(seen.map(x=>actionKey(x.action))).size>=2&&now-state.since>=8000;
+ // holdMs 是「已经停在这一个选项上多久」，只有长停留会传；不传时这里的判断与以前完全一致。
+ return scanning||now-state.since>=20000||holdMs>=DWELL.minHoldMs;
 }
 export function attentionText(game,action){
  if(!game||!['pve','pvp-local'].includes(game.mode)||game.result)return null;
@@ -111,11 +140,13 @@ export function taskIsCurrent(stamp,{epoch,matchId=null,rulesVersion='0.6',now=D
 // browser.test.js 要求浏览器模块都在 server.js 的 publicAssets 静态名单里；
 // 本任务不允许改 server.js，所以不新增文件。
 //
-// 军师只在三种「确实值得打断」的情形开口：
+// 军师只在四种「确实值得打断」的情形开口：
 //   fall      伙伴倒下、必须补位（不可逆，而补位是免费动作）
 //   hesitate  犹豫不决——复用上面的 trackAttention 悬停记录 + shouldNudge 的门槛
 //   mistake   明显策略错误且造成后果——复用 rankEnemyActions 的真实枚举分差，
 //             并且必须有 after 快照上的实际后果
+//   dwell     长时间停在同一个选项上不动，而枚举结果显示它不是当前最优——
+//             委婉建议换掉（见下面 dwellIntervention；停的就是推荐解时军师不开口，交老师）
 //
 // 克制不是「尽量少说」的口号，而是这里的硬约束：
 //   · 每局总上限 3 次，每类触发各 1 次（reason 去重，所以第 2、3 只倒下不会再说）
@@ -125,6 +156,8 @@ export function taskIsCurrent(stamp,{epoch,matchId=null,rulesVersion='0.6',now=D
 //   · 复用 shouldNudge（每局 ≤2 次 / 45 秒冷却 / 本回合一次 / 关闭后本场静音）
 //     与 adaptiveGate（近 7 天被关闭 2 次即降频）
 //   · 安静档在最前面短路；玩家点掉任意一条即本局静音
+// 老师的长停留讲解（dwell-lesson）走同一条门控与同一份 strategistSession 记账：
+// 「每局最多打断几次」是跨角色的总预算，不是每个角色各有一份。
 export const STRATEGIST_LIMITS={maxPerMatch:3,cooldownMs:60000};
 export const HESITATION={minHovers:3,minDistinct:2,minAgeMs:8000};
 // 分差阈值复用下面 assessDecision 的判定：<=5 视为近似合理，不能算「明显错误」。
@@ -211,14 +244,103 @@ export function incidentInfo(game,decision){
 export function hesitationSignal(attention,{now=0,turn=null,mode='gentle',active=true,risk=false}={}){
  if(!attention||attention.dismissed)return null;
  if(!shouldNudge(attention,{now,turn,mode,active,risk}))return null;
+ // 已经停在同一个选项上 ≥10 秒不动：那是长停留（见 dwellSignal），不是「来回换」。
+ // 两条同时成立时按长停留处理，措辞才不会是「你在 A、B 之间来回看」——玩家并没有在来回看。
+ if(dwellSignal(attention,{now,turn,mode,active,risk}))return null;
  const scan=(attention.hovers||[]).filter(x=>x&&x.action);
- // 区分「不同选项」用行动的原始标识：对象要序列化，否则每个对象都变成 "[object Object]"，
- // 两个不同选项会被算成同一个，犹豫永远不成立。
- const scanKey=a=>typeof a==='string'?a:JSON.stringify(a);
- const kinds=[...new Set(scan.map(x=>scanKey(x.action)))];
+ // 区分「不同选项」用行动的原始标识：对象要按值序列化，否则每个对象都变成 "[object Object]"，
+ // 两个不同选项会被算成同一个，犹豫永远不成立（同一份 actionKey 也供 dwell 游标使用）。
+ const kinds=[...new Set(scan.map(x=>actionKey(x.action)))];
  const held=now-(attention.since||0);
  if(kinds.length<HESITATION.minDistinct||scan.length<HESITATION.minHovers||held<HESITATION.minAgeMs)return null;
  return {kinds,held,hovers:scan.length};
+}
+
+// ── 长停留（盯着同一个选项不动）─────────────────────────────────────────────
+// 同一个信号，两个出口；出口由「停的是不是当前推荐解」决定（见 dwellIntervention）：
+//   老师：像是在看它、想弄懂它 → 只讲解这个技能本身，不催出招（文案在 coach/teacher.js）
+//   军师：枚举显示它明显不是当前最优 → 委婉建议换掉，措辞给台阶
+//
+// 与「犹豫不决」的区别是这一条的全部要点：
+//   犹豫   = 在这段时间里出现过 ≥2 个不同选项（来回换）→ hesitationSignal
+//   长停留 = 最后一次换选项之后就没有再换（dwell 游标一直没被打断）→ 这里
+// 因此「来回换」不会落进 dwellSignal（每次换选项都会重开游标），
+// 而「停在同一个选项上」也不会被当成犹豫（hesitationSignal 里先问 dwellSignal）。
+export function dwellSignal(attention,{now=0,turn=null,mode='gentle',active=true,risk=false}={}){
+ if(!attention||attention.dismissed)return null;
+ const d=attention.dwell;
+ if(!d||!d.key||!d.action)return null;                          // 指针已经离开选项区，或本回合还没悬停过
+ if(turn!==null&&attention.turn!==turn)return null;             // 记录不属于当前回合（换回合/换阶段即作废）
+ // 已经停止观测（记录陈旧）：每秒巡检会把 state.seen 刷新，所以只有「这一秒没人再看这个局面」时才陈旧。
+ // 没有这一步，一个冻结的旧状态会永远满足「停了很久」。
+ if(Number.isFinite(attention.seen)&&now-attention.seen>HOVER_WINDOW_MS)return null;
+ const after=(attention.hovers||[]).filter(x=>x&&x.action&&x.time>=d.since);
+ if(after.some(x=>actionKey(x.action)!==d.key))return null;     // 游标起点之后又换过选项 → 不是长停留
+ const held=now-d.since;
+ if(held<DWELL.minHoldMs)return null;
+ if(!shouldNudge(attention,{now,turn,mode,active,risk,holdMs:held}))return null;
+ return {action:d.action,key:d.key,held,hovers:after.length};
+}
+
+// 「谁开口」的判定，只读真实枚举结果（app.js 传进来的 rankEnemyActions 一回合评分）：
+// 返回 null = 没有「明显更优」的证据（停的就是推荐解，或分差在近似合理区间内），
+// 这时军师不开口——他要么已经看懂，要么正在决定，催他反而烦——由老师的讲解通道接管。
+export function dwellVerdict(game,dwell,ranked){
+ if(!dwell||!dwell.action)return null;
+ const rows=(Array.isArray(ranked)?ranked:[]).filter(x=>x&&x.action);
+ const candidate=rows.find(x=>sameAction(x.action,dwell.action));
+ const top=pickRanked(rows);
+ if(!candidate||!top)return null;                                // 枚举里没有这一项 → 没有证据，不判
+ if(sameAction(top.action,dwell.action))return null;             // 停的就是当前推荐解
+ const gap=top.score-candidate.score;
+ if(!Number.isFinite(gap)||gap<=REASONABLE_GAP)return null;      // 分差不够明显，不判「更优」
+ return {gap,top,candidate};
+}
+
+// 军师的措辞：给台阶，不说「你选错了」，也不催。分差说明这是一回合启发式评分，不是胜率。
+function dwellSuggestText(game,dwell,verdict){
+ const mine=actionLabel(game,'player',dwell.action),alt=actionLabel(game,'player',verdict.top.action);
+ return `你在「${mine}」上停了大约 ${Math.round(dwell.held/1000)} 秒。如果还没定下来，当时也可以先比较「${alt}」：一回合枚举里它高 ${round1(verdict.gap)} 分（启发式评分，不是胜率）。停在${mine}也不算错，这一手由你决定。`;
+}
+
+// 长停留的唯一入口：说就说，不说返回 null。两个角色共用同一份 session 记账与同一条门控，
+// 所以「每局最多打断几次」是跨角色的总预算，也不可能同一秒里两个人一起开口。
+// memory 传进来时，老师这一侧还要过教学账本（coach/memory.js 的 teachingPlan）：
+// 这一课已经教过就不再讲，除非军师之后的独立行动记录显示他没学会（relearn）。
+// 返回 {role:'strategist'|'teacher',reason,kind,lesson,text,evidence,basis,teach,consume}。
+export function dwellIntervention({game,attention=null,session=null,ranked=null,memory=null,now=0,turn=null,mode='gentle',inMatch=true}={}){
+ if(!inMatch||!playable(game))return null;
+ if(mode==='quiet')return null;                                   // 安静档：任何触发都不例外
+ if(game.phase==='ended')return null;
+ const s=session||strategistSession();
+ if(s.dismissed)return null;                                      // 玩家点掉了本局的主动提示（永远优先）
+ if(s.hints>=STRATEGIST_LIMITS.maxPerMatch)return null;
+ const tkey=turn||turnKey(game);
+ if(s.said.has(`turn:${tkey}`))return null;                        // 同一回合只开口一次
+ if(Number.isFinite(s.lastAt)&&now-s.lastAt<STRATEGIST_LIMITS.cooldownMs)return null;
+ const signal=dwellSignal(attention,{now,turn:tkey,mode,active:true,risk:false});
+ if(!signal)return null;
+ const verdict=dwellVerdict(game,signal,ranked);
+ const reason=verdict?'dwell':'dwell-lesson';
+ if(s.said.has(reason))return null;                                // 两类各自每局限一次
+ const mark=lesson=>{s.hints++;s.lastAt=now;s.said.add(reason);s.said.add(`turn:${tkey}`);if(lesson)s.said.add(`lesson:${lesson}`);};
+ if(verdict){
+  const lesson=lessonOf(verdict.top.action);
+  return {role:'strategist',reason,kind:'dwell-suboptimal',lesson,text:dwellSuggestText(game,signal,verdict),
+   basis:{kind:'dwell-suboptimal',heldMs:signal.held,gap:round1(verdict.gap),heuristic:true,notWinRate:true},
+   consume:()=>mark(lesson)};
+ }
+ // 停的是推荐解（或没有足够证据说明它不是）：老师只讲解这个技能本身。
+ const lesson=skillLesson(game,signal.action);
+ if(!lesson)return null;                                          // 不是技能（换宠/道具）：老师没有可讲的，谁都不说
+ const plan=memory?teachingPlan(memory,{lesson:lesson.lesson}):{teach:true,relearn:false,reason:'没有记忆记录'};
+ if(!plan.teach)return null;                                      // 学过就不再教；只有军师发现没学会才重开
+ const why=plan.relearn?`${plan.reason}，所以这一课再讲一次。`:'';
+ return {role:'teacher',reason,kind:'dwell-lesson',lesson:lesson.lesson,text:why+lesson.text,
+  evidence:plan.relearn?[`再教原因：${plan.reason}（判据是只统计没被提示的独立行动）。`,...lesson.evidence]:lesson.evidence,
+  teach:lesson.lesson,
+  basis:{kind:'dwell-lesson',heldMs:signal.held,skill:signal.action.id??signal.action.kind,relearn:Boolean(plan.relearn),notWinRate:true,reason:plan.reason},
+  consume:()=>mark(lesson.lesson)};
 }
 
 // 悬停记录现在存的是解析后的 action 对象；早期存的是 DOM 的 data-action 字符串。
@@ -227,8 +349,7 @@ export function hoverLabel(game,record){
  const raw=typeof record==='string'?record:record?.action;
  if(typeof raw!=='string')return actionLabel(game,'player',raw);
  try{return actionLabel(game,'player',JSON.parse(raw));}catch{return raw.slice(0,20);}
-}
-function fallText(game,packet){
+}function fallText(game,packet){
  const fallen=game.player.pets.find(x=>x.hp<=0);
  if(!fallen)return null;
  const scored=(packet?.actions||[]).filter(a=>a.kind==='switch');
@@ -257,7 +378,7 @@ function hesitateText(game,signal,alt){
 // 军师该不该开口。纯函数：不碰 DOM、不碰记忆，只读 game / attention / session。
 // 返回 null（不说）或 {reason,kind,lesson,text,basis,consume}（说，并带上可断言的理由）。
 // consume() 把这次开口记进本局记账；app.js 只在真的显示之后才调用它。
-export function strategistTrigger({game,attention=null,session=null,packet=null,incident=null,ranked=null,after=null,now=0,turn=null,mode='gentle',inMatch=true}={}){
+export function strategistTrigger({game,attention=null,session=null,packet=null,incident=null,ranked=null,memory=null,after=null,now=0,turn=null,mode='gentle',inMatch=true}={}){
  if(!inMatch||!playable(game))return null;
  if(mode==='quiet')return null;                                   // 安静档：任何触发都不例外
  if(game.phase==='ended')return null;
@@ -267,6 +388,14 @@ export function strategistTrigger({game,attention=null,session=null,packet=null,
  const tkey=turn||turnKey(game);
  if(s.said.has(`turn:${tkey}`))return null;                        // 同一回合只开口一次
  if(Number.isFinite(s.lastAt)&&now-s.lastAt<STRATEGIST_LIMITS.cooldownMs)return null;
+ // 长停留（盯着同一个选项不动）优先于犹豫：玩家已经不再来回换了。
+ // 「停的是不是推荐解」决定谁开口：不是 → 军师委婉建议换掉；是 → 军师闭嘴，
+ // 由老师的讲解通道处理（app.js 另外调用 dwellIntervention 拿同一条判定）。
+ const dwell=dwellSignal(attention,{now,turn:tkey,mode,active:true,risk:false});
+ if(dwell){
+  const cue=dwellIntervention({game,attention,session:s,ranked:ranked||packet?.ranked,memory,now,turn:tkey,mode,inMatch:true});
+  return cue&&cue.role==='strategist'?cue:null;
+ }
  const reason=game.phase==='replace'?'fall':incident?'mistake':'hesitation';
  if(s.said.has(reason))return null;                                // 同一理由本局不重复
  const mark=(lesson)=>{s.hints++;s.lastAt=now;s.said.add(reason);s.said.add(`turn:${tkey}`);if(lesson)s.said.add(`lesson:${lesson}`);};
