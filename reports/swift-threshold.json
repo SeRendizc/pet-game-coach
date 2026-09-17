@@ -1,0 +1,921 @@
+{
+  "generatedAt": "2026-09-17T10:36:29.189Z",
+  "rulesVersion": "0.6",
+  "threshold": 10,
+  "seedsPerArm": 24,
+  "method": "Level-matched = the player team receives the same level and point allocation as the stage enemy team (legal under trainingCapacity=level+3). Policies are scripted, not human.",
+  "matches": {
+    "level-matched meadow": {
+      "stageLevel": 1,
+      "stagePointBudget": 0,
+      "playerCapacityAtThatLevel": 4,
+      "n": 72,
+      "winRate": 0.3333333333333333,
+      "roundDistribution": {
+        "wins": 24,
+        "min": 11,
+        "p25": 11,
+        "p50": 11,
+        "p75": 11,
+        "max": 11,
+        "losses": 48
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "14": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "16": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        }
+      },
+      "byPolicy": {
+        "one-turn-rank": {
+          "n": 24,
+          "winRate": 1,
+          "wins": 24,
+          "min": 11,
+          "p25": 11,
+          "p50": 11,
+          "p75": 11,
+          "max": 11,
+          "losses": 0
+        },
+        "greedy-damage": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        },
+        "rushed": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        }
+      }
+    },
+    "level-matched river": {
+      "stageLevel": 2,
+      "stagePointBudget": 2,
+      "playerCapacityAtThatLevel": 5,
+      "n": 72,
+      "winRate": 0.3333333333333333,
+      "roundDistribution": {
+        "wins": 24,
+        "min": 20,
+        "p25": 20,
+        "p50": 20,
+        "p75": 20,
+        "max": 20,
+        "losses": 48
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 0.3333333333333333,
+          "n": 24
+        }
+      },
+      "byPolicy": {
+        "one-turn-rank": {
+          "n": 24,
+          "winRate": 1,
+          "wins": 24,
+          "min": 20,
+          "p25": 20,
+          "p50": 20,
+          "p75": 20,
+          "max": 20,
+          "losses": 0
+        },
+        "greedy-damage": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        },
+        "rushed": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        }
+      }
+    },
+    "level-matched embers": {
+      "stageLevel": 3,
+      "stagePointBudget": 4,
+      "playerCapacityAtThatLevel": 6,
+      "n": 72,
+      "winRate": 0,
+      "roundDistribution": {
+        "wins": 0,
+        "min": null,
+        "p25": null,
+        "p50": null,
+        "p75": null,
+        "max": null,
+        "losses": 72
+      },
+      "window": {
+        "6": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        }
+      },
+      "byPolicy": {
+        "one-turn-rank": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        },
+        "greedy-damage": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        },
+        "rushed": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        }
+      }
+    },
+    "level-matched grove": {
+      "stageLevel": 4,
+      "stagePointBudget": 6,
+      "playerCapacityAtThatLevel": 7,
+      "n": 72,
+      "winRate": 0.6666666666666666,
+      "roundDistribution": {
+        "wins": 48,
+        "min": 19,
+        "p25": 19,
+        "p50": 20,
+        "p75": 20,
+        "max": 20,
+        "losses": 24
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 0.6666666666666666,
+          "n": 48
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 0.6666666666666666,
+          "n": 48
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 0.6666666666666666,
+          "n": 48
+        }
+      },
+      "byPolicy": {
+        "one-turn-rank": {
+          "n": 24,
+          "winRate": 1,
+          "wins": 24,
+          "min": 20,
+          "p25": 20,
+          "p50": 20,
+          "p75": 20,
+          "max": 20,
+          "losses": 0
+        },
+        "greedy-damage": {
+          "n": 24,
+          "winRate": 0.5,
+          "wins": 12,
+          "min": 19,
+          "p25": 19,
+          "p50": 19,
+          "p75": 19,
+          "max": 19,
+          "losses": 12
+        },
+        "rushed": {
+          "n": 24,
+          "winRate": 0.5,
+          "wins": 12,
+          "min": 19,
+          "p25": 19,
+          "p50": 19,
+          "p75": 19,
+          "max": 19,
+          "losses": 12
+        }
+      }
+    },
+    "level-matched summit": {
+      "stageLevel": 5,
+      "stagePointBudget": 8,
+      "playerCapacityAtThatLevel": 8,
+      "n": 72,
+      "winRate": 0,
+      "roundDistribution": {
+        "wins": 0,
+        "min": null,
+        "p25": null,
+        "p50": null,
+        "p75": null,
+        "max": null,
+        "losses": 72
+      },
+      "window": {
+        "6": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAll": 0,
+          "n": 0
+        }
+      },
+      "byPolicy": {
+        "one-turn-rank": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        },
+        "greedy-damage": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        },
+        "rushed": {
+          "n": 24,
+          "winRate": 0,
+          "wins": 0,
+          "min": null,
+          "p25": null,
+          "p50": null,
+          "p75": null,
+          "max": null,
+          "losses": 24
+        }
+      }
+    },
+    "overtrained-fast meadow": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 10,
+        "p25": 10,
+        "p50": 10,
+        "p75": 11,
+        "max": 11,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0.6666666666666666,
+          "ofAll": 0.6666666666666666,
+          "n": 24
+        },
+        "12": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "14": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "16": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-fast river": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 17,
+        "p25": 17,
+        "p50": 17,
+        "p75": 21,
+        "max": 21,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0.6666666666666666,
+          "ofAll": 0.6666666666666666,
+          "n": 24
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-fast embers": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 14,
+        "p25": 14,
+        "p50": 17,
+        "p75": 17,
+        "max": 17,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0.3333333333333333,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        },
+        "16": {
+          "ofWins": 0.3333333333333333,
+          "ofAll": 0.3333333333333333,
+          "n": 12
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-fast grove": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 15,
+        "p25": 15,
+        "p50": 15,
+        "p75": 16,
+        "max": 16,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    },
+    "overtrained-fast summit": {
+      "n": 36,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 36,
+        "min": 19,
+        "p25": 19,
+        "p50": 19,
+        "p75": 20,
+        "max": 20,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 36
+        }
+      }
+    }
+  },
+  "overall": {
+    "levelMatched": {
+      "n": 360,
+      "winRate": 0.26666666666666666,
+      "roundDistribution": {
+        "wins": 96,
+        "min": 11,
+        "p25": 19,
+        "p50": 20,
+        "p75": 20,
+        "max": 20,
+        "losses": 264
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0.25,
+          "ofAll": 0.06666666666666667,
+          "n": 24
+        },
+        "14": {
+          "ofWins": 0.25,
+          "ofAll": 0.06666666666666667,
+          "n": 24
+        },
+        "16": {
+          "ofWins": 0.25,
+          "ofAll": 0.06666666666666667,
+          "n": 24
+        },
+        "20": {
+          "ofWins": 1,
+          "ofAll": 0.26666666666666666,
+          "n": 96
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 0.26666666666666666,
+          "n": 96
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 0.26666666666666666,
+          "n": 96
+        }
+      }
+    },
+    "overtrainedFast": {
+      "n": 180,
+      "winRate": 1,
+      "roundDistribution": {
+        "wins": 180,
+        "min": 10,
+        "p25": 14,
+        "p50": 17,
+        "p75": 19,
+        "max": 21,
+        "losses": 0
+      },
+      "window": {
+        "6": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAll": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0.13333333333333333,
+          "ofAll": 0.13333333333333333,
+          "n": 24
+        },
+        "12": {
+          "ofWins": 0.2,
+          "ofAll": 0.2,
+          "n": 36
+        },
+        "14": {
+          "ofWins": 0.26666666666666666,
+          "ofAll": 0.26666666666666666,
+          "n": 48
+        },
+        "16": {
+          "ofWins": 0.4666666666666667,
+          "ofAll": 0.4666666666666667,
+          "n": 84
+        },
+        "20": {
+          "ofWins": 0.9333333333333333,
+          "ofAll": 0.9333333333333333,
+          "n": 168
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 180
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAll": 1,
+          "n": 180
+        }
+      }
+    }
+  }
+}

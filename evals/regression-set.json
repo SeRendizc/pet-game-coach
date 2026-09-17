@@ -1,0 +1,31 @@
+{
+  "note": "教练决策层的独立回归集。四类场景取自任务清单 P06。这些用例由作者在本轮编写，不是第三方独立标注，因此只能用作回归（防止已修的问题复发），不能当作质量评测集。真实模型评测见 reports/live-model-eval.json。",
+  "authored": "2026-09-17",
+  "categories": {
+    "silence": "应当沉默：已出招、安静档、没有可行动作",
+    "low-confidence": "证据单薄时不得给出确定结论",
+    "missing-evidence": "关键事实缺失时应明说，不得编造",
+    "tied-options": "两个行动接近时应说明接近，而不是武断二选一"
+  },
+  "cases": [
+    {"id":"r01","cat":"silence","why":"玩家已经出招，旧提示必须消失","check":"attention-after-action"},
+    {"id":"r02","cat":"silence","why":"安静档下不得主动提示，即便有可行动风险","check":"attention-quiet-mode"},
+    {"id":"r03","cat":"silence","why":"同一回合不得重复提示","check":"attention-same-turn"},
+    {"id":"r04","cat":"silence","why":"玩家忽略过提示后提高打扰成本，不得连续催促","check":"attention-after-dismiss"},
+
+    {"id":"r05","cat":"low-confidence","why":"绝对承诺一律拒绝，无论数字是否可核","check":"guard-certainty"},
+    {"id":"r06","cat":"low-confidence","why":"否定形式的确定性（不是稳赢）不得被误判为承诺","check":"guard-negated-certainty"},
+    {"id":"r07","cat":"low-confidence","why":"不得声称看过对手待执行的动作","check":"guard-simultaneous-order"},
+    {"id":"r08","cat":"low-confidence","why":"把已取消的行动说成命中必须拦下","check":"guard-cancelled-action"},
+
+    {"id":"r09","cat":"missing-evidence","why":"道具名不得漂移（净化药被叫成解药）","check":"guard-item-name"},
+    {"id":"r10","cat":"missing-evidence","why":"凭空数字必须拦下","check":"guard-invented-number"},
+    {"id":"r11","cat":"missing-evidence","why":"引用不存在的知识卡必须失败关闭","check":"guard-fake-citation"},
+    {"id":"r12","cat":"missing-evidence","why":"引用已被删除或规则版本不符的卡片必须失败关闭","check":"guard-stale-citation"},
+
+    {"id":"r13","cat":"tied-options","why":"同分行动不得被描述成明显更优","check":"tied-no-superlative"},
+    {"id":"r14","cat":"tied-options","why":"枚举结论必须带边界说明，不能暗示全局最优","check":"tied-boundary-caveat"},
+    {"id":"r15","cat":"tied-options","why":"目标偏好改变后推荐可以变，但依据仍须是同一批枚举","check":"goal-reweights"},
+    {"id":"r16","cat":"tied-options","why":"不设偏好时结果必须稳定","check":"goal-default-stable"}
+  ]
+}

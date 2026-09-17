@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test engine.test.js mechanics.test.js pvp.test.js browser.test.js features.test.js coach.test.js server.test.js knowledge.test.js evals/agent.test.js",
+    "test": "node --test engine.test.js mechanics.test.js pvp.test.js browser.test.js features.test.js coach.test.js server.test.js knowledge.test.js evals/agent.test.js evals/regression.test.js",
     "start": "node server.js",
     "test:knowledge": "node --test knowledge.test.js",
     "test:pvp": "node --test pvp.test.js",
