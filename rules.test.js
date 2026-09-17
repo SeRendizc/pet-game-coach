@@ -338,3 +338,22 @@ test('species panels quoted in the rules page come from SPECIES',()=>{
   assert.equal(SPECIES[0].learnset.length,RULES.learnset);
   assert.ok(text.includes(`可学 ${RULES.learnset} 个技能`));
 });
+test('the rules-boundary card does not contradict the engine about types or environments',async()=>{
+  // 这张卡是检索交给模型的地面事实，它会直接影响小芽对玩家说什么。
+  // 它曾经写「火、水、草、岩、雷和普通」（漏了风系，引擎有 7 个属性），
+  // 还写「没有……天气」（引擎有细雨与山风）——而当时所有测试都是绿的：
+  // 上面那条「知识卡数值与引擎一致」只断言一份固定数值短语清单，不含属性表。
+  const {TACTIC_CARDS}=await import('./content.js');
+  const card=TACTIC_CARDS.find(c=>c.id==='tactic:rules-boundary');
+  assert(card,'规则边界卡必须存在');
+  const text=`${card.principle} ${card.counterexample}`;
+  // 引擎有的属性，卡里必须都提到
+  const missing=Object.keys(TYPES).filter(t=>t!=='normal'&&!text.includes(TYPES[t]));
+  assert.deepEqual(missing,[],`卡片漏了引擎里存在的属性：${missing.join('、')}`);
+  // 引擎有的环境机制，卡里不能声称没有
+  const envs=Object.values(ENVIRONMENTS||{}).map(e=>e.name);
+  if(envs.length){
+    assert(!/没有[^。]{0,12}天气/.test(text),`卡片声称没有天气，但引擎有环境机制：${envs.join('、')}`);
+    assert(envs.some(n=>text.includes(n)),`卡片应至少提到一种环境机制：${envs.join('、')}`);
+  }
+});
