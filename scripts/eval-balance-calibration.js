@@ -2,43 +2,50 @@
 // Measures switch rate / win rate / match length / 10-turn threshold reachability for the two
 // magic numbers that currently have no empirical backing:
 //   (1) engine.js chooseEnemy: consecutive-switch inertia cost = 6 points per consecutive switch,
-//       implicitly capped at 18 because only the last 3 turns are inspected.
-//   (2) progression.js settle: first PVE win within 10 turns of a stage grants +1 training point.
-// The enemy chooser is RE-IMPLEMENTED here with parameters because engine.js must not be modified.
-// The re-implementation is asserted equal to chooseEnemy() at the shipped values (penalty 6, cap 18).
+//       implicitly capped at 18 because only the trailing 3-turn switch run is inspected.
+//   (2) progression.js settle(): first PVE win within 10 turns of a stage grants +1 training point.
+// engine.js must not be modified, so the enemy chooser is RE-IMPLEMENTED with parameters and
+// asserted equal to chooseEnemy() at the shipped values (penalty 6, cap 18, 3-turn window).
 import {writeFileSync,mkdirSync} from 'node:fs';
-import {createGame,legalActions,resolveTurn,chooseEnemy,rankEnemyActions,active,SKILLS,damage,multiplier,effectiveSpeed} from '../engine.js';
+import {createGame,legalActions,resolveTurn,chooseEnemy,rankEnemyActions,active,SKILLS,damage,multiplier} from '../engine.js';
 import {STAGES,stageOptions} from '../content.js';
 
-const SHIPPED_PENALTY=6, SHIPPED_CAP=18, SHIPPED_THRESHOLD=10;
+const SHIPPED_PENALTY=6, SHIPPED_CAP=18, SHIPPED_WINDOW=3, SHIPPED_THRESHOLD=10;
 const rng=seed=>{let s=seed>>>0;return()=>((s=(Math.imul(s,1664525)+1013904223)>>>0)/4294967296);};
 
 // ── enemy chooser with parameterised inertia ────────────────────────────────────────────────
-// engine.js counts the trailing run of enemy switches among the last 3 turns and subtracts
-// streak*6 from every switch candidate, i.e. effective penalty = min(streak,3)*6 = min(streak*6,18).
-function enemyRanked(g,{penalty=SHIPPED_PENALTY,cap=SHIPPED_CAP,window=3}={}){
+function enemyRanked(g,{penalty=SHIPPED_PENALTY,cap=SHIPPED_CAP,window=SHIPPED_WINDOW}={}){
  const recent=(g.history||[]).filter(h=>h.type==='turn').slice(-window);
  let streak=0;for(const h of recent.slice().reverse()){if(h.opponent?.kind!=='switch')break;streak++;}
  const applied=penalty>0?Math.min(streak,cap/penalty):0;
  return rankEnemyActions(g).map(x=>({...x,streak,applied,score:x.score-(x.action.kind==='switch'?applied*penalty:0)})).sort((a,b)=>b.score-a.score);
 }
-function enemyChoose(g,cfg){return enemyRanked(g,cfg)[0].action;}
+const enemyChoose=(g,cfg)=>enemyRanked(g,cfg)[0].action;
 
 // ── player policies (the "human" side) ──────────────────────────────────────────────────────
-const attacks=(g,side='player')=>legalActions(g,side).filter(a=>a.kind==='skill'&&SKILLS[a.id].power);
+const isAttack=a=>a.kind==='skill'&&SKILLS[a.id].power;
 function bestDamage(g){
  const p=active(g,'player'),q=active(g,'enemy');
- const list=attacks(g).map(a=>({a,d:damage(p,q,SKILLS[a.id])})).sort((x,y)=>y.d-x.d||SKILLS[x.a.id].cost-SKILLS[y.a.id].cost);
+ const list=legalActions(g).filter(isAttack).map(a=>({a,d:damage(p,q,SKILLS[a.id])})).sort((x,y)=>y.d-x.d||SKILLS[x.a.id].cost-SKILLS[y.a.id].cost);
  if(list.length)return list[0].a;
  const legal=legalActions(g).filter(a=>a.kind!=='escape');
- const guard=legal.find(a=>a.kind==='skill'&&a.id==='guard');if(guard)return guard;
- return legal[0];
+ return legal.find(a=>a.kind==='skill'&&a.id==='guard')||legal[0];
+}
+// Fastest-kill policy: cheapest way to keep attacking every turn (upper bound on speed).
+function rushed(g){
+ const legal=legalActions(g).filter(a=>a.kind!=='escape');
+ const p=active(g,'player'),q=active(g,'enemy');
+ const atk=legal.filter(isAttack).map(a=>({a,d:damage(p,q,SKILLS[a.id])})).sort((x,y)=>y.d-x.d||SKILLS[x.a.id].cost-SKILLS[y.a.id].cost);
+ if(atk.length)return atk[0].a;
+ const ether=legal.find(a=>a.kind==='item'&&a.id==='ether'&&a.target===g.player.active);
+ if(ether&&g.player.items.ether>0)return ether;
+ const guard=legal.find(a=>a.kind==='skill'&&a.id==='guard');
+ return guard||legal[0];
 }
 function oneTurnRank(g){
  const ranked=rankEnemyActions({...g,player:g.enemy,enemy:g.player}).filter(x=>x.action.kind!=='escape');
  return ranked.length?ranked[0].action:legalActions(g).filter(a=>a.kind!=='escape')[0];
 }
-// Switches only when the active pet is at a type disadvantage and a healthy counter exists.
 function switchSeeking(g){
  const s=g.player,p=active(g,'player'),q=active(g,'enemy');
  const disadvantage=multiplier(q.type,p.type)>multiplier(p.type,q.type);
@@ -48,39 +55,59 @@ function switchSeeking(g){
  }
  return bestDamage(g);
 }
-function randomPolicy(g,rand){
- const legal=legalActions(g).filter(a=>a.kind!=='escape');
- return legal[Math.floor(rand()*legal.length)];
-}
-const POLICIES={'greedy-damage':g=>bestDamage(g),'one-turn-rank':g=>oneTurnRank(g),'switch-seeking':g=>switchSeeking(g),'random':(g,ctx)=>randomPolicy(g,ctx.rand)};
+const randomPolicy=(g,rand)=>{const legal=legalActions(g).filter(a=>a.kind!=='escape');return legal[Math.floor(rand()*legal.length)];};
+const POLICIES={'greedy-damage':g=>bestDamage(g),'one-turn-rank':g=>oneTurnRank(g),'rushed':g=>rushed(g),'switch-seeking':g=>switchSeeking(g),'random':(g,c)=>randomPolicy(g,c.rand)};
 
 // ── match runner ────────────────────────────────────────────────────────────────────────────
-function playMatch({seed,team,options={},player='one-turn-rank',enemyCfg={},enemy='hard'}){
+function playMatch({seed,team,options={},player='one-turn-rank',enemyCfg={},enemy='hard',harvest=null}){
  const rand=rng(seed*7919+13);
  let g=createGame(seed,team,{...options,difficulty:enemy});
- let playerSwitches=0,enemySwitches=0,turns=0,enemySwitchStreak=0,maxEnemySwitchStreak=0,enemySwitchTurns=0,plans=0;
+ let activePlayerSwitches=0,forcedReplacements=0,enemySwitches=0,plans=0;
+ let enemySwitchStreak=0,maxEnemySwitchStreak=0;
+ const streakHistogram={0:0,1:0,2:0,'3+':0},flips={1:0,2:0,3:0},appliedAt={1:0,2:0,3:0},streakTopSwitch={0:0,1:0,2:0,'3+':0};
  let guard=0;
  while(!g.result&&guard++<400){
   const replacing=g.phase==='replace';
-  const action=replacing?legalActions(g).filter(a=>a.kind==='switch')[0]||legalActions(g)[0]:POLICIES[player](g,{rand});
+  const action=replacing?(legalActions(g).filter(a=>a.kind==='switch')[0]||legalActions(g)[0]):POLICIES[player](g,{rand});
   if(!action){g.result='stuck';break;}
-  const opponent=replacing?null:enemyChoose(g,enemyCfg);
-  if(action.kind==='switch')playerSwitches++;
-  if(opponent){plans++;if(opponent.kind==='switch'){enemySwitches++;enemySwitchTurns++;enemySwitchStreak++;maxEnemySwitchStreak=Math.max(maxEnemySwitchStreak,enemySwitchStreak);}else enemySwitchStreak=0;}
+  const opponent=replacing?null:(enemy==='hard'?enemyChoose(g,enemyCfg):chooseEnemy(g));
+  if(replacing)forcedReplacements++;else if(action.kind==='switch')activePlayerSwitches++;
+  if(opponent){
+   plans++;
+   const raw=enemyRanked(g,{penalty:0,cap:1e9});
+   const bucket=enemySwitchStreak>=3?'3+':String(enemySwitchStreak);
+   streakHistogram[bucket]++;
+   if(raw[0].action.kind==='switch')streakTopSwitch[bucket]++;
+   for(const k of [1,2,3])if(enemySwitchStreak>=k){
+    appliedAt[k]++;
+    const penalised=enemyRanked(g,{penalty:SHIPPED_PENALTY,cap:SHIPPED_CAP*(k/SHIPPED_WINDOW)}).map(x=>x.action);
+    if(JSON.stringify(penalised[0])!==JSON.stringify(raw[0].action))flips[k]++;
+   }
+   if(harvest){
+    const bestSwitch=raw.find(x=>x.action.kind==='switch'),bestOther=raw.find(x=>x.action.kind!=='switch');
+    if(bestSwitch)harvest.push({topSwitch:raw[0].action.kind==='switch',streak:enemySwitchStreak,
+     switchMargin:bestOther?bestSwitch.score-bestOther.score:null,
+     switchScore:bestSwitch.score,otherScore:bestOther?bestOther.score:null,otherKind:bestOther?bestOther.action.kind:null,turn:g.turn});
+   }
+   if(opponent.kind==='switch'){enemySwitches++;enemySwitchStreak++;maxEnemySwitchStreak=Math.max(maxEnemySwitchStreak,enemySwitchStreak);}else enemySwitchStreak=0;
+  }
   const before=g.turn;
   g=resolveTurn(g,action,opponent);
-  if(g.turn!==before)turns++;
+  if(g.turn!==before&&!replacing){/* counted via plans */}
  }
  const rounds=(g.history||[]).filter(h=>h.type==='turn').length;
- return {seed,team:team.join('+'),player,result:g.result,rounds,turns,
-  playerSwitches,enemySwitches,enemyPlans:plans,
-  playerSwitchRate:plans?playerSwitches/plans:0,enemySwitchRate:plans?enemySwitches/plans:0,
-  maxEnemySwitchStreak,win:g.result==='win',draw:g.result==='draw',loss:g.result==='loss',stuck:g.result==='stuck'};
+ return {seed,team:team.join('+'),player,result:g.result,rounds,
+  activePlayerSwitches,forcedReplacements,enemySwitches,enemyPlans:plans,
+  playerActiveSwitchRate:plans?activePlayerSwitches/plans:0,
+  playerAllSwitchRate:plans?(activePlayerSwitches+forcedReplacements)/plans:0,
+  enemySwitchRate:plans?enemySwitches/plans:0,
+  maxEnemySwitchStreak,streakHistogram,flips,appliedAt,streakTopSwitch,
+  win:g.result==='win',draw:g.result==='draw',loss:g.result==='loss',stuck:g.result==='stuck'};
 }
 
 // ── self-check: parameterised chooser must reproduce shipped chooseEnemy ────────────────────
-function verifyChooser(n=400){
- let checked=0,mismatch=0;
+function verifyChooser(n=300){
+ let checked=0,mismatch=0,switchDecisions=0;
  for(let s=0;s<n;s++){
   let g=createGame(1000+s*13,['fox','turtle','deer'],{difficulty:'hard'});
   const rand=rng(s+5);let guard=0;
@@ -88,33 +115,36 @@ function verifyChooser(n=400){
    const legal=legalActions(g).filter(a=>a.kind!=='escape');
    if(!legal.length)break;
    const a=legal[Math.floor(rand()*legal.length)];
-   const shipped=chooseEnemy(g),mine=enemyChoose(g,{penalty:SHIPPED_PENALTY,cap:SHIPPED_CAP});
-   checked++;if(JSON.stringify(shipped)!==JSON.stringify(mine))mismatch++;
+   const shipped=chooseEnemy(g),mine=enemyChoose(g,{penalty:SHIPPED_PENALTY,cap:SHIPPED_CAP,window:SHIPPED_WINDOW});
+   checked++;if(shipped.kind==='switch')switchDecisions++;
+   if(JSON.stringify(shipped)!==JSON.stringify(mine))mismatch++;
    g=resolveTurn(g,a,shipped);
   }
  }
- return {statesChecked:checked,mismatch};
+ return {statesChecked:checked,mismatch,shippedSwitchDecisions:switchDecisions};
 }
 
 // ── aggregation helpers ─────────────────────────────────────────────────────────────────────
 const mean=v=>v.length?v.reduce((a,b)=>a+b,0)/v.length:null;
 function pct(sorted,q){if(!sorted.length)return null;const i=Math.min(sorted.length-1,Math.max(0,Math.round(q*(sorted.length-1))));return sorted[i];}
+const sumStreaks=rows=>rows.reduce((acc,r)=>{for(const k of Object.keys(r.streakHistogram))acc[k]=(acc[k]||0)+r.streakHistogram[k];return acc;},{});
+const sumFlips=rows=>rows.reduce((acc,r)=>{for(const k of Object.keys(r.flips))acc[k]=(acc[k]||0)+r.flips[k];return acc;},{});
 function summarize(rows){
- const wins=rows.filter(r=>r.win),losses=rows.filter(r=>r.loss),draws=rows.filter(r=>r.draw),stuck=rows.filter(r=>r.stuck);
+ const wins=rows.filter(r=>r.win);
  const lengths=rows.map(r=>r.rounds).sort((a,b)=>a-b);
- const winLengths=wins.map(r=>r.rounds).sort((a,b)=>a-b);
- return {n:rows.length,wins:wins.length,losses:losses.length,draws:draws.length,stuck:stuck.length,
+ const streaks=sumStreaks(rows),flips=sumFlips(rows),applied=rows.reduce((a,r)=>{for(const k of Object.keys(r.appliedAt))a[k]=(a[k]||0)+r.appliedAt[k];return a;},{});
+ const decisions=rows.reduce((a,r)=>a+r.enemyPlans,0);
+ return {n:rows.length,wins:wins.length,losses:rows.filter(r=>r.loss).length,draws:rows.filter(r=>r.draw).length,stuck:rows.filter(r=>r.stuck).length,
   winRate:rows.length?wins.length/rows.length:null,
-  meanRounds:mean(rows.map(r=>r.rounds)),p50Rounds:pct(lengths,.5),p90Rounds:pct(lengths,.9),
-  meanWinRounds:mean(winLengths),p50WinRounds:pct(winLengths,.5),
-  playerSwitchRate:mean(rows.map(r=>r.playerSwitchRate)),
+  meanRounds:mean(rows.map(r=>r.rounds)),p50Rounds:pct(lengths,.5),p90Rounds:pct(lengths,.9),meanWinRounds:mean(wins.map(r=>r.rounds)),
+  playerActiveSwitchRate:mean(rows.map(r=>r.playerActiveSwitchRate)),playerAllSwitchRate:mean(rows.map(r=>r.playerAllSwitchRate)),
   enemySwitchRate:mean(rows.map(r=>r.enemySwitchRate)),
-  maxEnemySwitchStreakP95:pct(rows.map(r=>r.maxEnemySwitchStreak).sort((a,b)=>a-b),.95),
-  consecutiveEnemySwitchMatches:rows.filter(r=>r.maxEnemySwitchStreak>=2).length/rows.length,
+  enemyDecisions:decisions,streakHistogram:streaks,
+  penaltyAppliedDecisions:{streakAtLeast1:applied[1]||0,streakAtLeast2:applied[2]||0,streakAtLeast3:applied[3]||0},
+  penaltyCausedFlips:{streak1:flips[1]||0,streak2:flips[2]||0,streak3:flips[3]||0},
+  matchesWithConsecutiveEnemySwitch:rows.filter(r=>r.maxEnemySwitchStreak>=2).length/rows.length,
   longestEnemySwitchStreakEver:Math.max(0,...rows.map(r=>r.maxEnemySwitchStreak))};
 }
-// Win-within-T rates. Reachability is computed over WINS (does the bonus fire?) and over ALL
-// matches (how often any given attempt earns it).
 function swiftCurve(rows,thresholds){
  const wins=rows.filter(r=>r.win);
  return Object.fromEntries(thresholds.map(T=>[T,{
@@ -133,112 +163,147 @@ const compositions={
  'wind falcon/rhino/marten':['falcon','rhino','marten'],
  'stall turtle/shroom/badger':['turtle','shroom','badger'],
  'glass fox/sparrow/falcon':['fox','sparrow','falcon']};
+const ALLPETS=['fox','turtle','deer','lion','shroom','otter','sparrow','badger','moth','falcon','rhino','marten'];
 const TRAINING={L1_none:{level:1,points:{hp:0,atk:0,speed:0}},L3_partial:{level:3,points:{hp:2,atk:2,speed:0}},L5_full:{level:5,points:{hp:5,atk:3,speed:0}}};
-const trainOptions=spec=>Object.fromEntries(['fox','turtle','deer','lion','shroom','otter','sparrow','badger','moth','falcon','rhino','marten'].map(id=>[id,{...spec}]));
+const trainOptions=spec=>Object.fromEntries(ALLPETS.map(id=>[id,{...spec}]));
+const log=m=>console.error('['+new Date().toISOString().slice(11,19)+'] '+m);
 
-const report={generatedAt:new Date().toISOString(),rulesVersion:'0.6',method:'Headless engine simulation; simplified player policies, NOT human play. Enemy = engine.js chooseEnemy re-implemented with parameters and asserted identical at shipped values.',
- shipped:{inertiaPenaltyPerConsecutiveSwitch:SHIPPED_PENALTY,inertiaCap:SHIPPED_CAP,swiftWinThresholdTurns:SHIPPED_THRESHOLD},
- seedsPerArm:SEEDS,chooserVerification:verifyChooser()};
+const report={generatedAt:new Date().toISOString(),rulesVersion:'0.6',
+ method:'Headless engine.js simulation. Player side is a scripted policy, NOT human play. Enemy side is engine.js chooseEnemy; for difficulty=hard it is re-implemented here with parameters and asserted identical at shipped values.',
+ shipped:{inertiaPenaltyPerConsecutiveSwitch:SHIPPED_PENALTY,inertiaCap:SHIPPED_CAP,inertiaWindowTurns:SHIPPED_WINDOW,swiftWinThresholdTurns:SHIPPED_THRESHOLD},
+ seedsPerArm:SEEDS,seedList:seeds,chooserVerification:verifyChooser()};
+log('chooser verification done');
 
-// Study A: composition x player policy (difficulty standard, level-1 teams)
+// Study A: composition x player policy (difficulty standard = app default, level-1 teams)
 report.studyA_composition={};
 for(const [name,team] of Object.entries(compositions)){
+ const all=[];
  for(const pol of Object.keys(POLICIES)){
-  report.studyA_composition[name+' | '+pol]=summarize(seeds.map(seed=>playMatch({seed,team,player:pol,enemy:'normal'})));
+  const rows=seeds.map(seed=>playMatch({seed,team,player:pol,enemy:'normal'}));
+  all.push(...rows);
+  report.studyA_composition[name+' | '+pol]=summarize(rows);
  }
- report.studyA_composition[name+' | ALL']=summarize(Object.keys(POLICIES).flatMap(pol=>seeds.map(seed=>playMatch({seed,team,player:pol,enemy:'normal'}))));
+ report.studyA_composition[name+' | ALL POLICIES']=summarize(all);
+ log('studyA '+name);
 }
 
-// Study B: training profile x stage (real stage enemy teams, difficulty standard)
-const stageSample=[];
+// Study B: training profile x real stage (enemy team/level from content.js STAGES)
 report.studyB_training={};
+const stageSample=[];
 for(const stage of STAGES){
  for(const [tname,spec] of Object.entries(TRAINING)){
-  for(const pol of ['greedy-damage','one-turn-rank']){
+  for(const pol of ['greedy-damage','one-turn-rank','rushed']){
    const rows=seeds.map(seed=>playMatch({seed,team:['fox','turtle','deer'],options:{pets:trainOptions(spec),mode:'pve',...stageOptions(stage.id)},player:pol,enemy:'normal'}));
    stageSample.push(...rows.map(r=>({...r,stage:stage.id,train:tname,pol})));
    report.studyB_training[stage.id+' | '+tname+' | '+pol]=summarize(rows);
   }
  }
+ log('studyB '+stage.id);
 }
 
-// Study C: difficulty x player policy (stage 1 enemy team)
+// Study C: difficulty x player policy (stage 1, default level-1 team)
 report.studyC_difficulty={};
 for(const diff of ['easy','normal','hard']){
  for(const pol of Object.keys(POLICIES)){
   report.studyC_difficulty[diff+' | '+pol]=summarize(seeds.map(seed=>playMatch({seed,team:['fox','turtle','deer'],options:{mode:'pve',...stageOptions('meadow')},player:pol,enemy:diff})));
  }
+ log('studyC '+diff);
 }
 
-// Study D: inertia sweep. Same seeds, same player policies; only the enemy penalty changes.
-const inertiaArms=[0,3,6,9,12,18].map(penalty=>({penalty,cap:SHIPPED_CAP}));
-inertiaArms.push({penalty:6,cap:12},{penalty:6,cap:24},{penalty:6,cap:SHIPPED_CAP,window:5});
+// Study D: inertia arms. Same seeds and player policies; only the enemy penalty/cap changes.
+const inertiaArms=[
+ {label:'penalty=0 (no inertia)',penalty:0,cap:SHIPPED_CAP},
+ {label:'penalty=3',penalty:3,cap:SHIPPED_CAP},
+ {label:'penalty=6 (shipped)',penalty:6,cap:SHIPPED_CAP},
+ {label:'penalty=9',penalty:9,cap:SHIPPED_CAP},
+ {label:'penalty=12',penalty:12,cap:SHIPPED_CAP},
+ {label:'penalty=18',penalty:18,cap:SHIPPED_CAP},
+ {label:'penalty=6, cap=12',penalty:6,cap:12},
+ {label:'penalty=6, cap=24',penalty:6,cap:24},
+ {label:'penalty=6, 5-turn window',penalty:6,cap:SHIPPED_CAP,window:5}];
 const inertiaRows={};
 for(const arm of inertiaArms){
- const key=`penalty=${arm.penalty},cap=${arm.cap}${arm.window?', '+arm.window+'-turn window':''}`;
  const rows=[];
  for(const pol of ['switch-seeking','one-turn-rank']){
-  for(const seed of seeds){
-   const row=playMatch({seed,team:['fox','turtle','deer'],options:{mode:'pve',...stageOptions('meadow')},player:pol,enemy:'hard',enemyCfg:arm});
-   rows.push({...row,pol});
-  }
+  for(const seed of seeds)rows.push({...playMatch({seed,team:['fox','turtle','deer'],options:{mode:'pve',...stageOptions('meadow')},player:pol,enemy:'hard',enemyCfg:arm}),pol});
  }
- inertiaRows[key]=rows;
+ inertiaRows[arm.label]=rows;
+ log('studyD '+arm.label);
 }
 report.studyD_inertia=Object.fromEntries(Object.entries(inertiaRows).map(([k,v])=>[k,{...summarize(v),byPolicy:Object.fromEntries(['switch-seeking','one-turn-rank'].map(p=>[p,summarize(v.filter(r=>r.pol===p))]))}]));
 
-// Suppression analysis: how often does the inertia cost actually flip the enemy's top choice,
-// and what score margin does it give up? Measured on live trajectories, not on static snapshots.
-function suppressionProbe(cfg){
- const rows=[];
- for(const seed of seeds.slice(0,10)){
-  let g=createGame(seed,['fox','turtle','deer'],{mode:'pve',...stageOptions('meadow'),difficulty:'hard'});
-  const rand=rng(seed+3);let guard=0;
-  while(!g.result&&guard++<200){
-   if(g.phase!=='replace'){
-    const ranked=enemyRanked(g,cfg),raw=enemyRanked(g,{penalty:0,cap:1e9});
-    if(raw[0].action.kind==='switch'){
-     const flipped=ranked[0].action.kind!=='switch';
-     rows.push({turn:g.turn,streak:raw[0].streak,flipped,rawTop:raw[0].score,chosen:ranked[0].score,loss:raw[0].score-ranked[0].score});
-    }
-    const legal=legalActions(g).filter(a=>a.kind!=='escape');
-    g=resolveTurn(g,legal[Math.floor(rand()*legal.length)],ranked[0].action);
-   } else {g=resolveTurn(g,legalActions(g)[0],null);}
+// Study D2: how attractive is a switch, and would any penalty flip the enemy's choice?
+// History only enters through the trailing switch run, so a harvested state plus a hypothesised
+// streak fully determines the decision. Harvest state margins from live hard-difficulty matches.
+function harvestMargins(n=SEEDS*2){
+ const out=[];
+ for(const seed of seeds.slice(0,n%seeds.length||seeds.length)){
+  for(const pol of ['switch-seeking','one-turn-rank','greedy-damage']){
+   playMatch({seed,team:['fox','turtle','deer'],options:{mode:'pve',...stageOptions('meadow')},player:pol,enemy:'hard',harvest:out});
   }
  }
- const switchTop=rows.length;
- const flipped=rows.filter(r=>r.flipped).length;
- return {switchOpportunities:switchTop,suppressed:flipped,suppressedRate:switchTop?flipped/switchTop:null,
-  meanScoreGivenUp:mean(rows.filter(r=>r.flipped).map(r=>r.loss)),
-  byStreak:Object.fromEntries([...new Set(rows.map(r=>r.streak))].sort().map(s=>[s,{n:rows.filter(r=>r.streak===s).length,suppressed:rows.filter(r=>r.streak===s&&r.flipped).length}]))};
+ return out;
 }
-report.studyD_suppression={shipped:suppressionProbe({penalty:SHIPPED_PENALTY,cap:SHIPPED_CAP}),none:suppressionProbe({penalty:0,cap:1e9}),strong:suppressionProbe({penalty:18,cap:18})};
+const margins=harvestMargins();
+const switchTop=margins.filter(m=>m.topSwitch);
+const flipProb=(penalty,pool)=>pool.length?pool.filter(m=>m.switchMargin<penalty).length/pool.length:null;
+// Confidence interval for a proportion (Wilson 95%).
+function wilson(k,n){if(!n)return null;const z=1.96,p=k/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,h=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;return [Math.max(0,c-h),Math.min(1,c+h)];}
+report.studyD2_switch_attractiveness={
+ harvestedEnemyDecisions:margins.length,
+ statesWithLegalSwitch:margins.filter(m=>m.switchMargin!==null).length,
+ statesWhereSwitchIsRawTop:switchTop.length,
+ switchTopRate:margins.length?switchTop.length/margins.length:null,
+ switchTopRateCI95:wilson(switchTop.length,margins.length),
+ switchOnlyStates:margins.filter(m=>m.otherScore===null).length,
+ marginDistribution:(()=>{const s=switchTop.filter(m=>m.switchMargin!==null).map(m=>m.switchMargin).sort((a,b)=>a-b);return {n:s.length,min:pct(s,0),p25:pct(s,.25),p50:pct(s,.5),p75:pct(s,.75),p90:pct(s,.9),max:pct(s,1)};})(),
+ flipProbabilityGivenSwitchIsTop:Object.fromEntries([3,6,9,12,18,24,36].map(p=>[p,{point:flipProb(p,switchTop.filter(m=>m.switchMargin!==null)),ci95:wilson(switchTop.filter(m=>m.switchMargin!==null&&m.switchMargin<p).length,switchTop.filter(m=>m.switchMargin!==null).length)}])),
+ note:'flipProb[P] = share of states whose raw top pick is a switch that a P-point inertia cost would overturn.'};
 
-// Study E: swift-win threshold sweep on real stage matches (hard + standard difficulty).
+// Study E: swift-win threshold sweep on real stage matches (standard + hard difficulty).
 const swiftRows=[];
-for(const stage of STAGES)for(const diff of ['normal','hard'])for(const pol of ['greedy-damage','one-turn-rank']){
+for(const stage of STAGES)for(const diff of ['normal','hard'])for(const pol of ['greedy-damage','one-turn-rank','rushed']){
  for(const seed of seeds.slice(0,16)){
   swiftRows.push({...playMatch({seed,team:['fox','turtle','deer'],options:{mode:'pve',...stageOptions(stage.id)},player:pol,enemy:diff}),stage:stage.id,diff,pol});
  }
+ log('studyE '+stage.id+' '+diff);
+}
+// A maxed team against the weakest stage: the realistic "speed run" case for the bonus.
+const swiftMaxed=[];
+for(const pol of ['rushed','one-turn-rank','greedy-damage'])for(const seed of seeds){
+ swiftMaxed.push({...playMatch({seed,team:['fox','sparrow','falcon'],options:{pets:trainOptions(TRAINING.L5_full),mode:'pve',...stageOptions('meadow')},player:pol,enemy:'normal'}),pol});
 }
 const THRESHOLDS=[6,8,10,12,14,16,20,25,30,40];
 report.studyE_swift={
  shippedThreshold:SHIPPED_THRESHOLD,
  overallWindow:swiftCurve(swiftRows,THRESHOLDS),
  byStage:Object.fromEntries(STAGES.map(s=>[s.id,swiftCurve(swiftRows.filter(r=>r.stage===s.id),THRESHOLDS)])),
- byPolicy:Object.fromEntries(['greedy-damage','one-turn-rank'].map(p=>[p,swiftCurve(swiftRows.filter(r=>r.pol===p),THRESHOLDS)])),
+ byPolicy:Object.fromEntries(['greedy-damage','one-turn-rank','rushed'].map(p=>[p,swiftCurve(swiftRows.filter(r=>r.pol===p),THRESHOLDS)])),
  byDifficulty:Object.fromEntries(['normal','hard'].map(d=>[d,swiftCurve(swiftRows.filter(r=>r.diff===d),THRESHOLDS)])),
  winRoundDistribution:(()=>{const sorted=swiftRows.filter(r=>r.win).map(r=>r.rounds).sort((a,b)=>a-b);return {n:sorted.length,min:pct(sorted,0),p10:pct(sorted,.1),p25:pct(sorted,.25),p50:pct(sorted,.5),p75:pct(sorted,.75),p90:pct(sorted,.9),max:pct(sorted,1)};})(),
+ fastTeamSample:swiftMaxed.length,
+ fastTeamWinRate:swiftMaxed.filter(r=>r.win).length/swiftMaxed.length,
+ fastTeamOverallWindow:swiftCurve(swiftMaxed,THRESHOLDS),
+ fastTeamWinRounds:(()=>{const s=swiftMaxed.filter(r=>r.win).map(r=>r.rounds).sort((a,b)=>a-b);return {n:s.length,min:pct(s,0),p25:pct(s,.25),p50:pct(s,.5),p75:pct(s,.75),max:pct(s,1)};})(),
  sampledMatches:swiftRows.length};
+log('studyE done');
 
-report.caveats=['Player side is a scripted policy, not a human; absolute win rates are not player win rates.',
- 'Only the enemy uses the inertia cost; the player is never charged it (matches engine.js).',
- 'Match length uses history entries of type turn, exactly like progression.js settle().',
- 'The +1 swift bonus is once per stage, so reachability is only meaningful per stage.'];
+// Token impact of the bonus: a win pays 3 base tokens, the swift bonus adds 1 once per stage.
+report.studyE_swift.tokenImpact=Object.fromEntries(THRESHOLDS.map(T=>{
+ const rate=swiftRows.filter(r=>r.win&&r.rounds<=T).length/(swiftRows.filter(r=>r.win).length||1);
+ return [T,{swiftShareOfWins:rate,tokensPerWin:3+rate,inflationVsBaseWin:+((3+rate)/3-1).toFixed(4)}];
+}));
+
+report.caveats=['Player side is a scripted policy, not a human; absolute win rates are NOT player win rates.',
+ 'Only the enemy is charged the inertia cost; the player never is (matches engine.js).',
+ 'Match length counts history entries of type "turn", exactly like progression.js settle().',
+ 'The +1 swift bonus is once per stage, so reachability is only meaningful per stage.',
+ 'The 5 stages and their enemy levels come from content.js STAGES via stageOptions().'];
 mkdirSync('reports',{recursive:true});
 writeFileSync('reports/balance-calibration.json',JSON.stringify(report,null,2));
 console.log(JSON.stringify({chooserVerification:report.chooserVerification,
- studyD:Object.fromEntries(Object.entries(report.studyD_inertia).map(([k,v])=>[k,{winRate:+v.winRate.toFixed(3),enemySwitchRate:+v.enemySwitchRate.toFixed(3),playerSwitchRate:+v.playerSwitchRate.toFixed(3),meanRounds:+v.meanRounds.toFixed(1)}])),
- suppression:report.studyD_suppression,
+ studyD:Object.fromEntries(Object.entries(report.studyD_inertia).map(([k,v])=>[k,{winRate:+(v.winRate).toFixed(3),enemySwitchRate:+v.enemySwitchRate.toFixed(3),flips:v.penaltyCausedFlips,applied:v.penaltyAppliedDecisions,longestStreak:v.longestEnemySwitchStreakEver}])),
+ d2:report.studyD2_switch_attractiveness,
  swift10:Object.fromEntries(Object.entries(report.studyE_swift.byStage).map(([k,v])=>[k,v[10]])),
- swiftOverall:report.studyE_swift.overallWindow[10],winRoundDistribution:report.studyE_swift.winRoundDistribution},null,2));
+ swiftOverall:report.studyE_swift.overallWindow[10],fastTeam:report.studyE_swift.fastTeamWinRounds,fastTeamWinRate:report.studyE_swift.fastTeamWinRate,
+ winRounds:report.studyE_swift.winRoundDistribution},null,2));
