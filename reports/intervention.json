@@ -1,0 +1,1495 @@
+{
+  "rulesVersion": "0.5",
+  "simulation": "Explicit intervention MDP v2 with novice/skilled/explorer/quiet/favorite personas; simplified player model, NOT human outcomes or LLM training",
+  "trainingEpisodesPerSeed": 6000,
+  "trainingSeeds": [
+    17,
+    71,
+    199
+  ],
+  "validationSeeds": [
+    900000,
+    900099
+  ],
+  "testSeeds": [
+    1000000,
+    1000499
+  ],
+  "parameters": {
+    "alpha": 0.06,
+    "gamma": 0.85,
+    "horizon": 24
+  },
+  "results": [
+    {
+      "trainingSeed": 17,
+      "shift": false,
+      "policy": "none",
+      "n": 500,
+      "return": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      },
+      "hintsPerEpisode": 0,
+      "incrementalHelpfulPerEpisode": 0,
+      "burdenPerEpisode": 0,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 0,
+          "incrementalHelp": 0
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 0
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 0
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4871666666666667,
+      "knowledgeGain": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": false,
+      "policy": "rule",
+      "n": 500,
+      "return": {
+        "mean": -1.1125206338370246,
+        "sd": 3.46204091808648,
+        "ci95HalfWidth": 0.3034612662821043
+      },
+      "hintsPerEpisode": 5.89,
+      "incrementalHelpfulPerEpisode": 1.382,
+      "burdenPerEpisode": 3.493260633837008,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 1137,
+          "incrementalHelp": 240
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 1808,
+          "incrementalHelp": 451
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 2214
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 731
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.49225,
+      "knowledgeGain": {
+        "mean": 0.048370000000000135,
+        "sd": 0.06629013398483562,
+        "ci95HalfWidth": 0.005810586436444328
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": false,
+      "policy": "untrained",
+      "n": 500,
+      "return": {
+        "mean": -0.6686544068541452,
+        "sd": 2.6822187009185385,
+        "ci95HalfWidth": 0.23510683515438116
+      },
+      "hintsPerEpisode": 4.492,
+      "incrementalHelpfulPerEpisode": 1.198,
+      "burdenPerEpisode": 2.317914406854142,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 629,
+          "incrementalHelp": 149
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 653,
+          "incrementalHelp": 162
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 964,
+          "incrementalHelp": 288
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 1872
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 374
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.491,
+      "knowledgeGain": {
+        "mean": 0.04193000000000009,
+        "sd": 0.06273912252327096,
+        "ci95HalfWidth": 0.005499326558180302
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": false,
+      "policy": "q-learning",
+      "n": 500,
+      "return": {
+        "mean": 1.0115014458448734,
+        "sd": 2.2910577307345616,
+        "ci95HalfWidth": 0.20082006439091643
+      },
+      "hintsPerEpisode": 2.318,
+      "incrementalHelpfulPerEpisode": 1.158,
+      "burdenPerEpisode": 0.9455585541551272,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 437,
+          "incrementalHelp": 220
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 722,
+          "incrementalHelp": 359
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 815
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 344
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.49125,
+      "knowledgeGain": {
+        "mean": 0.04053000000000008,
+        "sd": 0.07309689056876248,
+        "ci95HalfWidth": 0.006407224957220153
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": false,
+      "policy": "none",
+      "n": 500,
+      "return": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      },
+      "hintsPerEpisode": 0,
+      "incrementalHelpfulPerEpisode": 0,
+      "burdenPerEpisode": 0,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 0,
+          "incrementalHelp": 0
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 0
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 0
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4871666666666667,
+      "knowledgeGain": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": false,
+      "policy": "rule",
+      "n": 500,
+      "return": {
+        "mean": -1.1125206338370246,
+        "sd": 3.46204091808648,
+        "ci95HalfWidth": 0.3034612662821043
+      },
+      "hintsPerEpisode": 5.89,
+      "incrementalHelpfulPerEpisode": 1.382,
+      "burdenPerEpisode": 3.493260633837008,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 1137,
+          "incrementalHelp": 240
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 1808,
+          "incrementalHelp": 451
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 2214
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 731
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.49225,
+      "knowledgeGain": {
+        "mean": 0.048370000000000135,
+        "sd": 0.06629013398483562,
+        "ci95HalfWidth": 0.005810586436444328
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": false,
+      "policy": "untrained",
+      "n": 500,
+      "return": {
+        "mean": -0.7696696321691054,
+        "sd": 2.776175502601381,
+        "ci95HalfWidth": 0.24334251193842418
+      },
+      "hintsPerEpisode": 4.55,
+      "incrementalHelpfulPerEpisode": 1.164,
+      "burdenPerEpisode": 2.3381496321691055,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 633,
+          "incrementalHelp": 145
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 653,
+          "incrementalHelp": 174
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 989,
+          "incrementalHelp": 263
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 1897
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 378
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.49066666666666664,
+      "knowledgeGain": {
+        "mean": 0.0407400000000001,
+        "sd": 0.06109679235501759,
+        "ci95HalfWidth": 0.005355369971789944
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": false,
+      "policy": "q-learning",
+      "n": 500,
+      "return": {
+        "mean": 1.115817001069359,
+        "sd": 2.3255831001859484,
+        "ci95HalfWidth": 0.20384634645414695
+      },
+      "hintsPerEpisode": 1.704,
+      "incrementalHelpfulPerEpisode": 0.862,
+      "burdenPerEpisode": 0.668522998930644,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 852,
+          "incrementalHelp": 431
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 508
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 344
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.48983333333333334,
+      "knowledgeGain": {
+        "mean": 0.030170000000000058,
+        "sd": 0.05507256189926444,
+        "ci95HalfWidth": 0.004827322890391352
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": false,
+      "policy": "none",
+      "n": 500,
+      "return": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      },
+      "hintsPerEpisode": 0,
+      "incrementalHelpfulPerEpisode": 0,
+      "burdenPerEpisode": 0,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 0,
+          "incrementalHelp": 0
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 0
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 0
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4871666666666667,
+      "knowledgeGain": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": false,
+      "policy": "rule",
+      "n": 500,
+      "return": {
+        "mean": -1.1125206338370246,
+        "sd": 3.46204091808648,
+        "ci95HalfWidth": 0.3034612662821043
+      },
+      "hintsPerEpisode": 5.89,
+      "incrementalHelpfulPerEpisode": 1.382,
+      "burdenPerEpisode": 3.493260633837008,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 1137,
+          "incrementalHelp": 240
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 1808,
+          "incrementalHelp": 451
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 2214
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 731
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.49225,
+      "knowledgeGain": {
+        "mean": 0.048370000000000135,
+        "sd": 0.06629013398483562,
+        "ci95HalfWidth": 0.005810586436444328
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": false,
+      "policy": "untrained",
+      "n": 500,
+      "return": {
+        "mean": -0.6458784244031872,
+        "sd": 2.644102704908546,
+        "ci95HalfWidth": 0.23176582079652974
+      },
+      "hintsPerEpisode": 4.52,
+      "incrementalHelpfulPerEpisode": 1.24,
+      "burdenPerEpisode": 2.324878424403185,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 618,
+          "incrementalHelp": 157
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 658,
+          "incrementalHelp": 177
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 984,
+          "incrementalHelp": 286
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 1883
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 377
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.491,
+      "knowledgeGain": {
+        "mean": 0.043400000000000105,
+        "sd": 0.0650407610749013,
+        "ci95HalfWidth": 0.0057010740724146225
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": false,
+      "policy": "q-learning",
+      "n": 500,
+      "return": {
+        "mean": 1.1324895176443086,
+        "sd": 2.384703954201795,
+        "ci95HalfWidth": 0.20902851779406412
+      },
+      "hintsPerEpisode": 1.978,
+      "incrementalHelpfulPerEpisode": 0.924,
+      "burdenPerEpisode": 0.7801904823556921,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 989,
+          "incrementalHelp": 462
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 508
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 481
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4900833333333333,
+      "knowledgeGain": {
+        "mean": 0.03234000000000006,
+        "sd": 0.055596820168294356,
+        "ci95HalfWidth": 0.0048732761537821885
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": true,
+      "policy": "none",
+      "n": 500,
+      "return": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      },
+      "hintsPerEpisode": 0,
+      "incrementalHelpfulPerEpisode": 0,
+      "burdenPerEpisode": 0,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 0,
+          "incrementalHelp": 0
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 0
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 0
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4871666666666667,
+      "knowledgeGain": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": true,
+      "policy": "rule",
+      "n": 500,
+      "return": {
+        "mean": -2.3296174753777685,
+        "sd": 3.5461266381014966,
+        "ci95HalfWidth": 0.3108317046090155
+      },
+      "hintsPerEpisode": 5.89,
+      "incrementalHelpfulPerEpisode": 1.042,
+      "burdenPerEpisode": 4.0831294753777705,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 1137,
+          "incrementalHelp": 184
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 1808,
+          "incrementalHelp": 337
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 2214
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 731
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4886666666666667,
+      "knowledgeGain": {
+        "mean": 0.018755999999999984,
+        "sd": 0.02665350413294904,
+        "ci95HalfWidth": 0.0023362826455299492
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": true,
+      "policy": "untrained",
+      "n": 500,
+      "return": {
+        "mean": -1.5243538051406087,
+        "sd": 2.9046393469998137,
+        "ci95HalfWidth": 0.25460286437647756
+      },
+      "hintsPerEpisode": 4.492,
+      "incrementalHelpfulPerEpisode": 0.92,
+      "burdenPerEpisode": 2.768273805140603,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 629,
+          "incrementalHelp": 108
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 653,
+          "incrementalHelp": 131
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 964,
+          "incrementalHelp": 221
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 1872
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 374
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.488,
+      "knowledgeGain": {
+        "mean": 0.01655999999999997,
+        "sd": 0.0260209257551362,
+        "ci95HalfWidth": 0.0022808347059776156
+      }
+    },
+    {
+      "trainingSeed": 17,
+      "shift": true,
+      "policy": "q-learning",
+      "n": 500,
+      "return": {
+        "mean": 0.3176850843836554,
+        "sd": 1.581469479468812,
+        "ci95HalfWidth": 0.13862191180899208
+      },
+      "hintsPerEpisode": 2.318,
+      "incrementalHelpfulPerEpisode": 0.902,
+      "burdenPerEpisode": 1.1787869156163469,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 437,
+          "incrementalHelp": 170
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 722,
+          "incrementalHelp": 281
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 815
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 344
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.48833333333333334,
+      "knowledgeGain": {
+        "mean": 0.01623599999999999,
+        "sd": 0.029870802360621798,
+        "ci95HalfWidth": 0.0026182912691358117
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": true,
+      "policy": "none",
+      "n": 500,
+      "return": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      },
+      "hintsPerEpisode": 0,
+      "incrementalHelpfulPerEpisode": 0,
+      "burdenPerEpisode": 0,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 0,
+          "incrementalHelp": 0
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 0
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 0
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4871666666666667,
+      "knowledgeGain": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": true,
+      "policy": "rule",
+      "n": 500,
+      "return": {
+        "mean": -2.3296174753777685,
+        "sd": 3.5461266381014966,
+        "ci95HalfWidth": 0.3108317046090155
+      },
+      "hintsPerEpisode": 5.89,
+      "incrementalHelpfulPerEpisode": 1.042,
+      "burdenPerEpisode": 4.0831294753777705,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 1137,
+          "incrementalHelp": 184
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 1808,
+          "incrementalHelp": 337
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 2214
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 731
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4886666666666667,
+      "knowledgeGain": {
+        "mean": 0.018755999999999984,
+        "sd": 0.02665350413294904,
+        "ci95HalfWidth": 0.0023362826455299492
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": true,
+      "policy": "untrained",
+      "n": 500,
+      "return": {
+        "mean": -1.6792307241268303,
+        "sd": 2.975565440177322,
+        "ci95HalfWidth": 0.2608198105528346
+      },
+      "hintsPerEpisode": 4.55,
+      "incrementalHelpfulPerEpisode": 0.868,
+      "burdenPerEpisode": 2.7938787241268206,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 633,
+          "incrementalHelp": 119
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 653,
+          "incrementalHelp": 124
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 989,
+          "incrementalHelp": 191
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 1897
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 378
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4885833333333333,
+      "knowledgeGain": {
+        "mean": 0.015623999999999978,
+        "sd": 0.025293202965074757,
+        "ci95HalfWidth": 0.0022170469909853704
+      }
+    },
+    {
+      "trainingSeed": 71,
+      "shift": true,
+      "policy": "q-learning",
+      "n": 500,
+      "return": {
+        "mean": 0.5810322508020196,
+        "sd": 1.696097561105122,
+        "ci95HalfWidth": 0.14866950616962413
+      },
+      "hintsPerEpisode": 1.704,
+      "incrementalHelpfulPerEpisode": 0.698,
+      "burdenPerEpisode": 0.8400957491979824,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 852,
+          "incrementalHelp": 349
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 508
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 344
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4880833333333333,
+      "knowledgeGain": {
+        "mean": 0.012563999999999995,
+        "sd": 0.02397681545490802,
+        "ci95HalfWidth": 0.0021016605382527614
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": true,
+      "policy": "none",
+      "n": 500,
+      "return": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      },
+      "hintsPerEpisode": 0,
+      "incrementalHelpfulPerEpisode": 0,
+      "burdenPerEpisode": 0,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 0,
+          "incrementalHelp": 0
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 0
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 0
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4871666666666667,
+      "knowledgeGain": {
+        "mean": 0,
+        "sd": 0,
+        "ci95HalfWidth": 0
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": true,
+      "policy": "rule",
+      "n": 500,
+      "return": {
+        "mean": -2.3296174753777685,
+        "sd": 3.5461266381014966,
+        "ci95HalfWidth": 0.3108317046090155
+      },
+      "hintsPerEpisode": 5.89,
+      "incrementalHelpfulPerEpisode": 1.042,
+      "burdenPerEpisode": 4.0831294753777705,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 1137,
+          "incrementalHelp": 184
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 1808,
+          "incrementalHelp": 337
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 2214
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 731
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4886666666666667,
+      "knowledgeGain": {
+        "mean": 0.018755999999999984,
+        "sd": 0.02665350413294904,
+        "ci95HalfWidth": 0.0023362826455299492
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": true,
+      "policy": "untrained",
+      "n": 500,
+      "return": {
+        "mean": -1.5262658183023907,
+        "sd": 2.828184447551465,
+        "ci95HalfWidth": 0.24790129696320437
+      },
+      "hintsPerEpisode": 4.52,
+      "incrementalHelpfulPerEpisode": 0.942,
+      "burdenPerEpisode": 2.7787778183023812,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 618,
+          "incrementalHelp": 121
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 658,
+          "incrementalHelp": 127
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 984,
+          "incrementalHelp": 223
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 1883
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 377
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.48833333333333334,
+      "knowledgeGain": {
+        "mean": 0.01695599999999997,
+        "sd": 0.0264971368362894,
+        "ci95HalfWidth": 0.002322576447662227
+      }
+    },
+    {
+      "trainingSeed": 199,
+      "shift": true,
+      "policy": "q-learning",
+      "n": 500,
+      "return": {
+        "mean": 0.5238601382332314,
+        "sd": 1.782848705605643,
+        "ci95HalfWidth": 0.15627357925380372
+      },
+      "hintsPerEpisode": 1.978,
+      "incrementalHelpfulPerEpisode": 0.738,
+      "burdenPerEpisode": 0.9787078617667718,
+      "violations": 0,
+      "byRisk": {
+        "0": {
+          "decisions": 3847,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "1": {
+          "decisions": 4107,
+          "hints": 0,
+          "incrementalHelp": 0
+        },
+        "2": {
+          "decisions": 4046,
+          "hints": 989,
+          "incrementalHelp": 369
+        }
+      },
+      "byPreference": {
+        "gentle": {
+          "episodes": 198,
+          "hints": 508
+        },
+        "critical": {
+          "episodes": 104,
+          "hints": 481
+        },
+        "quiet": {
+          "episodes": 198,
+          "hints": 0
+        }
+      },
+      "independentBaseAccuracy": 0.4880833333333333,
+      "knowledgeGain": {
+        "mean": 0.013283999999999994,
+        "sd": 0.02404820109596358,
+        "ci95HalfWidth": 0.0021079177655766524
+      }
+    }
+  ],
+  "curves": [
+    {
+      "seed": 17,
+      "episodes": 500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 17,
+      "episodes": 1000,
+      "validationReturn": 0.5972750352830254
+    },
+    {
+      "seed": 17,
+      "episodes": 1500,
+      "validationReturn": 0.5847663026711161
+    },
+    {
+      "seed": 17,
+      "episodes": 2000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 17,
+      "episodes": 2500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 17,
+      "episodes": 3000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 17,
+      "episodes": 3500,
+      "validationReturn": 0.5539878475491518
+    },
+    {
+      "seed": 17,
+      "episodes": 4000,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 17,
+      "episodes": 4500,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 17,
+      "episodes": 5000,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 17,
+      "episodes": 5500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 17,
+      "episodes": 6000,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 71,
+      "episodes": 500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 1000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 1500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 2000,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 71,
+      "episodes": 2500,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 71,
+      "episodes": 3000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 3500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 4000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 4500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 5000,
+      "validationReturn": 0.5972750352830254
+    },
+    {
+      "seed": 71,
+      "episodes": 5500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 71,
+      "episodes": 6000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 199,
+      "episodes": 500,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 199,
+      "episodes": 1000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 199,
+      "episodes": 1500,
+      "validationReturn": 0.5972750352830254
+    },
+    {
+      "seed": 199,
+      "episodes": 2000,
+      "validationReturn": 0.5539878475491518
+    },
+    {
+      "seed": 199,
+      "episodes": 2500,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 199,
+      "episodes": 3000,
+      "validationReturn": 0.5865970641313123
+    },
+    {
+      "seed": 199,
+      "episodes": 3500,
+      "validationReturn": 0.5573901609298588
+    },
+    {
+      "seed": 199,
+      "episodes": 4000,
+      "validationReturn": 0.5865970641313123
+    },
+    {
+      "seed": 199,
+      "episodes": 4500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 199,
+      "episodes": 5000,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 199,
+      "episodes": 5500,
+      "validationReturn": 0.6006773486637325
+    },
+    {
+      "seed": 199,
+      "episodes": 6000,
+      "validationReturn": 0.6006773486637325
+    }
+  ],
+  "rewardAudits": {
+    "always": {
+      "n": 500,
+      "meanReturn": -2.2197278611027103,
+      "violations": 9001,
+      "alreadyCorrectHints": 1497,
+      "incrementalHelpful": 606,
+      "falseAttribution": 0
+    },
+    "never": {
+      "n": 500,
+      "meanReturn": 0,
+      "violations": 0,
+      "alreadyCorrectHints": 0,
+      "incrementalHelpful": 0,
+      "falseAttribution": 0
+    },
+    "skillOnly": {
+      "n": 500,
+      "meanReturn": -0.8892186923880429,
+      "violations": 1650,
+      "alreadyCorrectHints": 689,
+      "incrementalHelpful": 36,
+      "falseAttribution": 0
+    },
+    "riskOnly": {
+      "n": 500,
+      "meanReturn": 0.7294552344169093,
+      "violations": 1957,
+      "alreadyCorrectHints": 990,
+      "incrementalHelpful": 600,
+      "falseAttribution": 0
+    }
+  },
+  "trajectoryFiles": {
+    "train": "reports/intervention-training.jsonl.gz",
+    "validation": "reports/intervention-validation.jsonl.gz",
+    "test": "reports/intervention-evaluation.jsonl.gz",
+    "format": "gzip concatenated JSONL; complete episodes with state/action/reward/next and Q updates for training"
+  }
+}

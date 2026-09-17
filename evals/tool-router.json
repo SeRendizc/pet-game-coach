@@ -1,0 +1,200 @@
+{
+  "train": [
+    [
+      "How much health does my fox have now?",
+      0
+    ],
+    [
+      "Which pet is currently active?",
+      0
+    ],
+    [
+      "How many healing potions remain?",
+      0
+    ],
+    [
+      "What energy does the enemy have right now?",
+      0
+    ],
+    [
+      "Which of my partners are still alive?",
+      0
+    ],
+    [
+      "Is my turtle poisoned at this moment?",
+      0
+    ],
+    [
+      "Who is my opponent on the field?",
+      0
+    ],
+    [
+      "What is the current turn number?",
+      0
+    ],
+    [
+      "How much HP has the deer left?",
+      0
+    ],
+    [
+      "Does my active pet have enough beans right now?",
+      0
+    ],
+    [
+      "Show the current team health.",
+      0
+    ],
+    [
+      "Is the match over already?",
+      0
+    ],
+    [
+      "Does switching use the whole turn?",
+      1
+    ],
+    [
+      "Does a benched pet regenerate energy?",
+      1
+    ],
+    [
+      "What does burn do?",
+      1
+    ],
+    [
+      "Which element counters water?",
+      1
+    ],
+    [
+      "How is damage calculated?",
+      1
+    ],
+    [
+      "What happens if speeds are equal?",
+      1
+    ],
+    [
+      "Can guard be used twice in a row?",
+      1
+    ],
+    [
+      "How does the healing item work?",
+      1
+    ],
+    [
+      "Does poison tick while benched?",
+      1
+    ],
+    [
+      "What determines action priority?",
+      1
+    ],
+    [
+      "How does forced replacement work?",
+      1
+    ],
+    [
+      "Does switching remove a status effect?",
+      1
+    ]
+  ],
+  "validation": [
+    [
+      "Tell me the remaining HP of every teammate.",
+      0
+    ],
+    [
+      "How many energy fruits are in my bag?",
+      0
+    ],
+    [
+      "Is my current enemy still burning?",
+      0
+    ],
+    [
+      "Are there living reserves on my side?",
+      0
+    ],
+    [
+      "Explain the rule for speed ties.",
+      1
+    ],
+    [
+      "When is energy restored each round?",
+      1
+    ],
+    [
+      "What is the cost of voluntary switching?",
+      1
+    ],
+    [
+      "Which attacks pierce guarding?",
+      1
+    ]
+  ],
+  "test": [
+    [
+      "Read the health bar of the pet fighting for me.",
+      0
+    ],
+    [
+      "Count my unused medicine in this battle.",
+      0
+    ],
+    [
+      "Check whether the enemy has zero energy.",
+      0
+    ],
+    [
+      "Identify the animal presently facing me.",
+      0
+    ],
+    [
+      "List my knocked-out companions.",
+      0
+    ],
+    [
+      "Check my team before recommending a replacement.",
+      0
+    ],
+    [
+      "What status is attached to my current companion?",
+      0
+    ],
+    [
+      "Tell me which round we have reached.",
+      0
+    ],
+    [
+      "I do not understand why an item goes before a quick pet.",
+      1
+    ],
+    [
+      "Explain how elemental resistance changes a hit.",
+      1
+    ],
+    [
+      "Can I attack immediately after a voluntary swap?",
+      1
+    ],
+    [
+      "What are the rules for poison on a reserve?",
+      1
+    ],
+    [
+      "Describe the effect of using guard.",
+      1
+    ],
+    [
+      "What does the cleanse item remove?",
+      1
+    ],
+    [
+      "Explain how recoil is resolved.",
+      1
+    ],
+    [
+      "Is a replacement after a knockout a normal turn?",
+      1
+    ]
+  ]
+}

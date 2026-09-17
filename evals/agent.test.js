@@ -1,0 +1,233 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {freshMemory,rememberDecision,recordCoachEvent,adaptiveGate,deleteMemoryEvidence,readMemory} from '../coach/memory.js';
+import {assembleContext,buildContext,gatherAgentEvidence} from '../coach/runtime.js';
+import {newProfile} from '../progression.js';
+import {createGame} from '../engine.js';
+import {searchKnowledge,verifyCitations,resolveCitation} from '../coach/strategist.js';
+import {initial,episode,greedy,permitted} from '../training/intervention.js';
+import {readFileSync} from 'node:fs';
+test('three independent receipts reduce routine coaching; helped actions do not prove mastery',()=>{
+ let m=freshMemory();for(let i=1;i<=3;i++)m=rememberDecision(m,{matchId:'a',turn:i,lesson:'能量管理',reasonable:true,prompted:true,scoreGap:0,rulesVersion:'0.6'});
+ assert.equal(m.reflections['能量管理'],undefined);
+ for(let i=4;i<=6;i++)m=rememberDecision(m,{matchId:'a',turn:i,lesson:'能量管理',reasonable:true,prompted:false,scoreGap:0,rulesVersion:'0.6'});
+ assert.equal(adaptiveGate(m,{lesson:'能量管理'}).allow,false);
+ assert.equal(adaptiveGate(m,{lesson:'能量管理',risk:true}).allow,true);
+ assert.equal(adaptiveGate(m,{lesson:'能量管理',risk:true,mode:'quiet'}).allow,false);
+ const id=m.reflections['能量管理'].evidenceIds[0];m=deleteMemoryEvidence(m,id);assert.equal(m.reflections['能量管理'],undefined);
+ assert.equal(readMemory(JSON.stringify(m)).journal.length,5);
+});
+test('dismissals persist with source and suppress only routine reminders',()=>{
+ let m=freshMemory();for(let i=0;i<2;i++)m=recordCoachEvent(m,{id:'dismiss:'+i,matchId:'m'+i,turn:1,kind:'dismiss'});
+ assert.equal(adaptiveGate(m,{}).reason,'recent-dismissals');assert.equal(adaptiveGate(m,{risk:true}).allow,true);
+ assert.equal(adaptiveGate(freshMemory(),{}).allow,true);
+});
+test('32K assembly handles huge history, preserves exact current facts and does not mutate archive',()=>{
+ const context=buildContext(createGame(17),newProfile(),'fox');const memory=freshMemory();memory.preference='brief';
+ memory.dialogue=Array.from({length:1000},()=>({role:'user',content:'历史'.repeat(1000)}));
+ const p={message:'这回合怎么打',role:'auto',context,memory,conversation:memory.dialogue};const out=assembleContext(p);
+ assert(out.audit.estimatedInput<=32768-512-4096-2048);assert.equal(out.payload.memory.preference,'brief');
+ assert.deepEqual(out.payload.context.battle.player,p.context.battle.player);assert.equal(p.memory.dialogue.length,1000);
+ assert.throws(()=>assembleContext({...p,message:'x'.repeat(40000)}),/超过上下文预算/);
+});
+test('RAG citations fail closed on deleted IDs and wrong rules version; applicability is explicit',()=>{
+ assert.equal(verifyCitations(['tactic:invented']).valid,false);assert.equal(resolveCitation('tactic:burn-combo','0.1'),null);
+ const g=createGame(17),r=searchKnowledge('灼烧 追猎',{game:g,budget:6000});const c=r.cards.find(c=>c.id==='tactic:burn-combo');
+ assert(c);assert.equal(c.applicability.status,'conditions-not-met');g.enemy.pets[g.enemy.active].status={kind:'burn',remaining:1};
+ assert.equal(searchKnowledge('灼烧 追猎',{game:g,budget:6000}).cards.find(c=>c.id==='tactic:burn-combo').applicability.status,'candidate');
+});
+test('trained policy obeys hard constraints on all state combinations and differs from zero initialization',()=>{
+ const p=JSON.parse(readFileSync(new URL('../checkpoints/intervention-policy.json',import.meta.url)));
+ assert(Object.values(p.table).some(v=>v.some(x=>x!==0)));let cues=0;
+ for(const preference of ['gentle','critical','quiet'])for(let risk=0;risk<3;risk++)for(let skill=0;skill<3;skill++)for(let confidence=0;confidence<2;confidence++)for(let fatigue=0;fatigue<=5;fatigue++){
+  const s={preference,risk,skill,confidence,fatigue},a=greedy(p.table,s);assert(permitted(s,a));cues+=a;
+ }assert(cues>0);
+});
+test('paired simulator does not credit hints for actions already correct without coaching',()=>{
+ const a=episode(1000001,()=>0),b=episode(1000001,s=>Number(permitted(s,1)));
+ for(const row of b.rows)assert(!row.helpful||!row.untreatedCorrect);
+ assert.equal(a.rows.length,24);assert.equal(a.rows.reduce((n,x)=>n+x.shown,0),0);
+});
+
+import {checkGroundedAnswer,fitModelMessages} from '../coach/runtime.js';
+test('unsupported numeric claims and certainty are rejected while grounded comparisons pass',()=>{
+ assert.equal(checkGroundedAnswer({text:'潮汐造成38伤害，对方31HP。',evidence:['计算38，HP31']}).valid,true);
+ assert.equal(checkGroundedAnswer({text:'潮汐必胜，造成999伤害。',evidence:['计算38']}).valid,false);
+ assert.equal(checkGroundedAnswer({text:'看 tactic:invented',knowledge:[]}).valid,false);
+ assert.throws(()=>fitModelMessages([{role:'system',content:'rules'},{role:'user',content:'x'.repeat(40000)}]),/预算/);
+});
+
+import {runCoach} from '../coach/runtime.js';import {watchCandidate} from '../coach/experience.js';import {makeQuiz,teacher} from '../coach/teacher.js';
+test('watch registration is bounded, cancelled explicitly, and never crosses matches or PVP',async()=>{
+ const g={...createGame(17),id:'watch-game'},context=buildContext(g,newProfile(),'fox');
+ const a=await runCoach({message:'豆不够时提醒我',context,memory:freshMemory()});assert.equal(a.memory.watches.length,1);assert.equal(a.memory.watches[0].expiresTurn,11);
+ g.player.pets[0].energy=1;assert(watchCandidate(g,a.memory.watches));assert.equal(watchCandidate({...g,id:'other'},a.memory.watches),null);assert.equal(watchCandidate({...g,mode:'pvp-live'},a.memory.watches),null);
+ assert.equal((await runCoach({message:'取消提醒',context,memory:a.memory})).memory.watches.length,0);
+});
+test('parametric practice includes faster, slower and ties with engine-aligned answers',()=>{
+ const context=buildContext(null,newProfile(),'sparrow');const answers=[0,1,2].map(variant=>makeQuiz(context,{variant}).answer);assert.deepEqual(answers,['先','后','不确定']);
+});
+
+test('watch clarification does not inherit previous review topic',async()=>{
+ const context=buildContext({...createGame(17),id:'fresh-match'},newProfile(),'fox');
+ const a=await runCoach({message:'收尾时提醒我',context,memory:{...freshMemory(),lastTopic:'review'}});
+ assert.equal(a.memory.lastTopic,'watch');const b=await runCoach({message:'？',context,memory:a.memory});assert.match(b.text,/委托只在当前对局/);
+});
+
+import {readArchive,archiveRound} from '../coach/experience.js';import {step} from '../engine.js';import {summarizeMatch} from '../coach/teacher.js';
+test('corrupt archive fails closed and old rules never receive current-rule counterfactuals',()=>{
+ assert.equal(readArchive('{broken'),null);assert.equal(readArchive('{}'),null);
+ const g={...step(createGame(17),{kind:'skill',id:'ember'}),id:'archive-test'};const a=archiveRound(g);assert.equal(readArchive(JSON.stringify(a)).current.id,g.id);
+ const broken=structuredClone(a);broken.current.history='invalid';assert.equal(readArchive(broken).current,null);
+ const old=summarizeMatch({...g,version:'0.1'});assert.match(old.keyTurns[0].analysis,/版本.*不匹配/);
+});
+
+import {compareTurnAlternatives} from '../coach/teacher.js';
+test('review alternatives use the decision snapshot and never the actual future enemy action',()=>{
+ const g=step(createGame(17),{kind:'skill',id:'ember'}),h=g.history.find(h=>h.type==='turn'),original=JSON.stringify(h);
+ const a=compareTurnAlternatives(h);assert(a.rows.length===2);assert(a.rows.every(x=>Number.isFinite(x.expected)&&Number.isFinite(x.worst)));
+ const changed=structuredClone(h);changed.opponent={kind:'escape'};changed.after.enemy.pets[0].hp=0;
+ assert.deepEqual(compareTurnAlternatives(changed),a);assert.equal(JSON.stringify(h),original);
+});
+
+import {taskStamp,taskIsCurrent} from '../coach/experience.js';
+test('slow results cannot cross an action, match, rules version or expiry boundary',async()=>{
+ const stamp=taskStamp({epoch:1,matchId:'m',now:0,ttl:20});let epoch=1;const result=Promise.resolve().then(()=>taskIsCurrent(stamp,{epoch,matchId:'m',now:5}));epoch=2;assert.equal(await result,false);
+ assert.equal(taskIsCurrent(stamp,{epoch:1,matchId:'other',now:1}),false);
+ assert.equal(taskIsCurrent(stamp,{epoch:1,matchId:'m',rulesVersion:'0.7',now:1}),false);
+ assert.equal(taskIsCurrent(stamp,{epoch:1,matchId:'m',now:21}),false);
+ assert.equal(taskIsCurrent(stamp,{epoch:1,matchId:'m',now:10}),true);
+});
+
+import {requestCoach} from '../coach/client.js';
+test('invalid model numbers and network errors fall back with the original state token',async()=>{
+ const original=globalThis.fetch;const payload={message:'这回合怎么打',role:'auto',context:buildContext(createGame(17),newProfile(),'fox'),memory:freshMemory(),stateToken:42};
+ try{
+ globalThis.fetch=async url=>({ok:true,json:async()=>String(url).includes('bootstrap')?{csrf:'test-only'}:{provider:'deepseek',text:'造成99999伤害，必胜',evidence:['实际伤害38'],memory:freshMemory(),stateToken:42}});
+ const a=await requestCoach(payload);assert.equal(a.provider,'local-fallback');assert.equal(a.stateToken,42);assert(!a.text.includes('99999'));
+ globalThis.fetch=async()=>{throw Error('test network failure');};const b=await requestCoach(payload);assert.equal(b.provider,'local-fallback');assert.equal(b.stateToken,42);
+ }finally{globalThis.fetch=original;}
+});
+
+test('direct skill facts use generated engine knowledge and preserve follow-up evidence',async()=>{
+ const context=buildContext(null,newProfile(),'sparrow');const a=await runCoach({message:'蓄能放电消耗多少豆',context,memory:freshMemory()});
+ assert.equal(a.verified,true);assert.match(a.text,/消耗4豆/);assert.match(a.text,/基础威力40/);
+ const b=await runCoach({message:'为什么',context,memory:readMemory(JSON.stringify(a.memory))});assert.match(b.text,/蓄能放电/);assert(!b.text.includes('我在。'));
+});
+
+import {legalActions} from '../engine.js';
+function lossFixture(){let g=createGame(7,undefined,{difficulty:'normal'});g.id='loss-regression';for(let n=0;n<100&&!g.result;n++){const actions=legalActions(g);g=step(g,actions.find(a=>a.kind==='skill'&&a.id!=='guard')||actions.find(a=>a.kind==='switch')||actions[0]);}return g;}
+test('colloquial help at replacement sees public state and ranks only living reserves',async()=>{
+ const g=createGame(2);g.id='faint';g.player.pets[0].hp=0;g.phase='replace';let seen;
+ const a=await runCoach({message:'damn咋办',context:buildContext(g,newProfile(),'fox'),memory:freshMemory(),provider:{name:'fake',async generate(packet){seen=packet;return '还有队友在，先比较补位。';}}});
+ assert.equal(a.route,'strategist');assert.equal(seen.publicState.player.pets[0].hp,0);assert.equal(seen.actions.length,2);assert(seen.actions.every(a=>a.target!==0));assert.match(seen.text,/补位免费/);assert(!seen.text.includes('发我'));
+});
+test('analysis after a match invokes model with whole-match evidence rather than canned companion reply',async()=>{
+ const g=lossFixture();assert(g.result);let seen;
+ const a=await runCoach({message:'分析',context:buildContext(g,newProfile(),'fox'),memory:freshMemory(),provider:{name:'fake',async generate(packet){seen=packet;return '先看这局的资源使用，再选一个回合重练。';}}});
+ assert.equal(a.provider,'fake');assert.equal(a.scope,'match');assert.equal(a.localOnly,false);assert.equal(seen.textFacts.rounds,g.history.filter(h=>h.type==='turn').length);assert(seen.evidence.length>1);
+});
+test('context assembly retains the just-finished turn for colloquial battle questions',()=>{
+ const g=step(createGame(12),{kind:'skill',id:'ember'});const context=buildContext(g,newProfile(),'fox');
+ const a=assembleContext({message:'咋办',role:'auto',context,memory:freshMemory()});assert.deepEqual(a.payload.context.lastTurn,context.lastTurn);
+});
+test('model length fallback never claims the template was generated by DeepSeek',async()=>{
+ const a=await runCoach({message:'分析',context:buildContext(lossFixture(),newProfile(),'fox'),memory:freshMemory(),provider:{name:'deepseek',async generate(){return '废话'.repeat(400);}}});
+ assert.equal(a.provider,'local-fallback');assert.match(a.fallbackReason,/过长/);assert.equal(a.scope,'match');
+});
+test('client sends whole-match requests to connected backend instead of intercepting review topic',async t=>{
+ const previous=globalThis.fetch;t.after(()=>globalThis.fetch=previous);let posted=false;
+ globalThis.fetch=async(url,opts)=>{if(String(url).includes('bootstrap'))return {ok:true,json:async()=>({csrf:'test',configured:true})};posted=true;const p=JSON.parse(opts.body);assert(p.context.lastMatch);return {ok:true,json:async()=>({text:'先看整局的资源安排。',evidence:[],provider:'deepseek',memory:freshMemory(),stateToken:p.stateToken})};};
+ const {connectionStatus,requestCoach}=await import('../coach/client.js');await connectionStatus();
+ const a=await requestCoach({message:'整局复盘',role:'auto',context:buildContext(lossFixture(),newProfile(),'fox'),memory:freshMemory(),stateToken:'match'});assert(posted);assert.equal(a.provider,'deepseek');
+});
+
+test('automatic and manual requests share a queue rather than forcing a busy fallback',async t=>{
+ const previous=globalThis.fetch;t.after(()=>globalThis.fetch=previous);let active=0,max=0;
+ globalThis.fetch=async(url,opts)=>{if(String(url).includes('bootstrap'))return {ok:true,json:async()=>({csrf:'test',configured:true})};active++;max=Math.max(max,active);await new Promise(r=>setTimeout(r,10));active--;const p=JSON.parse(opts.body);return {ok:true,json:async()=>({text:'先比较当前的合法行动。',evidence:[],provider:'deepseek',memory:freshMemory(),stateToken:p.stateToken})};};
+ const {connectionStatus,requestCoach}=await import('../coach/client.js');await connectionStatus();const payload={message:'这回合怎么打',role:'auto',context:buildContext(createGame(),newProfile(),'fox'),memory:freshMemory(),stateToken:1};
+ const answers=await Promise.all([requestCoach(payload),requestCoach(payload)]);assert.equal(max,1);assert(answers.every(a=>a.provider==='deepseek'));
+});
+
+test('five energy must not be described as full energy',()=>{
+ const g=createGame();assert.equal(g.player.pets[2].energy,5);
+ assert.equal(checkGroundedAnswer({text:'推荐芽角鹿：它108HP满豆。',publicState:g,evidence:['108HP']}).valid,false);
+ g.player.pets[2].energy=6;assert.equal(checkGroundedAnswer({text:'推荐芽角鹿：它108HP满豆。',publicState:g,evidence:['108HP']}).valid,true);
+});
+
+import {MATCH_REVIEW_REQUEST} from '../coach/runtime.js';
+test('automatic review prompt stays whole-match even when its instructions mention single-turn scores',async()=>{
+ const g=lossFixture();const a=await runCoach({message:MATCH_REVIEW_REQUEST,role:'teacher',context:buildContext(g,newProfile(),'fox',null,'meadow',MATCH_REVIEW_REQUEST),memory:freshMemory(),provider:{name:'fake',async generate(p){assert.equal(p.scope,'match');assert(p.textFacts.rounds>1);return '整局的一个具体改进点。';}}});assert.equal(a.scope,'match');
+});
+
+test('numeric guard normalizes decimal formatting without dropping sign',()=>{
+ assert.equal(checkGroundedAnswer({text:'评分-157',evidence:['评分-157.0']}).valid,true);
+ assert.equal(checkGroundedAnswer({text:'评分157',evidence:['评分-157.0']}).valid,false);
+});
+
+
+test('match grounding rejects damage assigned to an explicitly cancelled turn',()=>{
+ const facts={keyTurns:[{turn:5,playerActionCancelled:true,events:['你的宠物已倒下，原定行动取消。']}]};
+ assert.equal(checkGroundedAnswer({text:'第5回合潮甲龟撞22，对方82血。',textFacts:facts,evidence:['22,82']}).valid,false);
+ assert.equal(checkGroundedAnswer({text:'第5回合潮甲龟没能出招，原定行动取消。',textFacts:facts}).valid,true);
+ assert.equal(checkGroundedAnswer({text:'第4回合潮甲龟撞22，对方82血。',textFacts:facts,evidence:['4,22,82']}).valid,true);
+});
+
+
+test('generation instructions are not saved as the player message',async t=>{
+ const previous=globalThis.fetch;t.after(()=>globalThis.fetch=previous);
+ globalThis.fetch=async(url,opts)=>{if(String(url).includes('bootstrap'))return {ok:true,json:async()=>({csrf:'test',configured:true})};const p=JSON.parse(opts.body);return {ok:true,json:async()=>({text:'先比较当前的合法行动。',evidence:[],provider:'deepseek',memory:{...freshMemory(),dialogue:[{role:'user',content:p.message}]},stateToken:p.stateToken})};};
+ const {connectionStatus,requestCoach}=await import('../coach/client.js');await connectionStatus();
+ const a=await requestCoach({message:'分析',role:'auto',context:buildContext(lossFixture(),newProfile(),'fox'),memory:freshMemory(),stateToken:1});assert.equal(a.memory.dialogue[0].content,'分析');
+});
+
+import {CoachScheduler} from '../coach/scheduler.js';
+test('state invalidation aborts active work and discards queued old requests',async()=>{
+ const scheduler=new CoachScheduler();let calls=0,started;
+ const ready=new Promise(r=>started=r);
+ const active=scheduler.run('old',signal=>new Promise((resolve,reject)=>{calls++;started();signal.addEventListener('abort',()=>reject(new DOMException('cancelled','AbortError')));}));
+ const queued=scheduler.run('queued',async()=>{calls++;return 'stale';});
+ const settled=Promise.allSettled([active,queued]);await ready;scheduler.invalidate();
+ assert((await settled).every(x=>x.status==='rejected'));assert.equal(calls,1);
+ assert.equal(await scheduler.run('new',async()=>{calls++;return 'fresh';}),'fresh');
+});
+test('same-state requests merge, cache clones, and epoch clears cache',async()=>{
+ const s=new CoachScheduler();let calls=0;const work=async()=>{calls++;return {text:'current'};};
+ const [a,b]=await Promise.all([s.run('a',work,{cache:true}),s.run('a',work,{cache:true})]);a.text='changed';assert.equal(b.text,'current');assert.equal(calls,1);
+ assert.equal((await s.run('a',work,{cache:true})).text,'current');assert.equal(calls,1);s.invalidate();await s.run('a',work,{cache:true});assert.equal(calls,2);
+});
+
+import {executeTool,validToolArgs} from '../coach/toolbox.js';
+test('tool contracts reject unknown parameters and return bounded evidence pages',()=>{
+ const context=buildContext(lossFixture(),newProfile(),'fox');
+ assert.equal(validToolArgs('read_match',{limit:100}),false);assert.equal(validToolArgs('read_state',{url:'https://evil'}),false);
+ const p=executeTool('read_match',{limit:1},context);assert.equal(p.keyTurns.length,1);assert.equal(p.nextOffset,1);
+ const e=executeTool('read_evidence',{turn:1},context);assert(e.events.length);assert.equal(e.turn,1);
+ assert.equal(executeTool('read_evidence',{turn:999},context).missing,true);
+ assert.throws(()=>executeTool('read_state',{}, {...context,mode:'pvp-live'}),/policy/);
+});
+test('branch simulation covers both tie orders without mutation or hidden seed dependence',()=>{
+ const g=createGame(12),context=buildContext(g,newProfile(),'fox'),before=JSON.stringify(context);
+ const a=executeTool('simulate_branch',{actionIndex:0,opponentIndex:0},context);assert.equal(a.branches.length,2);assert.equal(JSON.stringify(context),before);
+ context.battle.seed=987;assert.deepEqual(executeTool('simulate_branch',{actionIndex:0,opponentIndex:0},context),a);
+});
+
+test('training preserves scarce resources for an explicitly preferred partner',()=>{
+ const p=newProfile();p.tokens=2;
+ const a=teacher({...buildContext(null,p,'turtle'),favorite:'fox',goal:'速攻'});
+ assert.match(a.headline,/先留给.*烬尾狐/);assert.match(a.reason,/不急/);assert.equal(p.tokens,2);
+});
+
+import {transferAssessment,coachSelfAudit} from '../coach/memory.js';
+test('transfer assessment excludes prompted actions and requires different matches and situations',()=>{
+ let m=freshMemory();for(let i=0;i<4;i++)m=rememberDecision(m,{matchId:'m'+(i%2),turn:i,lesson:'速度',reasonable:true,prompted:i===0,caseKey:i%2?'fox:turtle':'deer:lion'});
+ assert.equal(transferAssessment(m,'速度').independentAttempts,3);assert.match(transferAssessment(m,'速度').status,/迁移迹象/);
+ const single=structuredClone(m);single.journal.forEach(e=>e.matchId='one');assert.match(transferAssessment(single,'速度').status,/不足/);
+ assert.equal(transferAssessment(m,'速度').causalClaim,false);assert.equal(coachSelfAudit(m).confidence,.2);
+});
+
+test('guard binds remaining HP to after snapshot and rejects observing simultaneous opponent action first',()=>{
+ const base={text:'第15回合芽角鹿撞22，苔盾菇还剩124血。',textFacts:{keyTurns:[{turn:15,hpBefore:[{name:'苔盾菇',hp:124}],hpAfter:[{name:'苔盾菇',hp:102}]}]},evidence:['22']};
+ assert(checkGroundedAnswer(base).reasons.some(x=>x.startsWith('after-hp-mismatch')));
+ assert(!checkGroundedAnswer({...base,text:'第15回合芽角鹿撞22，苔盾菇还剩102血。'}).reasons.some(x=>x.startsWith('after-hp-mismatch')));
+ assert(checkGroundedAnswer({text:'上场后先看它出招，再决定守或吸。'}).reasons.includes('simultaneous-action-order'));
+});

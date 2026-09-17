@@ -1,0 +1,12 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {SKILLS,SPECIES,TYPES,TYPE_ADVANTAGES,createGame} from '../engine.js';
+const source=new URL('../knowledge/tactics.json',import.meta.url),target=new URL('../content.js',import.meta.url);
+const cards=JSON.parse(readFileSync(source,'utf8'));
+if(new Set(cards.map(c=>c.id)).size!==cards.length)throw Error('Duplicate knowledge ID');
+const version=createGame().version;
+const base={game:'pet-coach',rulesVersion:version,status:'active',requiredEvidence:'当前公开面板、合法行动及规则版本',authority:['engine.js'],inspiration:['local-design'],conditions:['battle']};
+const reference=[...Object.entries(SKILLS).map(([id,s])=>({...base,id:'rule:skill:'+id,title:s.name+' 技能规则',keywords:id+' '+s.name+' '+(TYPES[s.type]||'普通')+' 消耗 威力 优先级',principle:`${s.name}：消耗${s.cost}豆，${s.power?'基础威力'+s.power+'（不是最终伤害）':'无直接攻击威力'}，行动优先级${s.priority||0}。${s.desc}。`,counterexample:'必须先检查当前能量、存活状态及合法行动；伤害还受双方攻防、属性、状态和防御影响。'})),...SPECIES.map(p=>({...base,id:'rule:pet:'+p.id,title:p.name+' 基础面板与职责',keywords:p.name+' '+p.id+' '+TYPES[p.type]+' '+p.bio+' 技能 面板 特性',principle:`${p.name}：${TYPES[p.type]}系，Lv.1未培养时生命${p.maxHp}、攻击${p.atk}、防御${p.def}、速度${p.speed}。技能：${p.skills.map(id=>SKILLS[id].name).join('、')}。${p.trait}。`,counterexample:'当前面板须读取实际成长与状态，不能拿基础数值替换已培养或减速后的数值。'})),...Object.entries(TYPE_ADVANTAGES).map(([type,targets])=>({...base,id:'rule:type:'+type,title:TYPES[type]+'系克制规则',keywords:TYPES[type]+'系 克制 属性 倍率',principle:`${TYPES[type]}系攻击克制${targets.map(x=>TYPES[x]).join('、')}系，倍率1.5；同属性或被反克时0.75。普通攻击倍率1。`,counterexample:'按技能属性而不是宠物属性计算；不含原作同系加成或属性免疫。'}))];
+const marker='\n// Generated local tactical cards; edit knowledge/tactics.json then regenerate.\n';
+writeFileSync(target,readFileSync(target,'utf8').split(marker)[0]+marker+'export const TACTIC_CARDS = '+JSON.stringify(cards)+';\nexport const REFERENCE_CARDS = '+JSON.stringify(reference)+';\n');
+writeFileSync(new URL('../knowledge/reference.generated.json',import.meta.url),JSON.stringify(reference,null,2));
+console.log(`Built ${cards.length} tactical + ${reference.length} engine-derived reference cards`);

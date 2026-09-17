@@ -1,0 +1,6 @@
+.venv-agent/
+.models/
+__pycache__/
+*.pyc
+.DS_Store
+tmp/

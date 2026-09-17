@@ -1,0 +1,114 @@
+{
+  "date": "2026-09-16T17:20:21.084Z",
+  "runtimeVersion": "0.8",
+  "model": "deepseek-flash",
+  "fixture": "synthetic engine matches, not private player history",
+  "rows": [
+    {
+      "id": "faint-colloquial",
+      "message": "damn咋办",
+      "status": 200,
+      "ms": 2034,
+      "provider": "deepseek",
+      "text": "烬尾狐倒下了，但别慌，队伍没输。现在免费补位，推荐先上芽角鹿：它108HP满豆，综合评分比潮甲龟稍好，速度也快一点，适合先手压制。补位不占回合、不触发额外攻击，选完再决定这回合出招就行。",
+      "tools": [
+        {
+          "tool": "read_state",
+          "args": {}
+        },
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        }
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 1932,
+        "completion_tokens": 72
+      }
+    },
+    {
+      "id": "loss-analysis",
+      "message": "分析",
+      "status": 200,
+      "ms": 2248,
+      "provider": "deepseek",
+      "text": "这局15回合全在攻击，0换宠0防御0道具，最后3瓶药没动。关键不在“没吃药”，而是危险血线前没做选择：第3回合烬尾狐若吃回复药，评分明显好于换上潮甲龟；别等倒下才救。首选改第3回合：血量偏低先比较吃药、换宠、继续攻击，再决定。",
+      "tools": [
+        {
+          "tool": "read_state",
+          "args": {}
+        }
+      ],
+      "scope": "match",
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 3753,
+        "completion_tokens": 85
+      }
+    },
+    {
+      "id": "loss-followup",
+      "message": "为什么？我不是一直在打伤害吗",
+      "status": 200,
+      "ms": 2476,
+      "provider": "deepseek",
+      "text": "打伤害本身没错，问题是每回合都只打伤害。第3回合烬尾狐用疾爪打23，但炽鬃狮还有80HP，收不掉；那回合吃回复药评分好得多。不是让你少输出，而是危险血线时先停一下，比较吃药、换宠、继续打，别等倒下再救。",
+      "tools": [
+        {
+          "tool": "read_state",
+          "args": {}
+        },
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        }
+      ],
+      "scope": "match",
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 4165,
+        "completion_tokens": 75
+      }
+    },
+    {
+      "id": "auto-result",
+      "message": "复盘本局。先简短回应这局的结果，再根据关键回合提出一个具体可练的改进点，不泛泛安慰，不把单回合评分当作必然败因。120字以内。",
+      "status": 200,
+      "ms": 1697,
+      "provider": "deepseek",
+      "text": "这局全队倒下落败，第15回合撞击没收掉苔盾菇，也没防住收尾。\n\n可练的点：己方残血、对手还接近满血时，先算“这回合能不能击杀”；不能就优先用回复药或防住，别把血量送进对方先手收尾线。",
+      "tools": [
+        {
+          "tool": "read_match",
+          "args": {}
+        },
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        }
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 2623,
+        "completion_tokens": 70
+      }
+    }
+  ]
+}

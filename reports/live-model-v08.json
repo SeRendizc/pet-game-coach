@@ -1,0 +1,121 @@
+{
+  "date": "2026-09-16T23:12:48.124Z",
+  "runtimeVersion": "0.8",
+  "model": "deepseek-flash",
+  "fixture": "synthetic engine matches, not private player history",
+  "rows": [
+    {
+      "id": "faint-colloquial",
+      "message": "damn咋办",
+      "status": 200,
+      "ms": 2446,
+      "provider": "deepseek",
+      "text": "别慌，不是整局结束。烬尾狐倒下后补位是免费的，先选芽角鹿上场，它还有108HP、5豆。对面是溪刃獭100HP，水属性速攻型。\n\n补位不占回合、不挨打，选完再决定下一回合出招。芽角鹿有吸取类技能可以续航，比潮甲龟更灵活。先上芽角鹿看看对面换不换宠。",
+      "tools": [
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        },
+        {
+          "tool": "read_state",
+          "args": {}
+        }
+      ],
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 2054,
+        "completion_tokens": 96
+      }
+    },
+    {
+      "id": "loss-analysis",
+      "message": "分析",
+      "status": 200,
+      "ms": 2518,
+      "provider": "deepseek",
+      "text": "这局15回合全在攻击，没防御、没换宠、也没用过道具，最后剩3瓶回复药。看第3回合：烬尾狐用疾爪打23，狮子破甲重击14点后它倒下；回合前你有回复药和换潮甲龟两条路可比。第10回合潮甲龟行动前已被撞击21点打倒，原定撞击取消，不算打出伤害。第15回合芽角鹿撞击22点后倒下，收尾。改进点：危险血线那回合先比吃药、换宠、继续打。",
+      "tools": [
+        {
+          "tool": "read_state",
+          "args": {}
+        },
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        }
+      ],
+      "scope": "match",
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 4024,
+        "completion_tokens": 121
+      }
+    },
+    {
+      "id": "loss-followup",
+      "message": "为什么？我不是一直在打伤害吗",
+      "status": 200,
+      "ms": 2203,
+      "provider": "deepseek",
+      "text": "你是在输出，但结算顺序不讲情：第3回合疾爪先打23，随后狮子破甲重击14，烬尾狐倒下；它那回合没救回来，伤害也就停在那。第10回合潮甲龟在行动前被撞击21打倒，原定撞击取消，不算打出。第15回合撞击22后，你被7点反打收掉。全程15次攻击、0换宠、0防御、0道具，包里有3瓶回复药没动。",
+      "tools": [
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        },
+        {
+          "tool": "search_rules",
+          "args": {
+            "query": "芽角鹿 倒下 回合结算 伤害是否生效 宠物战斗规则"
+          }
+        }
+      ],
+      "scope": "match",
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 4584,
+        "completion_tokens": 106
+      }
+    },
+    {
+      "id": "auto-result",
+      "message": "总结整局：先说这局的走向，再选一个有证据的亮点或值得复盘的选择。没有突出亮点就不硬夸，获胜不必挑错，失利不把单回合评分当必然败因。说清宠物和具体回合，80字以内。",
+      "status": 200,
+      "ms": 2380,
+      "provider": "deepseek",
+      "text": "整局15回合全部进攻，没换宠、没防御、没用道具，三只依次倒下。可复盘第3回合烬尾狐残血仍用疾爪打23，对方80HP没收掉，随即被破甲重击击倒；当时可考虑吃药或换潮甲龟承伤。下次血线危险时先比较吃药、换宠、继续攻击。",
+      "tools": [
+        {
+          "tool": "read_match",
+          "args": {}
+        },
+        {
+          "tool": "read_last_turn",
+          "args": {}
+        }
+      ],
+      "scope": "match",
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      },
+      "usage": {
+        "prompt_tokens": 4651,
+        "completion_tokens": 81
+      }
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "none": {
+    "dev": {
+      "n": 4,
+      "positiveN": 4,
+      "hitAt3": 0,
+      "mrr": 0,
+      "negativeCorrect": 0,
+      "negativeN": 0
+    },
+    "test": {
+      "n": 16,
+      "positiveN": 14,
+      "hitAt3": 0,
+      "mrr": 0,
+      "negativeCorrect": 2,
+      "negativeN": 2
+    }
+  },
+  "lexical": {
+    "dev": {
+      "n": 4,
+      "positiveN": 4,
+      "hitAt3": 0.5,
+      "mrr": 0.5,
+      "negativeCorrect": 0,
+      "negativeN": 0
+    },
+    "test": {
+      "n": 16,
+      "positiveN": 14,
+      "hitAt3": 0.7857142857142857,
+      "mrr": 0.6666666666666667,
+      "negativeCorrect": 1,
+      "negativeN": 2
+    }
+  },
+  "hybrid": {
+    "dev": {
+      "n": 4,
+      "positiveN": 4,
+      "hitAt3": 0.75,
+      "mrr": 0.75,
+      "negativeCorrect": 0,
+      "negativeN": 0
+    },
+    "test": {
+      "n": 16,
+      "positiveN": 14,
+      "hitAt3": 0.7142857142857143,
+      "mrr": 0.6666666666666666,
+      "negativeCorrect": 1,
+      "negativeN": 2
+    }
+  }
+}

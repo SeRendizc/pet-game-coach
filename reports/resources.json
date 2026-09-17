@@ -1,0 +1,11 @@
+{
+  "platform": "Darwin",
+  "architecture": "arm64",
+  "nvidia_smi": null,
+  "pdftoppm": "/Users/serendizc/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override/pdftoppm",
+  "python": "/usr/bin/python3",
+  "node": "/Users/serendizc/.local/state/fnm_multishells/14003_1789557310627/bin/node",
+  "memory_probe": "sysctl denied by sandbox; not inferred",
+  "cloud_budget": "not supplied; no paid GPU launched",
+  "LLM_training": "not executed; local tabular policy training only"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "pet-coach-game",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test engine.test.js mechanics.test.js features.test.js coach.test.js server.test.js knowledge.test.js evals/agent.test.js",
+    "start": "node server.js",
+    "test:knowledge": "node --test knowledge.test.js",
+    "build:knowledge": "node scripts/build-knowledge.js",
+    "eval:retrieval": "node scripts/eval-retrieval.js",
+    "train:intervention": "node scripts/train-intervention.js"
+  }
+}

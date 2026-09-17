@@ -1,0 +1,69 @@
+{
+  "selectedSeed": 71,
+  "results": [
+    {
+      "shift": false,
+      "policy": "none",
+      "reward": 0,
+      "hints": 0,
+      "incrementalHelp": 0,
+      "violations": 0
+    },
+    {
+      "shift": false,
+      "policy": "rule",
+      "reward": -1.113,
+      "hints": 5.89,
+      "incrementalHelp": 1.38,
+      "violations": 0
+    },
+    {
+      "shift": false,
+      "policy": "untrained",
+      "reward": -0.77,
+      "hints": 4.55,
+      "incrementalHelp": 1.16,
+      "violations": 0
+    },
+    {
+      "shift": false,
+      "policy": "q-learning",
+      "reward": 1.116,
+      "hints": 1.7,
+      "incrementalHelp": 0.86,
+      "violations": 0
+    },
+    {
+      "shift": true,
+      "policy": "none",
+      "reward": 0,
+      "hints": 0,
+      "incrementalHelp": 0,
+      "violations": 0
+    },
+    {
+      "shift": true,
+      "policy": "rule",
+      "reward": -2.33,
+      "hints": 5.89,
+      "incrementalHelp": 1.04,
+      "violations": 0
+    },
+    {
+      "shift": true,
+      "policy": "untrained",
+      "reward": -1.679,
+      "hints": 4.55,
+      "incrementalHelp": 0.87,
+      "violations": 0
+    },
+    {
+      "shift": true,
+      "policy": "q-learning",
+      "reward": 0.581,
+      "hints": 1.7,
+      "incrementalHelp": 0.7,
+      "violations": 0
+    }
+  ]
+}

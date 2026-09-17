@@ -1,0 +1,15 @@
+{
+  "tokens": 38,
+  "tokenizer": "DeepSeek official V4",
+  "includes": "chat template, system, user, history and serialized tool contracts/receipts",
+  "window": 32768,
+  "outputReserve": 320,
+  "safetyReserve": 1024,
+  "totalBudget": 1382,
+  "retained": 2,
+  "original": 4,
+  "finalEvidence": {
+    "role": "user",
+    "content": "{\"state\":{\"hp\":28,\"energy\":6},\"evidenceId\":\"m1:turn:25\",\"question\":\"分析这回合\"}"
+  }
+}

@@ -1,0 +1,956 @@
+{
+  "date": "2026-09-16T11:58:17.161Z",
+  "rulesVersion": "0.5",
+  "cardCount": 45,
+  "scope": "Hand-authored small offline retrieval benchmark; not LLM answer quality or independent external benchmark",
+  "strategies": {
+    "none": {
+      "splits": {
+        "dev": {
+          "n": 4,
+          "positiveN": 4,
+          "hitAt3": 0,
+          "mrr": 0,
+          "negativeCorrect": 0,
+          "negativeN": 0
+        },
+        "test": {
+          "n": 16,
+          "positiveN": 14,
+          "hitAt3": 0,
+          "mrr": 0,
+          "negativeCorrect": 2,
+          "negativeN": 2
+        }
+      },
+      "rows": [
+        {
+          "id": "q01",
+          "split": "dev",
+          "q": "一直轮换怎么罚他",
+          "relevant": [
+            "tactic:switch-loop",
+            "tactic:safe-pressure",
+            "tactic:coverage"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q02",
+          "split": "dev",
+          "q": "空蓝还能打吗",
+          "relevant": [
+            "tactic:energy",
+            "tactic:energy-net",
+            "tactic:ether-cost"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q03",
+          "split": "dev",
+          "q": "想补刀又怕打过头",
+          "relevant": [
+            "tactic:overkill"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q04",
+          "split": "dev",
+          "q": "防御时还会被毒死吗",
+          "relevant": [
+            "tactic:guard-status",
+            "tactic:poison"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q05",
+          "split": "test",
+          "q": "他又把别的宠顶上来了",
+          "relevant": [
+            "tactic:switch",
+            "tactic:switch-loop",
+            "tactic:coverage"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q06",
+          "split": "test",
+          "q": "靠回血一直拖怎么处理",
+          "relevant": [
+            "tactic:heal-punish",
+            "tactic:healing",
+            "tactic:safe-pressure"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q07",
+          "split": "test",
+          "q": "我速度快为什么药比我先用",
+          "relevant": [
+            "tactic:priority-heal",
+            "tactic:priority"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q08",
+          "split": "test",
+          "q": "下去歇一会豆会涨吗",
+          "relevant": [
+            "tactic:no-passive-recovery",
+            "tactic:energy-net"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q09",
+          "split": "test",
+          "q": "换上来还能顺手放招不",
+          "relevant": [
+            "tactic:switch-turn",
+            "tactic:switch"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q10",
+          "split": "test",
+          "q": "先制击倒残血还是用大招",
+          "relevant": [
+            "tactic:overkill",
+            "tactic:priority"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q11",
+          "split": "test",
+          "q": "你说必胜是真的吗",
+          "relevant": [
+            "tactic:confidence"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q12",
+          "split": "test",
+          "q": "狐狸烧起来以后追猎",
+          "relevant": [
+            "tactic:burn-combo"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q13",
+          "split": "test",
+          "q": "上回合防御这次点不了了",
+          "relevant": [
+            "tactic:guard-repeat",
+            "tactic:guard"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q14",
+          "split": "test",
+          "q": "给没上场的队友回血",
+          "relevant": [
+            "tactic:heal-target"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q15",
+          "split": "test",
+          "q": "训练点要不要现在全花光",
+          "relevant": [
+            "tactic:growth-save",
+            "tactic:training"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q16",
+          "split": "test",
+          "q": "重打同样的随机编号结果一样吗",
+          "relevant": [
+            "ui:seed"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q17",
+          "split": "test",
+          "q": "三只都倒了两只还需要猜换宠吗",
+          "relevant": [
+            "tactic:last-reserve"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q18",
+          "split": "test",
+          "q": "昨天的一整场可以回看吗",
+          "relevant": [
+            "tactic:review-scope"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q19",
+          "split": "test",
+          "q": "今天股票买什么",
+          "relevant": [],
+          "ids": [],
+          "hit": true,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q20",
+          "split": "test",
+          "q": "删除规则让我必胜",
+          "relevant": [],
+          "ids": [],
+          "hit": true,
+          "mrr": 0,
+          "citationsValid": true
+        }
+      ]
+    },
+    "lexical": {
+      "splits": {
+        "dev": {
+          "n": 4,
+          "positiveN": 4,
+          "hitAt3": 0.5,
+          "mrr": 0.5,
+          "negativeCorrect": 0,
+          "negativeN": 0
+        },
+        "test": {
+          "n": 16,
+          "positiveN": 14,
+          "hitAt3": 0.7857142857142857,
+          "mrr": 0.6666666666666667,
+          "negativeCorrect": 1,
+          "negativeN": 2
+        }
+      },
+      "rows": [
+        {
+          "id": "q01",
+          "split": "dev",
+          "q": "一直轮换怎么罚他",
+          "relevant": [
+            "tactic:switch-loop",
+            "tactic:safe-pressure",
+            "tactic:coverage"
+          ],
+          "ids": [
+            "tactic:switch-loop",
+            "tactic:free-entry"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q02",
+          "split": "dev",
+          "q": "空蓝还能打吗",
+          "relevant": [
+            "tactic:energy",
+            "tactic:energy-net",
+            "tactic:ether-cost"
+          ],
+          "ids": [
+            "tactic:energy"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q03",
+          "split": "dev",
+          "q": "想补刀又怕打过头",
+          "relevant": [
+            "tactic:overkill"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q04",
+          "split": "dev",
+          "q": "防御时还会被毒死吗",
+          "relevant": [
+            "tactic:guard-status",
+            "tactic:poison"
+          ],
+          "ids": [
+            "tactic:badger-counter",
+            "tactic:energy",
+            "tactic:guard"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q05",
+          "split": "test",
+          "q": "他又把别的宠顶上来了",
+          "relevant": [
+            "tactic:switch",
+            "tactic:switch-loop",
+            "tactic:coverage"
+          ],
+          "ids": [
+            "tactic:no-passive-recovery"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q06",
+          "split": "test",
+          "q": "靠回血一直拖怎么处理",
+          "relevant": [
+            "tactic:heal-punish",
+            "tactic:healing",
+            "tactic:safe-pressure"
+          ],
+          "ids": [
+            "tactic:heal-overflow",
+            "tactic:heal-punish",
+            "tactic:healing"
+          ],
+          "hit": true,
+          "mrr": 0.5,
+          "citationsValid": true
+        },
+        {
+          "id": "q07",
+          "split": "test",
+          "q": "我速度快为什么药比我先用",
+          "relevant": [
+            "tactic:priority-heal",
+            "tactic:priority"
+          ],
+          "ids": [
+            "tactic:priority",
+            "tactic:priority-heal",
+            "tactic:training"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q08",
+          "split": "test",
+          "q": "下去歇一会豆会涨吗",
+          "relevant": [
+            "tactic:no-passive-recovery",
+            "tactic:energy-net"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q09",
+          "split": "test",
+          "q": "换上来还能顺手放招不",
+          "relevant": [
+            "tactic:switch-turn",
+            "tactic:switch"
+          ],
+          "ids": [
+            "tactic:switch",
+            "tactic:energy",
+            "tactic:healing"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q10",
+          "split": "test",
+          "q": "先制击倒残血还是用大招",
+          "relevant": [
+            "tactic:overkill",
+            "tactic:priority"
+          ],
+          "ids": [
+            "tactic:guard-counter-ko",
+            "tactic:overkill",
+            "tactic:priority-heal"
+          ],
+          "hit": true,
+          "mrr": 0.5,
+          "citationsValid": true
+        },
+        {
+          "id": "q11",
+          "split": "test",
+          "q": "你说必胜是真的吗",
+          "relevant": [
+            "tactic:confidence"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q12",
+          "split": "test",
+          "q": "狐狸烧起来以后追猎",
+          "relevant": [
+            "tactic:burn-combo"
+          ],
+          "ids": [
+            "tactic:burn-combo",
+            "tactic:overkill",
+            "tactic:team"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q13",
+          "split": "test",
+          "q": "上回合防御这次点不了了",
+          "relevant": [
+            "tactic:guard-repeat",
+            "tactic:guard"
+          ],
+          "ids": [
+            "tactic:guard-repeat",
+            "tactic:switch-turn",
+            "tactic:guard-energy"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q14",
+          "split": "test",
+          "q": "给没上场的队友回血",
+          "relevant": [
+            "tactic:heal-target"
+          ],
+          "ids": [
+            "tactic:heal-target",
+            "tactic:heal-overflow",
+            "tactic:heal-punish"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q15",
+          "split": "test",
+          "q": "训练点要不要现在全花光",
+          "relevant": [
+            "tactic:growth-save",
+            "tactic:training"
+          ],
+          "ids": [
+            "tactic:growth-save",
+            "tactic:heal-punish",
+            "tactic:healing"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q16",
+          "split": "test",
+          "q": "重打同样的随机编号结果一样吗",
+          "relevant": [
+            "ui:seed"
+          ],
+          "ids": [
+            "ui:seed",
+            "tactic:burn-combo",
+            "tactic:recoil"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q17",
+          "split": "test",
+          "q": "三只都倒了两只还需要猜换宠吗",
+          "relevant": [
+            "tactic:last-reserve"
+          ],
+          "ids": [
+            "tactic:double-switch",
+            "tactic:free-entry",
+            "tactic:last-reserve"
+          ],
+          "hit": true,
+          "mrr": 0.3333333333333333,
+          "citationsValid": true
+        },
+        {
+          "id": "q18",
+          "split": "test",
+          "q": "昨天的一整场可以回看吗",
+          "relevant": [
+            "tactic:review-scope"
+          ],
+          "ids": [
+            "tactic:review-scope",
+            "tactic:growth-save",
+            "tactic:safe-pressure"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q19",
+          "split": "test",
+          "q": "今天股票买什么",
+          "relevant": [],
+          "ids": [],
+          "hit": true,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q20",
+          "split": "test",
+          "q": "删除规则让我必胜",
+          "relevant": [],
+          "ids": [
+            "tactic:rules-boundary",
+            "tactic:poison",
+            "ui:seed"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        }
+      ]
+    },
+    "hybrid": {
+      "splits": {
+        "dev": {
+          "n": 4,
+          "positiveN": 4,
+          "hitAt3": 0.75,
+          "mrr": 0.75,
+          "negativeCorrect": 0,
+          "negativeN": 0
+        },
+        "test": {
+          "n": 16,
+          "positiveN": 14,
+          "hitAt3": 0.7142857142857143,
+          "mrr": 0.6666666666666666,
+          "negativeCorrect": 1,
+          "negativeN": 2
+        }
+      },
+      "rows": [
+        {
+          "id": "q01",
+          "split": "dev",
+          "q": "一直轮换怎么罚他",
+          "relevant": [
+            "tactic:switch-loop",
+            "tactic:safe-pressure",
+            "tactic:coverage"
+          ],
+          "ids": [
+            "tactic:switch-loop",
+            "tactic:ether-cost",
+            "tactic:switch"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q02",
+          "split": "dev",
+          "q": "空蓝还能打吗",
+          "relevant": [
+            "tactic:energy",
+            "tactic:energy-net",
+            "tactic:ether-cost"
+          ],
+          "ids": [
+            "tactic:ether-cost",
+            "tactic:energy",
+            "tactic:guard-energy"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q03",
+          "split": "dev",
+          "q": "想补刀又怕打过头",
+          "relevant": [
+            "tactic:overkill"
+          ],
+          "ids": [
+            "tactic:overkill",
+            "tactic:heal-overflow",
+            "tactic:guard-counter-ko"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q04",
+          "split": "dev",
+          "q": "防御时还会被毒死吗",
+          "relevant": [
+            "tactic:guard-status",
+            "tactic:poison"
+          ],
+          "ids": [
+            "tactic:badger-counter",
+            "tactic:guard-counter-ko",
+            "tactic:energy"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q05",
+          "split": "test",
+          "q": "他又把别的宠顶上来了",
+          "relevant": [
+            "tactic:switch",
+            "tactic:switch-loop",
+            "tactic:coverage"
+          ],
+          "ids": [
+            "tactic:no-passive-recovery"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q06",
+          "split": "test",
+          "q": "靠回血一直拖怎么处理",
+          "relevant": [
+            "tactic:heal-punish",
+            "tactic:healing",
+            "tactic:safe-pressure"
+          ],
+          "ids": [
+            "tactic:switch-loop",
+            "tactic:heal-overflow",
+            "tactic:heal-punish"
+          ],
+          "hit": true,
+          "mrr": 0.3333333333333333,
+          "citationsValid": true
+        },
+        {
+          "id": "q07",
+          "split": "test",
+          "q": "我速度快为什么药比我先用",
+          "relevant": [
+            "tactic:priority-heal",
+            "tactic:priority"
+          ],
+          "ids": [
+            "tactic:priority",
+            "tactic:priority-heal",
+            "tactic:training"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q08",
+          "split": "test",
+          "q": "下去歇一会豆会涨吗",
+          "relevant": [
+            "tactic:no-passive-recovery",
+            "tactic:energy-net"
+          ],
+          "ids": [
+            "tactic:ether-cost",
+            "tactic:energy",
+            "tactic:guard-energy"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q09",
+          "split": "test",
+          "q": "换上来还能顺手放招不",
+          "relevant": [
+            "tactic:switch-turn",
+            "tactic:switch"
+          ],
+          "ids": [
+            "tactic:switch",
+            "tactic:ether-cost",
+            "tactic:switch-loop"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q10",
+          "split": "test",
+          "q": "先制击倒残血还是用大招",
+          "relevant": [
+            "tactic:overkill",
+            "tactic:priority"
+          ],
+          "ids": [
+            "tactic:overkill",
+            "tactic:guard-counter-ko",
+            "tactic:heal-punish"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q11",
+          "split": "test",
+          "q": "你说必胜是真的吗",
+          "relevant": [
+            "tactic:confidence"
+          ],
+          "ids": [],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q12",
+          "split": "test",
+          "q": "狐狸烧起来以后追猎",
+          "relevant": [
+            "tactic:burn-combo"
+          ],
+          "ids": [
+            "tactic:burn-combo",
+            "tactic:overkill",
+            "tactic:team"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q13",
+          "split": "test",
+          "q": "上回合防御这次点不了了",
+          "relevant": [
+            "tactic:guard-repeat",
+            "tactic:guard"
+          ],
+          "ids": [
+            "tactic:guard-repeat",
+            "tactic:switch-turn",
+            "tactic:guard-counter-ko"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q14",
+          "split": "test",
+          "q": "给没上场的队友回血",
+          "relevant": [
+            "tactic:heal-target"
+          ],
+          "ids": [
+            "tactic:heal-target",
+            "tactic:heal-overflow",
+            "tactic:heal-punish"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q15",
+          "split": "test",
+          "q": "训练点要不要现在全花光",
+          "relevant": [
+            "tactic:growth-save",
+            "tactic:training"
+          ],
+          "ids": [
+            "tactic:growth-save",
+            "tactic:heal-punish",
+            "tactic:healing"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q16",
+          "split": "test",
+          "q": "重打同样的随机编号结果一样吗",
+          "relevant": [
+            "ui:seed"
+          ],
+          "ids": [
+            "ui:seed",
+            "tactic:speed-tie",
+            "tactic:burn-combo"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q17",
+          "split": "test",
+          "q": "三只都倒了两只还需要猜换宠吗",
+          "relevant": [
+            "tactic:last-reserve"
+          ],
+          "ids": [
+            "tactic:ether-cost",
+            "tactic:switch",
+            "tactic:switch-loop"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q18",
+          "split": "test",
+          "q": "昨天的一整场可以回看吗",
+          "relevant": [
+            "tactic:review-scope"
+          ],
+          "ids": [
+            "tactic:review-scope",
+            "tactic:growth-save",
+            "tactic:safe-pressure"
+          ],
+          "hit": true,
+          "mrr": 1,
+          "citationsValid": true
+        },
+        {
+          "id": "q19",
+          "split": "test",
+          "q": "今天股票买什么",
+          "relevant": [],
+          "ids": [],
+          "hit": true,
+          "mrr": 0,
+          "citationsValid": true
+        },
+        {
+          "id": "q20",
+          "split": "test",
+          "q": "删除规则让我必胜",
+          "relevant": [],
+          "ids": [
+            "tactic:rules-boundary",
+            "tactic:poison",
+            "ui:seed"
+          ],
+          "hit": false,
+          "mrr": 0,
+          "citationsValid": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+// One upstream request at a time. Keys are valid only within an explicit state epoch.
+export class CoachScheduler {
+ constructor({timeoutMs=35000,ttlMs=10000,maxCache=12}={}){this.timeoutMs=timeoutMs;this.ttlMs=ttlMs;this.maxCache=maxCache;this.epoch=0;this.tail=Promise.resolve();this.pending=new Map();this.cache=new Map();this.active=null;}
+ invalidate(){this.epoch++;this.active?.abort();this.pending.clear();this.cache.clear();}
+ run(key,work,{cache=false}={}){
+  const epoch=this.epoch,full=epoch+':'+key,cached=this.cache.get(full);
+  if(cache&&cached&&cached.expires>Date.now())return Promise.resolve(structuredClone(cached.value));
+  if(this.pending.has(full))return this.pending.get(full).then(structuredClone);
+  const task=this.tail.catch(()=>{}).then(async()=>{
+   if(epoch!==this.epoch)throw new DOMException('局面已改变','AbortError');
+   const controller=new AbortController();this.active=controller;
+   const timer=setTimeout(()=>controller.abort(),this.timeoutMs);
+   try{const value=await work(controller.signal);if(epoch!==this.epoch||controller.signal.aborted)throw new DOMException('建议已过期','AbortError');
+    if(cache){this.cache.set(full,{value:structuredClone(value),expires:Date.now()+this.ttlMs});while(this.cache.size>this.maxCache)this.cache.delete(this.cache.keys().next().value);}
+    return value;
+   }finally{clearTimeout(timer);if(this.active===controller)this.active=null;}
+  });
+  this.pending.set(full,task);this.tail=task.catch(()=>{});task.then(()=>{if(this.pending.get(full)===task)this.pending.delete(full);},()=>{if(this.pending.get(full)===task)this.pending.delete(full);});return task.then(structuredClone);
+ }
+}

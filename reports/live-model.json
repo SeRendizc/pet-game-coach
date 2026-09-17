@@ -1,0 +1,64 @@
+{
+  "date": "2026-09-16T11:41:41.440Z",
+  "fixture": "synthetic screenshot reconstruction, no private user dialogue",
+  "runningBackend": "8765; existing process not restarted; tool code may be v0.5",
+  "rows": [
+    {
+      "id": "endgame",
+      "ms": 2446,
+      "status": 200,
+      "model": "deepseek-flash",
+      "provider": "deepseek",
+      "text": "不用只回血。你潮甲龟 28/142、能量 6，对方 31/161、能量 1。证据偏向本回合优先「潮汐重击」：若对手不换不防，计算伤害 38，能收掉。它若先喝药则未必，但对方药库存为 0，所以压力更实在。回复药路线分数低很多。",
+      "tools": [
+        "read_state",
+        "read_last_turn"
+      ],
+      "usage": {
+        "prompt_tokens": 1767,
+        "completion_tokens": 84
+      },
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      }
+    },
+    {
+      "id": "switch-cost",
+      "ms": 2478,
+      "status": 200,
+      "model": "deepseek-flash",
+      "provider": "deepseek",
+      "text": "不能。主动换宠就是本回合唯一行动，换入后不能再吃药或攻击。只有伙伴倒下后的强制补位不同，那是免费补位。",
+      "tools": [
+        "search_rules",
+        "search_rules"
+      ],
+      "usage": {
+        "prompt_tokens": 2420,
+        "completion_tokens": 33
+      },
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      }
+    },
+    {
+      "id": "pvp-deny",
+      "ms": 4,
+      "status": 200,
+      "model": "deepseek-flash",
+      "provider": "local",
+      "text": "正式 PVP 赛中不提供战术分析或教学，结束后我们再聊。",
+      "tools": [],
+      "usage": null,
+      "validation": {
+        "valid": true,
+        "reasons": [],
+        "scope": "Narrow numeric/citation/certainty guard; not a proof of all natural language correctness"
+      }
+    }
+  ]
+}

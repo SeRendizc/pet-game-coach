@@ -1,0 +1,12 @@
+[
+  {
+    "id": "pokemon-official-battling",
+    "url": "https://diamondpearl.pokemon.com/en-gb/trainersguide/fundamentals/battling/",
+    "accessed": "2026-09-16",
+    "usage": "仅借鉴行动顺序、换宠成本、治疗时机与队伍覆盖的思考方式。数值与事实以本地引擎为准；卡片为自行编写。"
+  },
+  {
+    "id": "local-design",
+    "usage": "按本地引擎编写的战术解释与反例，非外部攻略结论。"
+  }
+]

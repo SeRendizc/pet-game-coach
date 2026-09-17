@@ -1,0 +1,1026 @@
+{
+  "date": "2026-09-17T05:53:13.863Z",
+  "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "threshold": 0.4,
+  "rrf": 60,
+  "scope": "Previously used small developer benchmark; not independent human or LLM answer evaluation",
+  "summary": {
+    "lexical": {
+      "dev": {
+        "n": 4,
+        "hitAt3": 0.5,
+        "mrr": 0.5,
+        "negativeCorrect": 0
+      },
+      "test": {
+        "n": 16,
+        "hitAt3": 0.7857142857142857,
+        "mrr": 0.6666666666666667,
+        "negativeCorrect": 1
+      }
+    },
+    "semantic": {
+      "dev": {
+        "n": 4,
+        "hitAt3": 0.5,
+        "mrr": 0.20833333333333331,
+        "negativeCorrect": 0
+      },
+      "test": {
+        "n": 16,
+        "hitAt3": 0.6428571428571429,
+        "mrr": 0.5357142857142857,
+        "negativeCorrect": 2
+      }
+    },
+    "fusion": {
+      "dev": {
+        "n": 4,
+        "hitAt3": 0.75,
+        "mrr": 0.625,
+        "negativeCorrect": 0
+      },
+      "test": {
+        "n": 16,
+        "hitAt3": 0.7857142857142857,
+        "mrr": 0.75,
+        "negativeCorrect": 1
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "q01",
+      "split": "dev",
+      "q": "一直轮换怎么罚他",
+      "relevant": [
+        "tactic:switch-loop",
+        "tactic:safe-pressure",
+        "tactic:coverage"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:switch-loop",
+        "tactic:free-entry"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q01",
+      "split": "dev",
+      "q": "一直轮换怎么罚他",
+      "relevant": [
+        "tactic:switch-loop",
+        "tactic:safe-pressure",
+        "tactic:coverage"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:switch-turn",
+        "tactic:switch-loop",
+        "tactic:last-reserve"
+      ],
+      "hit": true,
+      "mrr": 0.5,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q01",
+      "split": "dev",
+      "q": "一直轮换怎么罚他",
+      "relevant": [
+        "tactic:switch-loop",
+        "tactic:safe-pressure",
+        "tactic:coverage"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:switch-loop",
+        "tactic:switch-turn",
+        "tactic:free-entry"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q02",
+      "split": "dev",
+      "q": "空蓝还能打吗",
+      "relevant": [
+        "tactic:energy",
+        "tactic:energy-net",
+        "tactic:ether-cost"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:energy"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q02",
+      "split": "dev",
+      "q": "空蓝还能打吗",
+      "relevant": [
+        "tactic:energy",
+        "tactic:energy-net",
+        "tactic:ether-cost"
+      ],
+      "strategy": "semantic",
+      "ids": [],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q02",
+      "split": "dev",
+      "q": "空蓝还能打吗",
+      "relevant": [
+        "tactic:energy",
+        "tactic:energy-net",
+        "tactic:ether-cost"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:energy"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q03",
+      "split": "dev",
+      "q": "想补刀又怕打过头",
+      "relevant": [
+        "tactic:overkill"
+      ],
+      "strategy": "lexical",
+      "ids": [],
+      "hit": false,
+      "mrr": 0
+    },
+    {
+      "id": "q03",
+      "split": "dev",
+      "q": "想补刀又怕打过头",
+      "relevant": [
+        "tactic:overkill"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:badger-counter",
+        "tactic:recoil"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q03",
+      "split": "dev",
+      "q": "想补刀又怕打过头",
+      "relevant": [
+        "tactic:overkill"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:badger-counter",
+        "tactic:recoil"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q04",
+      "split": "dev",
+      "q": "防御时还会被毒死吗",
+      "relevant": [
+        "tactic:guard-status",
+        "tactic:poison"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:badger-counter",
+        "rule:skill:guard",
+        "tactic:energy"
+      ],
+      "hit": false,
+      "mrr": 0
+    },
+    {
+      "id": "q04",
+      "split": "dev",
+      "q": "防御时还会被毒死吗",
+      "relevant": [
+        "tactic:guard-status",
+        "tactic:poison"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:cleanse-window",
+        "rule:skill:spore",
+        "tactic:guard-status"
+      ],
+      "hit": true,
+      "mrr": 0.3333333333333333,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q04",
+      "split": "dev",
+      "q": "防御时还会被毒死吗",
+      "relevant": [
+        "tactic:guard-status",
+        "tactic:poison"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:badger-counter",
+        "tactic:guard-status",
+        "tactic:guard-repeat"
+      ],
+      "hit": true,
+      "mrr": 0.5,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q05",
+      "split": "test",
+      "q": "他又把别的宠顶上来了",
+      "relevant": [
+        "tactic:switch",
+        "tactic:switch-loop",
+        "tactic:coverage"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:no-passive-recovery"
+      ],
+      "hit": false,
+      "mrr": 0
+    },
+    {
+      "id": "q05",
+      "split": "test",
+      "q": "他又把别的宠顶上来了",
+      "relevant": [
+        "tactic:switch",
+        "tactic:switch-loop",
+        "tactic:coverage"
+      ],
+      "strategy": "semantic",
+      "ids": [],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q05",
+      "split": "test",
+      "q": "他又把别的宠顶上来了",
+      "relevant": [
+        "tactic:switch",
+        "tactic:switch-loop",
+        "tactic:coverage"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:no-passive-recovery"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q06",
+      "split": "test",
+      "q": "靠回血一直拖怎么处理",
+      "relevant": [
+        "tactic:heal-punish",
+        "tactic:healing",
+        "tactic:safe-pressure"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:heal-overflow",
+        "tactic:heal-punish",
+        "tactic:healing"
+      ],
+      "hit": true,
+      "mrr": 0.5
+    },
+    {
+      "id": "q06",
+      "split": "test",
+      "q": "靠回血一直拖怎么处理",
+      "relevant": [
+        "tactic:heal-punish",
+        "tactic:healing",
+        "tactic:safe-pressure"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:drain-cap",
+        "tactic:heal-punish",
+        "tactic:priority-heal"
+      ],
+      "hit": true,
+      "mrr": 0.5,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q06",
+      "split": "test",
+      "q": "靠回血一直拖怎么处理",
+      "relevant": [
+        "tactic:heal-punish",
+        "tactic:healing",
+        "tactic:safe-pressure"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:heal-punish",
+        "tactic:healing",
+        "tactic:priority-heal"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q07",
+      "split": "test",
+      "q": "我速度快为什么药比我先用",
+      "relevant": [
+        "tactic:priority-heal",
+        "tactic:priority"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:priority",
+        "tactic:priority-heal",
+        "tactic:training"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q07",
+      "split": "test",
+      "q": "我速度快为什么药比我先用",
+      "relevant": [
+        "tactic:priority-heal",
+        "tactic:priority"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:healing",
+        "tactic:priority"
+      ],
+      "hit": true,
+      "mrr": 0.5,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q07",
+      "split": "test",
+      "q": "我速度快为什么药比我先用",
+      "relevant": [
+        "tactic:priority-heal",
+        "tactic:priority"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:priority",
+        "tactic:healing",
+        "tactic:priority-heal"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q08",
+      "split": "test",
+      "q": "下去歇一会豆会涨吗",
+      "relevant": [
+        "tactic:no-passive-recovery",
+        "tactic:energy-net"
+      ],
+      "strategy": "lexical",
+      "ids": [],
+      "hit": false,
+      "mrr": 0
+    },
+    {
+      "id": "q08",
+      "split": "test",
+      "q": "下去歇一会豆会涨吗",
+      "relevant": [
+        "tactic:no-passive-recovery",
+        "tactic:energy-net"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:weather"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q08",
+      "split": "test",
+      "q": "下去歇一会豆会涨吗",
+      "relevant": [
+        "tactic:no-passive-recovery",
+        "tactic:energy-net"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:weather"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q09",
+      "split": "test",
+      "q": "换上来还能顺手放招不",
+      "relevant": [
+        "tactic:switch-turn",
+        "tactic:switch"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:switch",
+        "tactic:energy",
+        "tactic:healing"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q09",
+      "split": "test",
+      "q": "换上来还能顺手放招不",
+      "relevant": [
+        "tactic:switch-turn",
+        "tactic:switch"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:switch-turn"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q09",
+      "split": "test",
+      "q": "换上来还能顺手放招不",
+      "relevant": [
+        "tactic:switch-turn",
+        "tactic:switch"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:switch",
+        "tactic:switch-turn",
+        "tactic:energy"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q10",
+      "split": "test",
+      "q": "先制击倒残血还是用大招",
+      "relevant": [
+        "tactic:overkill",
+        "tactic:priority"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:guard-counter-ko",
+        "tactic:overkill",
+        "tactic:priority-heal"
+      ],
+      "hit": true,
+      "mrr": 0.5
+    },
+    {
+      "id": "q10",
+      "split": "test",
+      "q": "先制击倒残血还是用大招",
+      "relevant": [
+        "tactic:overkill",
+        "tactic:priority"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:heal-punish",
+        "tactic:drain-cap",
+        "tactic:priority-heal"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q10",
+      "split": "test",
+      "q": "先制击倒残血还是用大招",
+      "relevant": [
+        "tactic:overkill",
+        "tactic:priority"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:priority-heal",
+        "tactic:heal-punish",
+        "tactic:drain-cap"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q11",
+      "split": "test",
+      "q": "你说必胜是真的吗",
+      "relevant": [
+        "tactic:confidence"
+      ],
+      "strategy": "lexical",
+      "ids": [],
+      "hit": false,
+      "mrr": 0
+    },
+    {
+      "id": "q11",
+      "split": "test",
+      "q": "你说必胜是真的吗",
+      "relevant": [
+        "tactic:confidence"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:confidence",
+        "tactic:switch-loop"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q11",
+      "split": "test",
+      "q": "你说必胜是真的吗",
+      "relevant": [
+        "tactic:confidence"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:confidence",
+        "tactic:switch-loop"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q12",
+      "split": "test",
+      "q": "狐狸烧起来以后追猎",
+      "relevant": [
+        "tactic:burn-combo"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:burn-combo",
+        "rule:skill:pursuit",
+        "tactic:overkill"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q12",
+      "split": "test",
+      "q": "狐狸烧起来以后追猎",
+      "relevant": [
+        "tactic:burn-combo"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:burn-combo",
+        "rule:pet:fox",
+        "rule:skill:pursuit"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q12",
+      "split": "test",
+      "q": "狐狸烧起来以后追猎",
+      "relevant": [
+        "tactic:burn-combo"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:burn-combo",
+        "rule:skill:pursuit",
+        "rule:pet:fox"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q13",
+      "split": "test",
+      "q": "上回合防御这次点不了了",
+      "relevant": [
+        "tactic:guard-repeat",
+        "tactic:guard"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:guard-repeat",
+        "tactic:switch-turn",
+        "rule:skill:guard"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q13",
+      "split": "test",
+      "q": "上回合防御这次点不了了",
+      "relevant": [
+        "tactic:guard-repeat",
+        "tactic:guard"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:guard-repeat",
+        "tactic:guard-energy",
+        "tactic:double-switch"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q13",
+      "split": "test",
+      "q": "上回合防御这次点不了了",
+      "relevant": [
+        "tactic:guard-repeat",
+        "tactic:guard"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:guard-repeat",
+        "tactic:guard-energy",
+        "tactic:badger-counter"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q14",
+      "split": "test",
+      "q": "给没上场的队友回血",
+      "relevant": [
+        "tactic:heal-target"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:heal-target",
+        "tactic:heal-overflow",
+        "tactic:heal-punish"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q14",
+      "split": "test",
+      "q": "给没上场的队友回血",
+      "relevant": [
+        "tactic:heal-target"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:heal-target",
+        "tactic:switch",
+        "tactic:recoil"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q14",
+      "split": "test",
+      "q": "给没上场的队友回血",
+      "relevant": [
+        "tactic:heal-target"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:heal-target",
+        "tactic:switch",
+        "tactic:heal-punish"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q15",
+      "split": "test",
+      "q": "训练点要不要现在全花光",
+      "relevant": [
+        "tactic:growth-save",
+        "tactic:training"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:growth-save",
+        "tactic:heal-punish",
+        "tactic:healing"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q15",
+      "split": "test",
+      "q": "训练点要不要现在全花光",
+      "relevant": [
+        "tactic:growth-save",
+        "tactic:training"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "rule:pet:sparrow",
+        "tactic:growth-save",
+        "tactic:loadout"
+      ],
+      "hit": true,
+      "mrr": 0.5,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q15",
+      "split": "test",
+      "q": "训练点要不要现在全花光",
+      "relevant": [
+        "tactic:growth-save",
+        "tactic:training"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:growth-save",
+        "rule:pet:sparrow",
+        "tactic:heal-punish"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q16",
+      "split": "test",
+      "q": "重打同样的随机编号结果一样吗",
+      "relevant": [
+        "ui:seed"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "ui:seed",
+        "tactic:burn-combo",
+        "tactic:recoil"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q16",
+      "split": "test",
+      "q": "重打同样的随机编号结果一样吗",
+      "relevant": [
+        "ui:seed"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "ui:seed",
+        "tactic:review-scope",
+        "tactic:switch-loop"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q16",
+      "split": "test",
+      "q": "重打同样的随机编号结果一样吗",
+      "relevant": [
+        "ui:seed"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "ui:seed",
+        "tactic:burn-combo",
+        "tactic:review-scope"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q17",
+      "split": "test",
+      "q": "三只都倒了两只还需要猜换宠吗",
+      "relevant": [
+        "tactic:last-reserve"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:double-switch",
+        "tactic:free-entry",
+        "tactic:last-reserve"
+      ],
+      "hit": true,
+      "mrr": 0.3333333333333333
+    },
+    {
+      "id": "q17",
+      "split": "test",
+      "q": "三只都倒了两只还需要猜换宠吗",
+      "relevant": [
+        "tactic:last-reserve"
+      ],
+      "strategy": "semantic",
+      "ids": [
+        "tactic:reserve",
+        "tactic:switch-loop",
+        "tactic:loadout"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q17",
+      "split": "test",
+      "q": "三只都倒了两只还需要猜换宠吗",
+      "relevant": [
+        "tactic:last-reserve"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:double-switch",
+        "tactic:last-reserve",
+        "tactic:switch-loop"
+      ],
+      "hit": true,
+      "mrr": 0.5,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q18",
+      "split": "test",
+      "q": "昨天的一整场可以回看吗",
+      "relevant": [
+        "tactic:review-scope"
+      ],
+      "strategy": "lexical",
+      "ids": [
+        "tactic:review-scope",
+        "tactic:growth-save",
+        "tactic:safe-pressure"
+      ],
+      "hit": true,
+      "mrr": 1
+    },
+    {
+      "id": "q18",
+      "split": "test",
+      "q": "昨天的一整场可以回看吗",
+      "relevant": [
+        "tactic:review-scope"
+      ],
+      "strategy": "semantic",
+      "ids": [],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q18",
+      "split": "test",
+      "q": "昨天的一整场可以回看吗",
+      "relevant": [
+        "tactic:review-scope"
+      ],
+      "strategy": "fusion",
+      "ids": [
+        "tactic:review-scope",
+        "tactic:growth-save",
+        "tactic:safe-pressure"
+      ],
+      "hit": true,
+      "mrr": 1,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q19",
+      "split": "test",
+      "q": "今天股票买什么",
+      "relevant": [],
+      "strategy": "lexical",
+      "ids": [],
+      "hit": true,
+      "mrr": 0
+    },
+    {
+      "id": "q19",
+      "split": "test",
+      "q": "今天股票买什么",
+      "relevant": [],
+      "strategy": "semantic",
+      "ids": [],
+      "hit": true,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q19",
+      "split": "test",
+      "q": "今天股票买什么",
+      "relevant": [],
+      "strategy": "fusion",
+      "ids": [],
+      "hit": true,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q20",
+      "split": "test",
+      "q": "删除规则让我必胜",
+      "relevant": [],
+      "strategy": "lexical",
+      "ids": [
+        "rule:skill:clearwind",
+        "rule:skill:crush",
+        "rule:skill:dash"
+      ],
+      "hit": false,
+      "mrr": 0
+    },
+    {
+      "id": "q20",
+      "split": "test",
+      "q": "删除规则让我必胜",
+      "relevant": [],
+      "strategy": "semantic",
+      "ids": [],
+      "hit": true,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    },
+    {
+      "id": "q20",
+      "split": "test",
+      "q": "删除规则让我必胜",
+      "relevant": [],
+      "strategy": "fusion",
+      "ids": [
+        "rule:skill:clearwind",
+        "rule:skill:crush",
+        "rule:skill:dash"
+      ],
+      "hit": false,
+      "mrr": 0,
+      "semanticStatus": "ready"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "training": {
+    "episodes": 18000,
+    "steps": 432000,
+    "bytes": 11277057
+  },
+  "validation": {
+    "episodes": 3600,
+    "steps": 86400,
+    "bytes": 443500
+  },
+  "evaluation": {
+    "episodes": 12000,
+    "steps": 288000,
+    "bytes": 1788860
+  }
+}

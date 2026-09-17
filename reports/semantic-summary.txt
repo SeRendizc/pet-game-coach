@@ -1,0 +1,44 @@
+{
+  "lexical": {
+    "dev": {
+      "n": 4,
+      "hitAt3": 0.5,
+      "mrr": 0.5,
+      "negativeCorrect": 0
+    },
+    "test": {
+      "n": 16,
+      "hitAt3": 0.7857142857142857,
+      "mrr": 0.6666666666666667,
+      "negativeCorrect": 1
+    }
+  },
+  "semantic": {
+    "dev": {
+      "n": 4,
+      "hitAt3": 0.5,
+      "mrr": 0.20833333333333331,
+      "negativeCorrect": 0
+    },
+    "test": {
+      "n": 16,
+      "hitAt3": 0.6428571428571429,
+      "mrr": 0.5357142857142857,
+      "negativeCorrect": 2
+    }
+  },
+  "fusion": {
+    "dev": {
+      "n": 4,
+      "hitAt3": 0.75,
+      "mrr": 0.625,
+      "negativeCorrect": 0
+    },
+    "test": {
+      "n": 16,
+      "hitAt3": 0.7857142857142857,
+      "mrr": 0.75,
+      "negativeCorrect": 1
+    }
+  }
+}
