@@ -305,10 +305,13 @@ function updateSideCoaches(){
  // 对方是 AI 时不给它显示教练条。AI 扮演的是一个远程真人：远程对手的教练你本来就
  // 看不到，把它画出来既不像远程，也等于把对手的谋算摊在你面前。
  // 只有真人同机（一台设备两个人）才两边都显示——那时你们本来就看得见彼此。
- const sides=humanOpponent()
-  ? [['player','player-coach','player-coach-text'],['enemy','enemy-coach','enemy-coach-text']]
-  : [['player','player-coach','player-coach-text']];
- $('enemy-coach').hidden=true;
+ // 对手是 AI 时：它的教练条**照样显示，但糊住**。
+ // 理由是这样既看得出"对面也有教练"（两边对称，画面完整），又读不出内容——
+ // 像隔着毛玻璃看别人的屏幕。真人同机时不糊：那本来就是两个人共用一块屏。
+ const blurred=!humanOpponent();
+ const sides=[['player','player-coach','player-coach-text'],['enemy','enemy-coach','enemy-coach-text']];
+ $('enemy-coach').classList.toggle('blurred',blurred);
+ $('enemy-coach').setAttribute('aria-hidden',blurred?'true':'false');
  for(const [side,box,text] of sides){
   try{
    const base=matchContext('这回合怎么打');

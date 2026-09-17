@@ -342,3 +342,13 @@
 .mode-chip{display:inline-flex;align-items:center;font-size:12px;color:#152c24;background:var(--accent);border-radius:6px;padding:3px 10px;font-weight:700;margin-right:auto}
 .launch-controls{align-items:center}
 @media(max-width:760px){.launch-cards{grid-template-columns:1fr}}
+
+/* AI 对手的教练条：看得见存在，读不出内容。 */
+/* 注意这是观感手段不是安全边界——文字仍在 DOM 里。但对手教练的建议本就基于 */
+/* 双方公开的行动，不是隐藏信息，所以「糊住」在语义上是诚实的。 */
+/* 只糊正文，不糊外框。父元素的 filter 会作用于整个子树（含 ::after），
+   所以提示文字必须放在被糊元素之外，否则它自己也糊掉了。 */
+#enemy-coach.blurred{position:relative}
+#enemy-coach.blurred #enemy-coach-text{filter:blur(4.5px);user-select:none;pointer-events:none;display:block}
+#enemy-coach.blurred::after{content:"对方的教练 · 看不清";position:absolute;inset:auto 0 0 0;
+ display:flex;align-items:center;justify-content:center;height:20px;font-size:11px;color:#9fb4a8}
