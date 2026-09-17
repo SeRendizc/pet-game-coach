@@ -67,7 +67,13 @@ async function main(){
  const check=(name,ok,detail='')=>{checks.push({name,ok,detail});};
 
  // 营地：模块图没崩才会有伙伴卡
- check('营地渲染出伙伴卡',await js(`document.querySelectorAll('#camp-roster .pet-option').length`)===12);
+ // 不写死数量：加了普通系两只之后这里曾是 12，而实际是 14。
+ // 从页面里读引擎的属性筛选总数（「全部 · N」），与卡片数比对。
+ const campPets=await js(`document.querySelectorAll('#camp-roster .pet-option').length`);
+ check('营地渲染出伙伴卡',campPets>0,`${campPets} 张`);
+ check('筛选条的「全部」计数与卡片数一致',
+  await js(`(()=>{const b=[...document.querySelectorAll('#camp-pages button')].find(x=>x.textContent.startsWith('全部'));
+   return b?Number(b.textContent.replace(/[^0-9]/g,''))===document.querySelectorAll('#camp-roster .pet-option').length:false;})()`));
 
  // 训练一局
  await js(`document.getElementById('go-pve').click()`);await sleep(400);

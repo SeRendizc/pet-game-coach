@@ -70,7 +70,9 @@ let enemyRosterType='all';
 function filteredSpecies(which='rosterType'){const t=which==='enemyRosterType'?enemyRosterType:rosterType;return SPECIES.filter(p=>t==='all'||p.type===t);}
 function renderTypeFilter(navId,rerender,which='rosterType'){
  const cur=which==='enemyRosterType'?enemyRosterType:rosterType;
- const filters=['all','fire','water','leaf','rock','electric','wind'];
+ // 从引擎取属性表，不再手写。加普通系宠物时忘了把 normal 加进这个列表，
+ // 结果玩家筛不出那两只——写了写死清单却没同步的又一次。
+ const filters=['all',...Object.keys(TYPES).filter(t=>t!=='normal'),'normal'];
  $(navId).innerHTML=filters.map(t=>{const n=t==='all'?SPECIES.length:SPECIES.filter(p=>p.type===t).length;return `<button data-roster-type="${t}" class="${cur===t?'selected':''}">${t==='all'?'全部':TYPES[t]}·${n}</button>`;}).join('');
  document.querySelectorAll(`#${navId} [data-roster-type]`).forEach(b=>b.onclick=()=>{if(which==='enemyRosterType')enemyRosterType=b.dataset.rosterType;else rosterType=b.dataset.rosterType;rerender();});
 }

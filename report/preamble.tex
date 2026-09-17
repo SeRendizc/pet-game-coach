@@ -3,17 +3,19 @@
 %
 % 注意：
 % 1. 不设 \XeTeXlinebreaklocale / \XeTeXlinebreakskip。断行由 xeCJK 的 \CJKglue 处理，
-%    手设这两个裸 primitive 在 ctex 下是不必要的（源码里除 CJLineBreak 外并无引用）。
+%    手设这两个裸 primitive 在 ctex 下是不必要的。
 % 2. 不用 titlesec。加载它会完全接管章节标题，ctex 自带的标题间距设置会失效。
 %    章节样式改用 ctex 自己的 \ctexset。
 % 3. 不用 \sloppy。它的作用是放宽断行阈值，代价是把不良断行的警告一起盖掉，
-%    等于把问题藏起来。真正该做的是让长串可断（\url、表格用 p{} 列）并把内容写短。
+%    等于把问题藏起来。真正该做的是让长串可断（\path、表格用 p{} 列）并把内容写短。
 % 4. 不写 \setlength\parindent。ctex 默认 autoindent=true，已经等于 2\ccwd，
 %    而 2\ccwd 包含字距，与 2em 并不等价，手写反而容易错。
+% 5. \parskip 设为固定值而不是含 stretch 的胶：正文段落之间要能喘气，
+%    但可伸长的段间距会把页断行的松紧吃进去，反而更容易出 underfull \vbox。
 \documentclass[UTF8, scheme=chinese, a4paper, zihao=-4]{ctexart}
 
 \usepackage{geometry}
-\geometry{a4paper, top=2.5cm, bottom=2.5cm, left=2.6cm, right=2.6cm}
+\geometry{a4paper, top=2.4cm, bottom=2.4cm, left=2.5cm, right=2.5cm}
 
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -22,17 +24,22 @@
 \usepackage{xurl}              % 允许 URL 任意位置断行
 \usepackage[hidelinks]{hyperref}
 
-\linespread{1.3}               % ctex 的 scheme=chinese 默认行距
+\linespread{1.25}
+\setlength{\parskip}{0.62em}
 
 % 章节样式：用 ctex 自己的接口，不引 titlesec
 \ctexset{
   section/format    = \normalfont\large\bfseries,
   subsection/format = \normalfont\normalsize\bfseries,
-  section/beforeskip  = 1.4em,
-  section/afterskip   = 0.6em,
-  subsection/beforeskip = 1em,
-  subsection/afterskip  = 0.4em,
+  section/beforeskip  = 1.3em,
+  section/afterskip   = 0.5em,
+  subsection/beforeskip = 0.9em,
+  subsection/afterskip  = 0.35em,
 }
+
+% 浮动体（本节只有表格）与正文的间距：默认 12pt 偏松，四张表累计能省出小半页
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
 
 \pagestyle{plain}
 
