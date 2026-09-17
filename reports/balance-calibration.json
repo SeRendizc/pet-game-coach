@@ -1554,7 +1554,7 @@
       "longestEnemySwitchStreakEver": 0
     }
   },
-  "partial": true,
+  "partial": false,
   "studyB_training": {
     "meadow | L1_none | greedy-damage": {
       "n": 24,
@@ -5616,5 +5616,790 @@
         }
       }
     }
-  }
+  },
+  "studyD2_switch_attractiveness": {
+    "harvestedEnemyDecisions": 1286,
+    "statesWithLegalSwitch": 1286,
+    "statesWhereSwitchIsRawTop": 264,
+    "switchTopRate": 0.2052877138413686,
+    "switchTopRateCI95": [
+      0.18410481717648408,
+      0.22822612330488978
+    ],
+    "switchOnlyStates": 0,
+    "marginDistribution": {
+      "n": 264,
+      "min": 0.17945119032074786,
+      "p25": 0.7488552081185915,
+      "p50": 4.798227142579165,
+      "p75": 6.58333346032564,
+      "p90": 8.596883846860393,
+      "max": 33.965035567558544
+    },
+    "flipProbabilityGivenSwitchIsTop": {
+      "3": {
+        "point": 0.2727272727272727,
+        "ci95": [
+          0.22255031131874253,
+          0.32942369122604515
+        ]
+      },
+      "6": {
+        "point": 0.7272727272727273,
+        "ci95": [
+          0.6705763087739548,
+          0.7774496886812575
+        ]
+      },
+      "9": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "12": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "18": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "24": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "36": {
+        "point": 1,
+        "ci95": [
+          0.9856571944014672,
+          1
+        ]
+      }
+    },
+    "note": "flipProb[P] = share of states whose raw top pick is a switch that a P-point inertia cost would overturn."
+  },
+  "studyE_swift": {
+    "shippedThreshold": 10,
+    "overallWindow": {
+      "6": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "8": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "10": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "12": {
+        "ofWins": 0.3018867924528302,
+        "ofAllMatches": 0.03333333333333333,
+        "n": 16
+      },
+      "14": {
+        "ofWins": 0.3018867924528302,
+        "ofAllMatches": 0.03333333333333333,
+        "n": 16
+      },
+      "16": {
+        "ofWins": 0.3018867924528302,
+        "ofAllMatches": 0.03333333333333333,
+        "n": 16
+      },
+      "20": {
+        "ofWins": 0.3018867924528302,
+        "ofAllMatches": 0.03333333333333333,
+        "n": 16
+      },
+      "25": {
+        "ofWins": 0.6037735849056604,
+        "ofAllMatches": 0.06666666666666667,
+        "n": 32
+      },
+      "30": {
+        "ofWins": 0.9056603773584906,
+        "ofAllMatches": 0.1,
+        "n": 48
+      },
+      "40": {
+        "ofWins": 1,
+        "ofAllMatches": 0.11041666666666666,
+        "n": 53
+      }
+    },
+    "byStage": {
+      "meadow": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.16666666666666666,
+          "n": 16
+        },
+        "14": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.16666666666666666,
+          "n": 16
+        },
+        "16": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.16666666666666666,
+          "n": 16
+        },
+        "20": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.16666666666666666,
+          "n": 16
+        },
+        "25": {
+          "ofWins": 1,
+          "ofAllMatches": 0.3333333333333333,
+          "n": 32
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.3333333333333333,
+          "n": 32
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.3333333333333333,
+          "n": 32
+        }
+      },
+      "river": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.16666666666666666,
+          "n": 16
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.21875,
+          "n": 21
+        }
+      },
+      "embers": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      },
+      "grove": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      },
+      "summit": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      }
+    },
+    "byPolicy": {
+      "greedy-damage": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      },
+      "one-turn-rank": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0.3018867924528302,
+          "ofAllMatches": 0.1,
+          "n": 16
+        },
+        "14": {
+          "ofWins": 0.3018867924528302,
+          "ofAllMatches": 0.1,
+          "n": 16
+        },
+        "16": {
+          "ofWins": 0.3018867924528302,
+          "ofAllMatches": 0.1,
+          "n": 16
+        },
+        "20": {
+          "ofWins": 0.3018867924528302,
+          "ofAllMatches": 0.1,
+          "n": 16
+        },
+        "25": {
+          "ofWins": 0.6037735849056604,
+          "ofAllMatches": 0.2,
+          "n": 32
+        },
+        "30": {
+          "ofWins": 0.9056603773584906,
+          "ofAllMatches": 0.3,
+          "n": 48
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.33125,
+          "n": 53
+        }
+      },
+      "rushed": {
+        "6": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "30": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "40": {
+          "ofWins": null,
+          "ofAllMatches": 0,
+          "n": 0
+        }
+      }
+    },
+    "byDifficulty": {
+      "normal": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "14": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "16": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "20": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "25": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "30": {
+          "ofWins": 0.7619047619047619,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.0875,
+          "n": 21
+        }
+      },
+      "hard": {
+        "6": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "8": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "10": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "12": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "14": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "16": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "20": {
+          "ofWins": 0,
+          "ofAllMatches": 0,
+          "n": 0
+        },
+        "25": {
+          "ofWins": 0.5,
+          "ofAllMatches": 0.06666666666666667,
+          "n": 16
+        },
+        "30": {
+          "ofWins": 1,
+          "ofAllMatches": 0.13333333333333333,
+          "n": 32
+        },
+        "40": {
+          "ofWins": 1,
+          "ofAllMatches": 0.13333333333333333,
+          "n": 32
+        }
+      }
+    },
+    "winRoundDistribution": {
+      "n": 53,
+      "min": 11,
+      "p10": 11,
+      "p25": 11,
+      "p50": 22,
+      "p75": 29,
+      "p90": 29,
+      "max": 33
+    },
+    "fastTeamSample": 72,
+    "fastTeamWinRate": 1,
+    "fastTeamOverallWindow": {
+      "6": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "8": {
+        "ofWins": 0,
+        "ofAllMatches": 0,
+        "n": 0
+      },
+      "10": {
+        "ofWins": 0.6666666666666666,
+        "ofAllMatches": 0.6666666666666666,
+        "n": 48
+      },
+      "12": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      },
+      "14": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      },
+      "16": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      },
+      "20": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      },
+      "25": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      },
+      "30": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      },
+      "40": {
+        "ofWins": 1,
+        "ofAllMatches": 1,
+        "n": 72
+      }
+    },
+    "fastTeamWinRounds": {
+      "n": 72,
+      "min": 10,
+      "p25": 10,
+      "p50": 10,
+      "p75": 11,
+      "max": 11
+    },
+    "sampledMatches": 480,
+    "tokenImpact": {
+      "6": {
+        "swiftShareOfWins": 0,
+        "tokensPerWin": 3,
+        "inflationVsBaseWin": 0
+      },
+      "8": {
+        "swiftShareOfWins": 0,
+        "tokensPerWin": 3,
+        "inflationVsBaseWin": 0
+      },
+      "10": {
+        "swiftShareOfWins": 0,
+        "tokensPerWin": 3,
+        "inflationVsBaseWin": 0
+      },
+      "12": {
+        "swiftShareOfWins": 0.3018867924528302,
+        "tokensPerWin": 3.30188679245283,
+        "inflationVsBaseWin": 0.1006
+      },
+      "14": {
+        "swiftShareOfWins": 0.3018867924528302,
+        "tokensPerWin": 3.30188679245283,
+        "inflationVsBaseWin": 0.1006
+      },
+      "16": {
+        "swiftShareOfWins": 0.3018867924528302,
+        "tokensPerWin": 3.30188679245283,
+        "inflationVsBaseWin": 0.1006
+      },
+      "20": {
+        "swiftShareOfWins": 0.3018867924528302,
+        "tokensPerWin": 3.30188679245283,
+        "inflationVsBaseWin": 0.1006
+      },
+      "25": {
+        "swiftShareOfWins": 0.6037735849056604,
+        "tokensPerWin": 3.6037735849056602,
+        "inflationVsBaseWin": 0.2013
+      },
+      "30": {
+        "swiftShareOfWins": 0.9056603773584906,
+        "tokensPerWin": 3.9056603773584904,
+        "inflationVsBaseWin": 0.3019
+      },
+      "40": {
+        "swiftShareOfWins": 1,
+        "tokensPerWin": 4,
+        "inflationVsBaseWin": 0.3333
+      }
+    }
+  },
+  "caveats": [
+    "Player side is a scripted policy, not a human; absolute win rates are NOT player win rates.",
+    "Only the enemy is charged the inertia cost; the player never is (matches engine.js).",
+    "Match length counts history entries of type \"turn\", exactly like progression.js settle().",
+    "The +1 swift bonus is once per stage, so reachability is only meaningful per stage.",
+    "The 5 stages and their enemy levels come from content.js STAGES via stageOptions()."
+  ]
 }

@@ -78,7 +78,10 @@ export async function gatherAgentEvidence({message,context,plan,limit=3,retrieve
  if(isLiveMatch(context))return {trace:[],stopped:'policy'};
  const trace=[];const seen=new Set();
  for(let i=0;i<Math.min(4,limit);i++){
-  let choice;try{choice=await plan({message,screen:context.mode,tools:Object.keys(TOOL_CONTRACTS),contracts:TOOL_CONTRACTS,receipts:trace,remaining:limit-i});}catch{return {trace,stopped:'planner-failed'};}
+  // 规划器解析失败不应该让整轮作废：拿不到工具就用已有证据作答，
+  // 这比让玩家看到一次失败要好。实测 44 条里有 3 条走到这里。
+  let choice;try{choice=await plan({message,screen:context.mode,tools:Object.keys(TOOL_CONTRACTS),contracts:TOOL_CONTRACTS,receipts:trace,remaining:limit-i});}
+  catch{return {trace,stopped:trace.length?'planner-failed':'planner-failed-no-tools'};}
   if(choice?.stop===true)return {trace,stopped:'complete'};
   const name=choice?.tool,args=choice?.args||{};
   if(!Object.hasOwn(TOOL_CONTRACTS,name))return {trace,stopped:'invalid-tool'};

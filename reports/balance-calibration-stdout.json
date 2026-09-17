@@ -1,0 +1,480 @@
+{
+  "chooserVerification": {
+    "statesChecked": 7323,
+    "mismatch": 0,
+    "shippedSwitchDecisions": 507
+  },
+  "studyD": {
+    "penalty=0 (no inertia)": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=3": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=6 (shipped)": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=9": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=12": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=18": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=6, cap=12": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=6, cap=24": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=6, 5-turn window": {
+      "winRate": 0.5,
+      "enemySwitchRate": 0.239,
+      "flips": {
+        "streak0": 0,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 0
+      },
+      "applied": {
+        "streakAtLeast1": 216,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 216,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 696,
+        "1": 216,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=6 on ANY switch in last 3 turns": {
+      "winRate": 0.208,
+      "enemySwitchRate": 0.226,
+      "flips": {
+        "streak0": 24,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 24
+      },
+      "applied": {
+        "streakAtLeast1": 240,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 264,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 861,
+        "1": 240,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=18 on ANY switch in last 3 turns": {
+      "winRate": 0,
+      "enemySwitchRate": 0.174,
+      "flips": {
+        "streak0": 96,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 96
+      },
+      "applied": {
+        "streakAtLeast1": 192,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 288,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 1008,
+        "1": 192,
+        "2": 0,
+        "3+": 0
+      }
+    },
+    "penalty=36 on ANY switch in last 3 turns": {
+      "winRate": 0,
+      "enemySwitchRate": 0.174,
+      "flips": {
+        "streak0": 96,
+        "streak1": 0,
+        "streak2": 0,
+        "streak3plus": 0,
+        "total": 96
+      },
+      "applied": {
+        "streakAtLeast1": 192,
+        "streakAtLeast2": 0,
+        "streakAtLeast3": 0
+      },
+      "longestStreak": 1,
+      "switchTop": {
+        "0": 288,
+        "1": 0,
+        "2": 0,
+        "3+": 0
+      },
+      "byStreak": {
+        "0": 1008,
+        "1": 192,
+        "2": 0,
+        "3+": 0
+      }
+    }
+  },
+  "d2": {
+    "harvestedEnemyDecisions": 1286,
+    "statesWithLegalSwitch": 1286,
+    "statesWhereSwitchIsRawTop": 264,
+    "switchTopRate": 0.2052877138413686,
+    "switchTopRateCI95": [
+      0.18410481717648408,
+      0.22822612330488978
+    ],
+    "switchOnlyStates": 0,
+    "marginDistribution": {
+      "n": 264,
+      "min": 0.17945119032074786,
+      "p25": 0.7488552081185915,
+      "p50": 4.798227142579165,
+      "p75": 6.58333346032564,
+      "p90": 8.596883846860393,
+      "max": 33.965035567558544
+    },
+    "flipProbabilityGivenSwitchIsTop": {
+      "3": {
+        "point": 0.2727272727272727,
+        "ci95": [
+          0.22255031131874253,
+          0.32942369122604515
+        ]
+      },
+      "6": {
+        "point": 0.7272727272727273,
+        "ci95": [
+          0.6705763087739548,
+          0.7774496886812575
+        ]
+      },
+      "9": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "12": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "18": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "24": {
+        "point": 0.9090909090909091,
+        "ci95": [
+          0.868297998293246,
+          0.9381487971261361
+        ]
+      },
+      "36": {
+        "point": 1,
+        "ci95": [
+          0.9856571944014672,
+          1
+        ]
+      }
+    },
+    "note": "flipProb[P] = share of states whose raw top pick is a switch that a P-point inertia cost would overturn."
+  },
+  "swift10": {
+    "meadow": {
+      "ofWins": 0,
+      "ofAllMatches": 0,
+      "n": 0
+    },
+    "river": {
+      "ofWins": 0,
+      "ofAllMatches": 0,
+      "n": 0
+    },
+    "embers": {
+      "ofWins": null,
+      "ofAllMatches": 0,
+      "n": 0
+    },
+    "grove": {
+      "ofWins": null,
+      "ofAllMatches": 0,
+      "n": 0
+    },
+    "summit": {
+      "ofWins": null,
+      "ofAllMatches": 0,
+      "n": 0
+    }
+  },
+  "swiftOverall": {
+    "ofWins": 0,
+    "ofAllMatches": 0,
+    "n": 0
+  },
+  "fastTeam": {
+    "n": 72,
+    "min": 10,
+    "p25": 10,
+    "p50": 10,
+    "p75": 11,
+    "max": 11
+  },
+  "fastTeamWinRate": 1,
+  "winRounds": {
+    "n": 53,
+    "min": 11,
+    "p10": 11,
+    "p25": 11,
+    "p50": 22,
+    "p75": 29,
+    "p90": 29,
+    "max": 33
+  }
+}

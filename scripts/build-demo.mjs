@@ -285,13 +285,41 @@ function flow(title, intro) {
 }
 
 /**
+ * 每个步骤的操作说明写在这里（而不是从函数源码里取——那样会把 JS 源码倒进文档）。
+ * key 是 slug，`op` 会原样出现在分镜文档的「操作」一行。
+ */
+const OP_TEXT = {
+  'first-run-welcome': '首次加载后不做任何操作：记录应用自己弹出的陪伴风格选择框。',
+  'camp-home': '点击对话框里的第一个按钮「关键时搭把手」，按真实用户路径关掉它。',
+  'camp-cultivation': '真实点击营地名册第 2 只伙伴的「培养」，并核对右栏面板是否跟着变。',
+  'cultivation-switch': '点「训练 · PVE」进出征页，再点第 3 只伙伴的「培养」——这条路会回到营地并重绘右栏。',
+  'deploy-stages': '从营地点击「训练 · PVE」入口卡，进入出征页。',
+  'stage-detail': '点击第 2 个关卡「02 · 溪流浅滩」，切换关卡。',
+  'team-selection': '不做改动，记录默认已经选好的三只伙伴与出场顺序。',
+  'deploy-side': '不做操作，记录右侧「出征设置」侧栏。',
+  'battle-turn1': '把播放速度设为「即时」（只影响播放节奏，不改数值），然后点「开始训练」。',
+  'hint-strip-evidence': '依次展开教练条的「看看原因」与「计算依据」，等解释文案结算。',
+  'turn-2': '在技能面板点第一个可用行动出招，等回合同步推进。',
+  'turn-3': '再出招一次（第 2 次）。',
+  'turn-4': '第三次出招，凑满要求的 3 个回合。',
+  'round-review': '点击顶栏「✦ 回合回顾」，等教练在右侧面板给出回答与其依据。',
+  'pvp-deploy': '点「返回营地」（原生 confirm 按确定），再点「对局 · PVP」，对手选「真人同机（分屏）」。',
+  'pvp-split-two-coaches': '点「开始对战」，等左右两个面板与两条教练条都出现。',
+  'pvp-split-both-locked': '我方先锁定一招，再替对方锁一招；两边都锁完才结算。',
+  'pvp-ai-opponent': '回营地改选「AI 模拟真人」，重新开局并出一招。',
+  'match-complete': '回营地重开一局 PVE，用「即时」速度一直出招打到分出胜负（脚本自动出招，最多 140 回合）。',
+  'match-review': '展开整局复盘里的「关键回合与依据」，等分析文案结算。',
+  'match-review-coach': '点击此时已变成「整局复盘」的按钮，让复盘落到右侧教练面板。',
+};
+
+/**
  * 一个步骤 = 一段真实操作 + 一张截图。
  * 前置不满足 → 记为「跳过」；操作抛错 → 记为「未达成」并抓当前真实画面（不伪造）。
  */
-async function step({ slug, title, action, expect, capture = 'full', selector = null, pad = 18, needs = null, timeout = 20000 }) {
+async function step({ slug, title, perform = null, op = null, expect, capture = 'full', selector = null, pad = 18, needs = null, timeout = 20000 }) {
   const n = pad2(shots.length + 1);
   const file = `${n}-${slug}.png`;
-  const entry = { n, slug, title, action, expect, file: null, capture, status: 'ok', note: null };
+  const entry = { n, slug, title, op: op || OP_TEXT[slug] || null, expect, file: null, capture, status: 'ok', note: null };
   currentFlow.steps.push(entry);
   shots.push(entry);
 
@@ -302,9 +330,9 @@ async function step({ slug, title, action, expect, capture = 'full', selector = 
     return entry;
   }
 
-  if (action) {
+  if (perform) {
     try {
-      await action();
+      await perform();
     } catch (err) {
       entry.status = 'failed';
       entry.note = err instanceof StepError ? err.message : `操作异常：${err.message}`;
@@ -423,7 +451,7 @@ async function run() {
   await step({
     slug: 'first-run-welcome',
     title: '首次进入：陪伴风格选择框',
-    action: null,
+    perform: null,
     expect: '模态对话框 #coach-welcome 打开，三个风格按钮与语音选项可见。',
     capture: 'viewport',
     needs: '#coach-welcome',
@@ -432,7 +460,7 @@ async function run() {
   await step({
     slug: 'camp-home',
     title: '营地首页',
-    action: async () => {
+    perform: async () => {
       await clickEl('#coach-welcome .style-choices button', {
         index: 0,
         expect: `!document.getElementById('coach-welcome').open`,
@@ -447,7 +475,7 @@ async function run() {
   const campPanelStep = await step({
     slug: 'camp-cultivation',
     title: '培养面板',
-    action: async () => {
+    perform: async () => {
       // 真实点击营地名册里的「培养」。这里不预设结果，只如实记录发生了什么。
       const heading = () => evalJs(`document.querySelector('#cultivation h3').textContent.trim()`);
       const before = await heading();
@@ -467,7 +495,7 @@ async function run() {
   await step({
     slug: 'cultivation-switch',
     title: '切换培养对象（会重绘的那条路）',
-    action: async () => {
+    perform: async () => {
       const heading = () => evalJs(`document.querySelector('#cultivation h3').textContent.trim()`);
       const before = await heading();
       await clickEl('#go-pve', { expect: `!document.getElementById('deploy').hidden`, label: '进入出征页' });
@@ -489,7 +517,7 @@ async function run() {
   await step({
     slug: 'deploy-stages',
     title: '出征页与关卡选择',
-    action: async () => {
+    perform: async () => {
       await clickEl('#go-pve', {
         expect: `!document.getElementById('deploy').hidden`,
         label: '进入出征页',
@@ -503,7 +531,7 @@ async function run() {
   await step({
     slug: 'stage-detail',
     title: '关卡详情',
-    action: async () => {
+    perform: async () => {
       await clickEl('#stage-picker [data-stage]', {
         index: 1,
         expect: `document.querySelector('#stage-picker [data-stage]:nth-child(2)').classList.contains('selected')`,
@@ -520,7 +548,7 @@ async function run() {
   await step({
     slug: 'team-selection',
     title: '出战三只与出场顺序',
-    action: async () => {
+    perform: async () => {
       await waitFor(`(()=>{const s=document.getElementById('selection');return s && s.textContent.includes('3');})()`, { label: '队伍已是 3 只' });
       await sleep(300);
     },
@@ -532,7 +560,7 @@ async function run() {
   await step({
     slug: 'deploy-side',
     title: '出征设置侧栏',
-    action: null,
+    perform: null,
     expect: '侧栏汇总本局的模式、关卡、难度与队伍人数。',
     capture: 'clip',
     selector: 'aside.deploy-side',
@@ -542,7 +570,7 @@ async function run() {
   await step({
     slug: 'battle-turn1',
     title: '开局第 1 回合',
-    action: async () => {
+    perform: async () => {
       await selectEl('#speed', '0');
       await clickEl('#start', {
         expect: `!document.getElementById('battle').hidden`,
@@ -561,7 +589,7 @@ async function run() {
   await step({
     slug: 'hint-strip-evidence',
     title: '对局中的提示条与计算依据',
-    action: async () => {
+    perform: async () => {
       await waitVisible('#live-coach', { timeout: 15000 });
       await expandHint();
       await settleText('#live-provider', '正在组织解释', 25000);
@@ -575,7 +603,7 @@ async function run() {
   await step({
     slug: 'turn-2',
     title: '出招 1 次后（第 2 回合）',
-    action: async () => {
+    perform: async () => {
       await playTurn();
       await sleep(600);
     },
@@ -586,7 +614,7 @@ async function run() {
   await step({
     slug: 'turn-3',
     title: '出招 2 次后（第 3 回合）',
-    action: async () => {
+    perform: async () => {
       await playTurn();
       await sleep(600);
     },
@@ -597,7 +625,7 @@ async function run() {
   const thirdTurn = await step({
     slug: 'turn-4',
     title: '出招 3 次后（第 4 回合）',
-    action: async () => {
+    perform: async () => {
       await playTurn();
       await sleep(600);
     },
@@ -608,7 +636,7 @@ async function run() {
   await step({
     slug: 'round-review',
     title: '回合回顾面板（含证据）',
-    action: async () => {
+    perform: async () => {
       await waitIdle();
       const before = await chatEntryCount();
       await clickEl('#round-coach', {
@@ -628,7 +656,7 @@ async function run() {
   await step({
     slug: 'pvp-deploy',
     title: 'PVP 出征页与对手选择',
-    action: async () => {
+    perform: async () => {
       await backToCamp();
       await clickEl('#go-pvp', { expect: `!document.getElementById('deploy').hidden`, label: '进入 PVP 出征页' });
       await waitVisible('#pvp-opponent');
@@ -642,7 +670,7 @@ async function run() {
   await step({
     slug: 'pvp-split-two-coaches',
     title: '分屏开局：两侧面板 + 两条教练',
-    action: async () => {
+    perform: async () => {
       await clickEl('#start', { expect: `!document.getElementById('battle').hidden`, label: '开始对战' });
       await waitVisible('#panel-enemy');
       await waitVisible('#player-coach-text');
@@ -656,7 +684,7 @@ async function run() {
   await step({
     slug: 'pvp-split-both-locked',
     title: '双方各自锁定行动',
-    action: async () => {
+    perform: async () => {
       await clickEl('#actions [data-action]', { expect: `document.getElementById('message').textContent.includes('已锁定')`, label: '我方锁定' });
       await clickEl('#enemy-actions [data-action]', { expect: null });
       await waitIdle(25000);
@@ -669,7 +697,7 @@ async function run() {
   await step({
     slug: 'pvp-ai-opponent',
     title: 'AI 模拟真人的同一套界面',
-    action: async () => {
+    perform: async () => {
       await backToCamp();
       await clickEl('#go-pvp', { expect: `!document.getElementById('deploy').hidden`, label: '回到 PVP 出征页' });
       await waitVisible('#pvp-opponent');
@@ -692,7 +720,7 @@ async function run() {
   await step({
     slug: 'match-complete',
     title: '打完整局：结算与自动复盘',
-    action: async () => {
+    perform: async () => {
       await backToCamp();
       await clickEl('#go-pve', { expect: `!document.getElementById('deploy').hidden`, label: '进入 PVE 出征页' });
       await waitVisible('#start');
@@ -717,7 +745,7 @@ async function run() {
   await step({
     slug: 'match-review',
     title: '自动整局复盘（关键回合与依据）',
-    action: async () => {
+    perform: async () => {
       if (!finished) warnings.push('整局复盘：未在 140 回合内确认胜负，仍然抓取了当前真实画面');
       await waitVisible('#live-coach', { timeout: 20000 });
       const hasDetails = await evalJs(`!!document.querySelector('#live-coach details')`);
@@ -738,7 +766,7 @@ async function run() {
   await step({
     slug: 'match-review-coach',
     title: '整局复盘落到教练面板',
-    action: async () => {
+    perform: async () => {
       const before = await chatEntryCount();
       await clickEl('#round-coach', { expect: `!document.getElementById('coach-panel').hidden`, label: '打开整局复盘' });
       await waitCoachAnswer(before, 90000);
@@ -804,7 +832,7 @@ function buildStoryboard(meta) {
         lines.push('*本步骤没有可用截图。*');
       }
       lines.push('');
-      if (s.action) lines.push(`- **操作**：${s.action}`);
+      if (s.op) lines.push(`- **操作**：${s.op}`);
       lines.push(`- **画面**：${s.expect}`);
       if (s.observed) lines.push(`- **实测观察**：${s.observed}`);
       if (s.note) lines.push(`- **实际结果**：${s.status === 'skipped' ? '跳过' : '未达成'} — ${s.note}`);
