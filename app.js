@@ -231,7 +231,7 @@ let voiceEnabled=false,voiceVolume=.5,lastSpoken='';
 try{const setting=JSON.parse(localStorage.getItem('xiaoya-voice')||'{}');voiceEnabled=setting.enabled===true;voiceVolume=Number.isFinite(setting.volume)?Math.max(0,Math.min(1,setting.volume)):.5;voiceName=typeof setting.voice==='string'?setting.voice:'';}catch{}
 $('voice-enabled').checked=voiceEnabled;$('voice-volume').value=voiceVolume;
 if(!('speechSynthesis' in window)){$('voice-enabled').disabled=true;$('voice-status').textContent='当前浏览器不支持语音，仍可查看文字';}
-let utterance=null,chosenVoice=null,voiceName='';
+let utterance=null,chosenVoice=null,voiceName='',lastCancelAt=0;
 function voiceStatus(text){$('voice-status').textContent=text;}
 // 只挑普通话。zext 的 startsWith('zh') 会命中 zh-HK（粤语）与 zh-TW，
 // 而 getVoices() 首次调用常常返回空数组 —— 这正是"第一次普通话、之后粤语"的原因。
@@ -266,22 +266,32 @@ if(window.speechSynthesis){
  window.speechSynthesis.onvoiceschanged=()=>{const best=renderVoiceOptions();chosenVoice=best;};
  renderVoiceOptions();
 }
-function cancelVoice(){const s=window.speechSynthesis;if(!s)return;utterance=null;if(s.speaking||s.pending)s.cancel();}
+function cancelVoice(){const s=window.speechSynthesis;if(!s)return;utterance=null;if(s.speaking||s.pending){s.cancel();lastCancelAt=Date.now();}}
 function playVoice(text,{test=false}={}){
  if(!window.speechSynthesis){voiceStatus('当前浏览器不支持语音，请使用文字');return;}
  if(voiceVolume===0){voiceStatus('音量为0，请调高后试听');return;}
- const synth=window.speechSynthesis,wasSpeaking=!!(synth.speaking||synth.pending);
- cancelVoice();
- const u=new SpeechSynthesisUtterance(concise(text,90));utterance=u;
- const v=resolveVoice();if(v)chosenVoice=v;
- u.voice=v||null;u.lang=v?v.lang:'zh-CN';u.volume=voiceVolume;u.rate=1;u.pitch=1;
- if(v)voiceStatus((test?'试听 · ':'播报 · ')+v.name+'（'+v.lang+'）');else voiceStatus(test?'正在试听…':'准备播报…');
- u.onstart=()=>voiceStatus('正在播报 · '+(u.voice?u.voice.name:'系统默认'));u.onend=()=>{if(utterance===u){utterance=null;voiceStatus('播报结束 · '+(u.voice?u.voice.name+'（'+u.voice.lang+'）':'系统默认'));}};
- u.onerror=e=>{if(!['interrupted','canceled'].includes(e.error))voiceStatus('语音未播放：'+({ 'not-allowed':'请点试听解锁播放', 'voice-unavailable':'系统没有可用语音', 'language-unavailable':'系统缺少中文语音','audio-busy':'音频设备忙'}[e.error]||'请检查浏览器及系统声音设置'));};
- // 上一句还在播时先 cancel 再立刻 speak 会产生爆音；让音频管线先静下来。
- const start=()=>{if(utterance!==u)return;if(synth.paused)synth.resume();synth.speak(u);};
- if(wasSpeaking)setTimeout(start,80);else start();
- setTimeout(()=>{if(utterance===u&&!window.speechSynthesis.speaking&&!window.speechSynthesis.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},1500);
+ const synth=window.speechSynthesis;
+ // 播报路径里绝不 cancel。macOS Chrome 上 cancel() 之后紧接着 speak() 会让引擎沿用
+ // 上一次的坏状态：换成另一个声音（本机表现为粤语）并在结尾爆音。已在播的先让它播完，
+ // 排队超过一条就跳过，宁可少说一句。
+ if(synth.speaking||synth.pending){voiceStatus('已有语音在播报，本次提示跳过');return;}
+ // utterance 也尽量晚创建：cancel 之后重建实例才拿得到正确的声音。
+ const fire=()=>{
+  const u=new SpeechSynthesisUtterance(concise(text,90));
+  const v=resolveVoice();if(v)chosenVoice=v;
+  u.voice=v||null;u.lang=v?v.lang:'zh-CN';u.volume=voiceVolume;u.rate=1;u.pitch=1;
+  utterance=u;
+  voiceStatus((test?'试听 · ':'播报 · ')+(v?v.name+'（'+v.lang+'）':'系统默认中文声音'));
+  u.onstart=()=>voiceStatus('正在播报 · '+(u.voice?u.voice.name:'系统默认'));
+  u.onend=()=>{if(utterance===u){utterance=null;voiceStatus('播报结束 · '+(u.voice?u.voice.name+'（'+u.voice.lang+'）':'系统默认'));}};
+  u.onerror=e=>{if(!['interrupted','canceled'].includes(e.error))voiceStatus('语音未播放：'+({ 'not-allowed':'请点试听解锁播放', 'voice-unavailable':'系统没有可用语音', 'language-unavailable':'系统缺少中文语音','audio-busy':'音频设备忙'}[e.error]||'请检查浏览器及系统声音设置'));};
+  if(synth.paused)synth.resume();
+  synth.speak(u);
+ };
+ // 只有刚 cancel 过才等一会儿，让音频管线重建完再播。
+ const wait=Math.max(0,300-(Date.now()-lastCancelAt));
+ setTimeout(fire,wait);
+ setTimeout(()=>{if(utterance&&!synth.speaking&&!synth.pending)voiceStatus('未检测到播放，请点试听并检查系统中文语音');},wait+1500);
 }
 function speakCue(text){if(!voiceEnabled||document.hidden||busy||preview||profile.coach.mode==='quiet'||game?.mode!=='pve')return;const id=matchId+':'+game.turn+':'+text;if(lastSpoken===id)return;lastSpoken=id;playVoice(text);}
 function saveVoice(){try{localStorage.setItem('xiaoya-voice',JSON.stringify({enabled:voiceEnabled,volume:voiceVolume,voice:voiceName}));}catch{}}
