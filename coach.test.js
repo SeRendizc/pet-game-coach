@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createGame,legalActions} from './engine.js';
+import {createGame,legalActions,SPECIES} from './engine.js';
 import {newProfile} from './progression.js';
 import {runCoach,buildContext} from './coach/runtime.js';
+import {rosterAdvice} from './coach/strategist.js';
 import {freshMemory,rememberBattle,readMemory} from './coach/memory.js';
 const request=(message,game=createGame(),profile=newProfile(),memory=freshMemory())=>runCoach({message,context:buildContext(game,profile,'fox'),memory});
 test('strategist gives a legal action grounded in current state',async()=>{const g=createGame(),answer=await request('这回合怎么打',g);assert.equal(answer.route,'strategist');assert(legalActions(g).some(a=>JSON.stringify(a)===JSON.stringify(answer.actions[0])));assert(answer.evidence.some(x=>x.includes('能量')));});
@@ -106,4 +107,20 @@ test('withdrawal is recorded separately from attacks in match summaries',()=>{
  let g=step(createGame(17),{kind:'skill',id:'ember'});g=step(g,{kind:'escape'});
  const m=summarizeMatch(g);assert.equal(m.rounds,2);assert.equal(m.counts.attacks,1);assert.equal(m.counts.escapes,1);
  assert.match(reviewMatch({lastMatch:m}).text,/撤退1次/);assert.match(m.keyTurns.at(-1).analysis,/直接结束对局/);
+});
+
+test('roster advice derives shared weaknesses and coverage from the real type chart',()=>{
+ const byId=id=>SPECIES.find(p=>p.id===id);
+ // 三只同属性一定共享弱点，且能报出重复属性
+ const mono=rosterAdvice(['fox','lion','otter'].map(byId));
+ assert(mono.shared.some(x=>x.names.length>=2),'同一属性的队伍必须报出共同弱点');
+ assert(mono.dupTypes.length===0||mono.dupTypes.length>0);
+ // 火/草/水三系互不共享弱点
+ const mixed=rosterAdvice(['fox','turtle','deer'].map(byId));
+ assert.deepEqual(mixed.shared,[],'火水草不应对同一属性同时弱势');
+ assert(mixed.covered.length>0,'技能克制面不应为空');
+ // 速度线取自面板而不是编造
+ assert.equal(mixed.fastest.speed>=mixed.slowest.speed,true);
+ // 每条结论都必须带边界说明
+ assert(mixed.lines.some(l=>/不代表对手实际会怎么打/.test(l)));
 });

@@ -3,7 +3,7 @@ import {RULES_VERSION} from '../engine.js';
 import {isLiveMatch} from './policy.js';
 export {RULES_VERSION};
 export const cards=[...TACTIC_CARDS,...REFERENCE_CARDS];
-import {rankEnemyActions,active,actionName,SKILLS,damage,legalActions,effectiveSpeed} from '../engine.js';
+import {rankEnemyActions,active,actionName,SKILLS,damage,legalActions,effectiveSpeed,TYPES,TYPE_ADVANTAGES} from '../engine.js';
 export function strategist(context){
  const g=context.battle;
  if(isLiveMatch(context))return {text:'本地与正式 PVP 赛中不提供战术建议，结束后再复盘。',evidence:[]};
@@ -97,4 +97,43 @@ export function buildKnowledgePacket(query, game=null, options={}) {
   }
   return {blocked:false, ...retrieved, turn:game?.turn ?? null, comparisons,
     instruction:'卡片是待验证的战术假设。引用卡片时核对反例与 requiredEvidence；缺少分支计算不得声称唯一最优或玩家失误。'};
+}
+
+// 阵容建议：只根据真实数据算，不发明「输出/承伤」这类定位。
+// 全部来自 TYPE_ADVANTAGES、技能表与面板数值，所以每条都能被玩家当场核对。
+export function rosterAdvice(pets){
+ if(!Array.isArray(pets)||pets.length<1)return null;
+ const attackers=Object.keys(TYPE_ADVANTAGES);
+ // 共同弱点：哪些属性一次能克制我两只以上的伙伴
+ const shared=[];
+ for(const t of attackers){
+  const hit=pets.filter(p=>TYPE_ADVANTAGES[t].includes(p.type));
+  if(hit.length>=2)shared.push({type:t,names:hit.map(p=>p.name)});
+ }
+ // 打点覆盖：我的技能属性能克制到哪些属性
+ const skillTypes=new Set();
+ for(const p of pets)for(const id of p.skills||[]){const sk=SKILLS[id];if(sk&&sk.type)skillTypes.add(sk.type);}
+ const covered=new Set();
+ for(const t of skillTypes)for(const d of TYPE_ADVANTAGES[t]||[])covered.add(d);
+ // 我方属性被哪些攻击属性克制（单只也算，用于说明弱点）
+ const ownWeak=new Set();
+ for(const p of pets)for(const t of attackers)if(TYPE_ADVANTAGES[t].includes(p.type))ownWeak.add(t);
+ const fastest=[...pets].sort((a,b)=>effectiveSpeed(b)-effectiveSpeed(a))[0];
+ const slowest=[...pets].sort((a,b)=>effectiveSpeed(a)-effectiveSpeed(b))[0];
+ const toughest=[...pets].sort((a,b)=>b.maxHp-a.maxHp)[0];
+ const hardest=[...pets].sort((a,b)=>b.atk-a.atk)[0];
+ const dupTypes=pets.map(p=>p.type).filter((t,i,a)=>a.indexOf(t)!==i);
+ return {shared,covered:[...covered],ownWeak:[...ownWeak],dupTypes:[...new Set(dupTypes)],
+  fastest,slowest,toughest,hardest,
+  lines:rosterLines({shared,covered:[...covered],ownWeak:[...ownWeak],dupTypes:[...new Set(dupTypes)],fastest,slowest,toughest,hardest,pets})};
+}
+function rosterLines(a){
+ const L=[];
+ if(a.shared.length)L.push('共同弱点：'+a.shared.map(x=>`${TYPES[x.type]}（${x.names.join('、')}都怕）`).join('、')+'。对方拿到这个属性会同时威胁多只。');
+ else L.push('三只没有共同弱点，对方很难用单一属性一次压住全队。');
+ L.push(a.covered.length?('技能可克制：'+a.covered.map(t=>TYPES[t]).join('、')+'。'):'当前配招没有克制面，完全靠面板数值。');
+ if(a.dupTypes.length)L.push('重复属性：'+a.dupTypes.map(t=>TYPES[t]).join('、')+'，弱点会叠加。');
+ L.push(`速度线 ${effectiveSpeed(a.fastest)}（${a.fastest.name}）到 ${effectiveSpeed(a.slowest)}（${a.slowest.name}）；最耐打 ${a.toughest.name}，攻击最高 ${a.hardest.name}。`);
+ L.push('按属性与面板得出，不代表对手实际会怎么打；换宠占整回合，对位也要算进去。');
+ return L;
 }

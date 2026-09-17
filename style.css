@@ -252,3 +252,11 @@
 #pvp-body #pvp-next{grid-column:1/-1;padding:12px}
 #pvp-overlay .pvp-hint{margin:14px 0 0;font-size:12px}
 .pvp-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#f0cb77;border:1px solid #6b5c33;background:#2b2617;border-radius:6px;padding:2px 7px;margin-left:7px}
+
+/* 阵容建议：常驻在出征栏里 */
+#launch-bar{flex-wrap:wrap}
+.roster-advice{flex:1 1 100%;order:3;font-size:12px;color:#bcc9d6;display:flex;flex-wrap:wrap;align-items:baseline;gap:7px;margin-top:2px}
+.roster-advice strong{color:#bdf0c6;font-size:11px;white-space:nowrap}
+.roster-advice details{flex:1 1 100%}
+.roster-advice summary{cursor:pointer;font-size:11px;color:var(--muted)}
+.roster-advice p{margin:4px 0;font-size:11px;line-height:1.55;color:#9fb0c0}
