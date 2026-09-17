@@ -294,7 +294,7 @@
 .bottom-grid.versus #panel-player{border-top-right-radius:0;border-bottom-right-radius:0;border-right:0}
 .bottom-grid.versus #panel-enemy{border-top-left-radius:0;border-bottom-left-radius:0;border-left:2px solid #4a6a86}
 .bottom-grid.versus #panel-enemy .section-title h2{color:#cfe0d4}
-#enemy-tabs{margin-top:-2px}
+#enemy-tabs{margin-top:0}
 
 /* 二级页面：对手选三只伙伴 */
 #pick-overlay{position:fixed;inset:0;background:#0b111aee;z-index:40;display:grid;place-items:center;padding:22px}
@@ -309,3 +309,14 @@
 .pick-pet em{position:absolute;top:6px;right:6px;font-style:normal;font-size:10px;color:#152c24;background:var(--accent);border-radius:5px;padding:1px 5px;font-weight:700}
 .pick-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding-top:12px}
 @media(max-width:700px){.pick-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* 分屏两侧严格对齐：同样的标题行 + 标签行 + 等高拉伸 */
+.bottom-grid.versus{align-items:stretch}
+.bottom-grid.versus #panel-player,
+.bottom-grid.versus #panel-enemy{display:flex;flex-direction:column;min-height:0}
+.bottom-grid.versus .section-title{margin-bottom:8px;min-height:22px}
+.bottom-grid.versus #panel-player>nav,
+.bottom-grid.versus #panel-enemy>nav{margin-bottom:8px}
+#panel-player #actions,#panel-enemy #enemy-actions{flex:1 1 auto;align-content:start}
+#message,#enemy-message{min-height:17px;margin-top:6px}
+#player-coach,#enemy-coach{margin-top:0}
