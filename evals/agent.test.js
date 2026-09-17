@@ -286,3 +286,12 @@ test('an action recorded as cancelled cannot be described as having hit',()=>{
  const good=checkGroundedAnswer({text:'你的烬尾狐原定行动取消，对手的芽角鹿造成 27 伤害。',evidence:[],latestEvents:events});
  assert.equal(good.valid,true,'如实描述取消不应被拦');
 });
+test('guards do not fire on negated certainty or on numbers quoted from a knowledge card',()=>{
+ // 这两条都是 44 条真实评测暴露出来的误报，会把模型的正确答案丢掉。
+ // 1) 模型写「不是稳赢保证」——那是否定，不是承诺。
+ assert.equal(checkGroundedAnswer({text:'这回合可考虑回复药保龟，但不是稳赢保证。',evidence:['55血','38血']}).valid,true,'否定句不得判为确定性承诺');
+ assert.equal(checkGroundedAnswer({text:'这回合必胜。',evidence:[]}).valid,false,'真正的承诺仍要拦');
+ // 2) 「本回合减伤 65%」出自战术卡 principle，模型引用卡片原文不算编数字。
+ assert.equal(checkGroundedAnswer({text:'防御：本回合减伤 65%。',evidence:['减伤 65%']}).valid,true,'引用卡片数值不得判为编造');
+ assert.equal(checkGroundedAnswer({text:'这一下打了 999 伤害。',evidence:['减伤 65%']}).valid,false,'凭空数字仍要拦');
+});

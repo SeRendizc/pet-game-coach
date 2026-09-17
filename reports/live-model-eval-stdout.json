@@ -1,0 +1,178 @@
+{
+  "metrics": {
+    "casesExecuted": 44,
+    "casesEvaluable": 44,
+    "casesErrored": 0,
+    "toolSelectionCorrectnessRate": 0.29545454545454547,
+    "callDecisionCorrectRate": 0.7272727272727273,
+    "toolChoiceCorrectRate": 0.8636363636363636,
+    "callCountCorrectRate": 0.4318181818181818,
+    "unnecessaryToolCallRate": 0.4090909090909091,
+    "unnecessaryCallShareOfAllCalls": 0.390625,
+    "missedCallRate": 0.13636363636363635,
+    "wastedCallRate": 0.4318181818181818,
+    "totalToolCalls": 64,
+    "meanCallsPerCase": 1.4545454545454546,
+    "groundedAnswerPassRate": 0.8181818181818182,
+    "latencyMs": {
+      "n": 44,
+      "p50": 4284,
+      "p90": 6229,
+      "min": 16,
+      "max": 9560,
+      "mean": 3727
+    },
+    "modelStops": {
+      "complete": 1,
+      "tool-budget": 16,
+      "planner-failed": 3,
+      "invalid-tool": 0,
+      "invalid-arguments": 0,
+      "repeated-tool": 11,
+      "receipt-budget": 0,
+      "policy": 0,
+      "none": 13
+    },
+    "routes": {
+      "strategist": 27,
+      "guide": 3,
+      "teacher": 5,
+      "companion": 7,
+      "auto": 1,
+      "policy": 1
+    },
+    "failures": {
+      "itemNameDrift": [
+        "c44"
+      ],
+      "unsupportedNumber": [
+        "c05",
+        "c14",
+        "c15",
+        "c27",
+        "c31",
+        "c41"
+      ],
+      "unsupportedCertainty": [
+        "c04"
+      ],
+      "allReasons": [
+        "unsupported-certainty",
+        "unsupported-number:65",
+        "unsupported-number:64",
+        "unsupported-number:-250",
+        "unsupported-number:-2406",
+        "unsupported-number:40",
+        "item-name-drift:解药"
+      ]
+    },
+    "byCategory": {
+      "cat1-needs-lookup": {
+        "n": 12,
+        "evaluable": 12,
+        "errored": 0,
+        "strictCorrect": 0.4166666666666667,
+        "necessaryCallExpected": 12,
+        "unnecessaryCalls": 0,
+        "noToolExpected": 0,
+        "missedCalls": 1,
+        "wastedCalls": 6
+      },
+      "cat2-parametric": {
+        "n": 12,
+        "evaluable": 12,
+        "errored": 0,
+        "strictCorrect": 0.5,
+        "necessaryCallExpected": 0,
+        "unnecessaryCalls": 6,
+        "noToolExpected": 12,
+        "missedCalls": 0,
+        "wastedCalls": 6
+      },
+      "cat3-cross-tool": {
+        "n": 10,
+        "evaluable": 10,
+        "errored": 0,
+        "strictCorrect": 0.1,
+        "necessaryCallExpected": 10,
+        "unnecessaryCalls": 0,
+        "noToolExpected": 0,
+        "missedCalls": 2,
+        "wastedCalls": 4
+      },
+      "cat4-should-stop": {
+        "n": 8,
+        "evaluable": 8,
+        "errored": 0,
+        "strictCorrect": 0,
+        "necessaryCallExpected": 0,
+        "unnecessaryCalls": 2,
+        "noToolExpected": 8,
+        "missedCalls": 0,
+        "wastedCalls": 2
+      },
+      "control-policy": {
+        "n": 1,
+        "evaluable": 1,
+        "errored": 0,
+        "strictCorrect": 1,
+        "necessaryCallExpected": 0,
+        "unnecessaryCalls": 0,
+        "noToolExpected": 1,
+        "missedCalls": 0,
+        "wastedCalls": 0
+      },
+      "control-locked": {
+        "n": 1,
+        "evaluable": 1,
+        "errored": 0,
+        "strictCorrect": 0,
+        "necessaryCallExpected": 0,
+        "unnecessaryCalls": 1,
+        "noToolExpected": 1,
+        "missedCalls": 0,
+        "wastedCalls": 1
+      }
+    }
+  },
+  "failures": {
+    "itemNameDrift": [
+      "c44"
+    ],
+    "unsupportedNumber": [
+      "c05",
+      "c14",
+      "c15",
+      "c27",
+      "c31",
+      "c41"
+    ],
+    "unsupportedCertainty": [
+      "c04"
+    ],
+    "allReasons": [
+      "unsupported-certainty",
+      "unsupported-number:65",
+      "unsupported-number:64",
+      "unsupported-number:-250",
+      "unsupported-number:-2406",
+      "unsupported-number:40",
+      "item-name-drift:解药"
+    ]
+  },
+  "cost": {
+    "band": "off-peak",
+    "inputRatePer1M": 0.15,
+    "outputRatePer1M": 0.6,
+    "estimated": 0.03324075,
+    "peakBound": 0.0664815,
+    "offPeakBound": 0.03324075
+  },
+  "totals": {
+    "input": 205493,
+    "output": 4028,
+    "apiInput": 121166,
+    "apiOutput": 2673
+  },
+  "serverVerified": true
+}

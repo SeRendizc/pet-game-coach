@@ -31,6 +31,12 @@ const KEEP_PROFILE = process.env.DEMO_KEEP_PROFILE === '1';
 const q = (v) => JSON.stringify(v);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pad2 = (n) => String(n).padStart(2, '0');
+/** 本机时区的可读时间（ISO 是 UTC，写进文档容易和环境对不上）。 */
+const localTime = () => {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+};
 
 class StepError extends Error {}
 
@@ -108,6 +114,7 @@ let session = null;          // 页面会话的 CDP 封装
 let chromeProc = null;
 let activePort = CDP_PORT;   // 默认 9333；被别人的浏览器占用时才退让（见 pickPort）
 let chromeVersion = '未知';
+let coachStatus = '未知';
 let appVersion = '未知';
 let actualViewport = { ...VIEWPORT };
 
@@ -350,24 +357,46 @@ async function playTurn({ selector = '#actions [data-action]', timeout = 25000 }
   return action;
 }
 
-/** 打开我方教练条的证据明细（「看看原因」）。 */
+/** 打开我方教练条的证据明细（「看看原因」+「计算依据」）。 */
 async function expandHint() {
-  if (!(await isVisible('#live-expand'))) return false;
-  const open = await evalJs(`document.getElementById('live-expand').getAttribute('aria-expanded')==='true'`);
-  if (open) return true;
-  await clickEl('#live-expand', { expect: `!document.getElementById('live-detail').hidden` });
+  if (await isVisible('#live-expand')) {
+    const open = await evalJs(`document.getElementById('live-expand').getAttribute('aria-expanded')==='true'`);
+    if (!open) await clickEl('#live-expand', { expect: `!document.getElementById('live-detail').hidden` });
+  }
+  // 提示条里的「计算依据」是 <details>，展开后才看得到逐条证据。
+  const hasDetails = await evalJs(`!!document.querySelector('#live-detail details')`);
+  if (hasDetails) {
+    const open = await evalJs(`document.querySelector('#live-detail details').open`);
+    if (!open) await clickEl('#live-detail details summary', { expect: `document.querySelector('#live-detail details').open`, label: '展开计算依据' });
+  }
   return true;
 }
 
-/** 等教练面板里出现带证据的回答（本地回退或模型回答都算）。 */
-async function waitCoachAnswer(before, timeout = 90000) {
-  await waitFor(`(()=>{const log=document.getElementById('chat-log');if(!log)return false;const entries=[...log.querySelectorAll('.chat-entry:not(.thinking)')];return entries.length>${before};})()`, {
-    timeout, interval: 400, label: '教练回答出现',
-  });
-  await sleep(1200);
+/** 等一段异步文案从「正在…」变成结果（模型解释/整局分析）。超时不报错，只是如实保留等待态。 */
+async function settleText(selector, pending, timeout = 25000) {
+  try {
+    await waitFor(`(()=>{const e=document.querySelector(${q(selector)});return !!e && !e.textContent.includes(${q(pending)});})()`, {
+      timeout, interval: 500, label: `${selector} 文案结算`,
+    });
+  } catch {
+    warnings.push(`${selector} 在 ${Math.round(timeout / 1000)}s 内仍停留在「${pending}」状态，截图保留的是等待中的真实画面`);
+  }
 }
 
-const chatEntryCount = () => evalJs(`document.querySelectorAll('#chat-log .chat-entry:not(.thinking)').length`);
+/** 等教练面板里出现真正的回答（本地回退或模型回答都算），而不是「正在读取…」的等待态。 */
+async function waitCoachAnswer(before, timeout = 90000) {
+  await waitFor(`(()=>{const log=document.getElementById('chat-log');if(!log)return false;return log.querySelectorAll('.chat-entry:not(.thinking):not(.user)').length>${before};})()`, {
+    timeout, interval: 400, label: '教练回答出现',
+  });
+  try {
+    await waitFor(`!document.getElementById('chat-thinking')`, { timeout: 20000, interval: 300, label: '等待指示消失' });
+  } catch {
+    warnings.push('教练回答在等待窗口内没有完成，截图抓到的是「正在读取局面与依据…」的等待态');
+  }
+  await sleep(1000);
+}
+
+const chatEntryCount = () => evalJs(`document.querySelectorAll('#chat-log .chat-entry:not(.thinking):not(.user)').length`);
 
 async function backToCamp() {
   await waitIdle();
@@ -387,6 +416,7 @@ async function backToCamp() {
  * ------------------------------------------------------------------ */
 
 async function run() {
+  let campCultivationObserved = null;
   /* ---- Flow 1 营地 ---- */
   flow('一、营地', '应用首屏：两张入口卡、伙伴名册与培养面板。首次进入会弹出陪伴风格选择框，先记录它，再按真实路径关掉。');
 
@@ -414,18 +444,41 @@ async function run() {
     capture: 'full',
   });
 
-  await step({
+  const campPanelStep = await step({
     slug: 'camp-cultivation',
     title: '培养面板',
     action: async () => {
-      await clickEl('#camp-roster [data-focus]', {
-        index: 1,
-        expect: `(()=>{const h=document.querySelector('#cultivation h3');return !!h && h.textContent.trim().length>0;})()`,
-        label: '切换培养对象',
-      });
-      await sleep(400);
+      // 真实点击营地名册里的「培养」。这里不预设结果，只如实记录发生了什么。
+      const heading = () => evalJs(`document.querySelector('#cultivation h3').textContent.trim()`);
+      const before = await heading();
+      await clickEl('#camp-roster [data-focus]', { index: 1 });
+      await sleep(600);
+      const after = await heading();
+      campCultivationObserved = before === after
+        ? `点击第 2 只伙伴的「培养」后，右栏培养面板没有变化，仍显示「${after}」。核对源码：营地名册的「培养」分支（app.js 第 38 行）只调用 showCamp()，没有重新渲染 #cultivation，所以焦点变了但面板不重绘。脚本用真实鼠标点击和 DOM click 各验证一次，结果一致——这是产品当前的真实行为，不是没点到。`
+        : `点击第 2 只伙伴的「培养」后，培养面板切换到了「${after}」。`;
     },
-    expect: '培养面板切到另一只伙伴：等级、经验、培养格与四项加点、配招与携带物。',
+    expect: '右侧培养面板：伙伴等级与经验进度、培养格与四项加点（耐久/力量/敏捷）、6 选 4 配招与携带物、免费重置。',
+    capture: 'clip',
+    selector: 'aside.cultivation',
+  });
+  campPanelStep.observed = campCultivationObserved;
+
+  await step({
+    slug: 'cultivation-switch',
+    title: '切换培养对象（会重绘的那条路）',
+    action: async () => {
+      const heading = () => evalJs(`document.querySelector('#cultivation h3').textContent.trim()`);
+      const before = await heading();
+      await clickEl('#go-pve', { expect: `!document.getElementById('deploy').hidden`, label: '进入出征页' });
+      await clickEl('#roster [data-focus]', {
+        index: 2,
+        expect: `(()=>{const h=document.querySelector('#cultivation h3');return !document.getElementById('camp-home').hidden && !!h && h.textContent.trim()!==${q(before)};})()`,
+        label: '从出征页切换培养对象',
+      });
+      await sleep(500);
+    },
+    expect: '出征页的「培养」会回到营地并重绘右栏，面板换成第 3 只伙伴——同一条数据、同一个面板，这条路是完整的。',
     capture: 'clip',
     selector: 'aside.cultivation',
   });
@@ -461,6 +514,7 @@ async function run() {
     expect: '关卡说明、对手阵容（等级与培养分配）与首通奖励规则。',
     capture: 'clip',
     selector: '#stage-detail',
+    pad: 8,
   });
 
   await step({
@@ -481,7 +535,8 @@ async function run() {
     action: null,
     expect: '侧栏汇总本局的模式、关卡、难度与队伍人数。',
     capture: 'clip',
-    selector: '#deploy-side',
+    selector: 'aside.deploy-side',
+    pad: 10,
   });
 
   await step({
@@ -509,7 +564,8 @@ async function run() {
     action: async () => {
       await waitVisible('#live-coach', { timeout: 15000 });
       await expandHint();
-      await sleep(600);
+      await settleText('#live-provider', '正在组织解释', 25000);
+      await sleep(400);
     },
     expect: '教练条给出本回合的一句话建议；展开后是「计算依据」，写明只比较一回合、不读取电脑待执行行动。',
     capture: 'clip',
@@ -579,7 +635,7 @@ async function run() {
       await selectEl('#pvp-opponent', 'human');
       await sleep(400);
     },
-    expect: 'PVP 模式下不选关卡；出现「对手」下拉框，选中「真人同机（分屏）」，按钮文字变成「开始对战」。',
+    expect: 'PVP 模式下不选关卡；出现「对手」下拉框，选中「真人同机（分屏）」，按钮文字变成「开始对战」。（从上一局中途离开时，浏览器会弹原生 confirm 问「离开会结束本次训练且没有奖励」，脚本按真实用户的选择点「确定」；对话框本身无法被截图 API 捕获。）',
     capture: 'full',
   });
 
@@ -670,8 +726,9 @@ async function run() {
         if (!open) {
           await clickEl('#live-coach details summary', { expect: `document.querySelector('#live-coach details').open`, label: '展开关键回合与依据' });
         }
-        await sleep(500);
       }
+      await settleText('#result-provider', '正在结合整局记录分析', 40000);
+      await sleep(400);
     },
     expect: '对局结束后教练自动给出的整局回顾：一句结论 + 可展开的「关键回合与依据」。',
     capture: 'clip',
@@ -716,7 +773,8 @@ function buildStoryboard(meta) {
   lines.push(`| 生成时间 | ${meta.time} |`);
   lines.push(`| 应用地址 | ${meta.url} |`);
   lines.push(`| 应用版本徽标 | ${appVersion} |`);
-  lines.push(`| 浏览器 | Headless Chrome ${chromeVersion} |`);
+  lines.push(`| 教练连接 | ${coachStatus} |`);
+  lines.push(`| 浏览器 | Headless ${chromeVersion} |`);
   lines.push(`| 启动参数 | \`${meta.flags}\` |`);
   lines.push(`| CDP 端口 | ${meta.port}${meta.port === CDP_PORT ? '' : `（约定 9333 被另一个 headless Chrome 占用，本次退让到 ${meta.port}）`} |`);
   lines.push(`| 视口尺寸 | ${actualViewport.width} × ${actualViewport.height}（CSS 像素） |`);
@@ -748,6 +806,7 @@ function buildStoryboard(meta) {
       lines.push('');
       if (s.action) lines.push(`- **操作**：${s.action}`);
       lines.push(`- **画面**：${s.expect}`);
+      if (s.observed) lines.push(`- **实测观察**：${s.observed}`);
       if (s.note) lines.push(`- **实际结果**：${s.status === 'skipped' ? '跳过' : '未达成'} — ${s.note}`);
       lines.push('');
     }
@@ -818,6 +877,16 @@ async function checkApp() {
   if (!res.ok) throw new Error(`应用在 ${APP_URL} 返回 HTTP ${res.status}，无法作为演示对象。请先确认 npm start 正常。`);
   await res.arrayBuffer();
   log(`应用在线：${APP_URL} (HTTP ${res.status})`);
+  // 记录教练当前是走模型还是走本地规则：两种都是真实产品路径，但截图里的措辞不同，必须写清楚。
+  try {
+    const boot = await (await fetch(new URL('/api/bootstrap', APP_URL))).json();
+    coachStatus = boot.configured
+      ? `已配置模型（${boot.provider} / ${boot.model}${boot.verified ? ' · 已验证' : ' · 未验证'}）`
+      : '未配置密钥，教练走本地规则核验（回答来自本地引擎，不经模型改写）';
+  } catch {
+    coachStatus = '读取 /api/bootstrap 失败，未能确认教练连接状态';
+  }
+  log(`教练连接：${coachStatus}`);
 }
 
 async function launchChrome() {
@@ -895,8 +964,13 @@ async function openPage(browserWs) {
   await browser.open();
 
   // confirm() 会阻塞渲染进程：必须自动接受，否则「返回营地」会卡死。
-  browser.on('Page.javascriptDialogOpening', () => {
-    browser.send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
+  // 注意：必须在事件所属的 session 上调用 Page.handleJavaScriptDialog——
+  // 浏览器级（无 sessionId）调用会被 CDP 拒绝，而失败被静默吞掉就会永久卡住整局演示。
+  browser.on('Page.javascriptDialogOpening', (params, sessionId) => {
+    log(`自动确认浏览器对话框：${params.type} — ${String(params.message).slice(0, 40)}`);
+    browser.send('Page.handleJavaScriptDialog', { accept: true }, sessionId).catch((err) => {
+      warnings.push(`处理浏览器对话框失败：${err.message}`);
+    });
   });
 
   const { targetId } = await browser.send('Target.createTarget', { url: 'about:blank' });
@@ -935,7 +1009,7 @@ async function main() {
   }
 
   const meta = {
-    time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+    time: localTime(),
     url: APP_URL,
     flags: `--headless=new --no-sandbox --disable-gpu --user-data-dir=${path.relative(WORKSPACE, PROFILE_DIR)} --remote-debugging-port=${CDP_PORT} --window-size=${VIEWPORT.width},${VIEWPORT.height}`,
     port: activePort,

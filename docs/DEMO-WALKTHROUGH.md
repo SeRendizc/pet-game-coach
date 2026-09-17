@@ -1,0 +1,387 @@
+# 小芽 · 图文演示分镜（DEMO-WALKTHROUGH）
+
+> 本文件由 `scripts/build-demo.mjs` 自动生成。本机没有可见桌面、没有音频设备，无法录制真实视频；
+> 这里改为用 headless Chrome + CDP 驱动**真实运行中的应用**，逐步抓取真实渲染截图，替代视频演示。
+> 所有图片都是 `Page.captureScreenshot` 的真实输出，不是效果图、不是重绘稿。
+
+## 生成信息
+
+| 项 | 值 |
+| --- | --- |
+| 生成时间 | 2026-09-17 18:32:53 |
+| 应用地址 | http://127.0.0.1:8765/ |
+| 应用版本徽标 | 训练 · PVE · v0.11 |
+| 教练连接 | 已配置模型（deepseek / deepseek-flash · 已验证） |
+| 浏览器 | Headless Chrome/152.0.7977.65 |
+| 启动参数 | `--headless=new --no-sandbox --disable-gpu --user-data-dir=tmp/demo-profile --remote-debugging-port=9333 --window-size=1440,900` |
+| CDP 端口 | 9333 |
+| 视口尺寸 | 1440 × 813（CSS 像素） |
+| 截图数量 | 21 张（成功 21 · 未达成 0 · 跳过 0） |
+| 输出目录 | `output/demo/` |
+
+## 阅读方式
+
+每张图对应一次真实交互。`操作` 列写脚本实际做了什么，`画面` 列写这一步应当看到什么。
+凡是脚本没能走到的步骤，会在原位置标成 **未达成** 或 **跳过**，并写明原因，不会用别的画面顶替。
+
+## 一、营地
+
+应用首屏：两张入口卡、伙伴名册与培养面板。首次进入会弹出陪伴风格选择框，先记录它，再按真实路径关掉。
+
+### 01 · 首次进入：陪伴风格选择框
+
+![01 首次进入：陪伴风格选择框](../output/demo/01-first-run-welcome.png)
+
+*文件：`output/demo/01-first-run-welcome.png`*
+
+- **画面**：模态对话框 #coach-welcome 打开，三个风格按钮与语音选项可见。
+
+### 02 · 营地首页
+
+![02 营地首页](../output/demo/02-camp-home.png)
+
+*文件：`output/demo/02-camp-home.png`*
+
+- **操作**：async () => {
+      await clickEl('#coach-welcome .style-choices button', {
+        index: 0,
+        expect: `!document.getElementById('coach-welcome').open`,
+        label: '关闭首次进入对话框',
+      });
+      await waitFor(`document.querySelectorAll('#camp-roster .pet-option').length>0`, { label: '名册渲染完成' });
+    }
+- **画面**：训练 · PVE / 对局 · PVP 两张入口卡、按属性筛选、伙伴名册与右侧「伙伴培养」全部在真实页面里。
+
+### 03 · 培养面板
+
+![03 培养面板](../output/demo/03-camp-cultivation.png)
+
+*文件：`output/demo/03-camp-cultivation.png`*
+
+- **操作**：async () => {
+      // 真实点击营地名册里的「培养」。这里不预设结果，只如实记录发生了什么。
+      const heading = () => evalJs(`document.querySelector('#cultivation h3').textContent.trim()`);
+      const before = await heading();
+      await clickEl('#camp-roster [data-focus]', { index: 1 });
+      await sleep(600);
+      const after = await heading();
+      campCultivationObserved = before === after
+        ? `点击第 2 只伙伴的「培养」后，右栏培养面板没有变化，仍显示「${after}」。核对源码：营地名册的「培养」分支（app.js 第 38 行）只调用 showCamp()，没有重新渲染 #cultivation，所以焦点变了但面板不重绘。脚本用真实鼠标点击和 DOM click 各验证一次，结果一致——这是产品当前的真实行为，不是没点到。`
+        : `点击第 2 只伙伴的「培养」后，培养面板切换到了「${after}」。`;
+    }
+- **画面**：右侧培养面板：伙伴等级与经验进度、培养格与四项加点（耐久/力量/敏捷）、6 选 4 配招与携带物、免费重置。
+- **实测观察**：点击第 2 只伙伴的「培养」后，右栏培养面板没有变化，仍显示「🦊 烬尾狐Lv.1」。核对源码：营地名册的「培养」分支（app.js 第 38 行）只调用 showCamp()，没有重新渲染 #cultivation，所以焦点变了但面板不重绘。脚本用真实鼠标点击和 DOM click 各验证一次，结果一致——这是产品当前的真实行为，不是没点到。
+
+### 04 · 切换培养对象（会重绘的那条路）
+
+![04 切换培养对象（会重绘的那条路）](../output/demo/04-cultivation-switch.png)
+
+*文件：`output/demo/04-cultivation-switch.png`*
+
+- **操作**：async () => {
+      const heading = () => evalJs(`document.querySelector('#cultivation h3').textContent.trim()`);
+      const before = await heading();
+      await clickEl('#go-pve', { expect: `!document.getElementById('deploy').hidden`, label: '进入出征页' });
+      await clickEl('#roster [data-focus]', {
+        index: 2,
+        expect: `(()=>{const h=document.querySelector('#cultivation h3');return !document.getElementById('camp-home').hidden && !!h && h.textContent.trim()!==${q(before)};})()`,
+        label: '从出征页切换培养对象',
+      });
+      await sleep(500);
+    }
+- **画面**：出征页的「培养」会回到营地并重绘右栏，面板换成第 3 只伙伴——同一条数据、同一个面板，这条路是完整的。
+
+## 二、出征 · 训练
+
+从营地点击「训练 · PVE」进入出征页：关卡、队伍、出征设置，然后开始对局。
+
+### 05 · 出征页与关卡选择
+
+![05 出征页与关卡选择](../output/demo/05-deploy-stages.png)
+
+*文件：`output/demo/05-deploy-stages.png`*
+
+- **操作**：async () => {
+      await clickEl('#go-pve', {
+        expect: `!document.getElementById('deploy').hidden`,
+        label: '进入出征页',
+      });
+      await waitVisible('#stage-picker [data-stage]');
+    }
+- **画面**：出征页出现：① 选择关卡（5 个关卡按钮）② 选择三只伙伴，右侧是「出征设置」。
+
+### 06 · 关卡详情
+
+![06 关卡详情](../output/demo/06-stage-detail.png)
+
+*文件：`output/demo/06-stage-detail.png`*
+
+- **操作**：async () => {
+      await clickEl('#stage-picker [data-stage]', {
+        index: 1,
+        expect: `document.querySelector('#stage-picker [data-stage]:nth-child(2)').classList.contains('selected')`,
+        label: '切换关卡',
+      });
+      await sleep(300);
+    }
+- **画面**：关卡说明、对手阵容（等级与培养分配）与首通奖励规则。
+
+### 07 · 出战三只与出场顺序
+
+![07 出战三只与出场顺序](../output/demo/07-team-selection.png)
+
+*文件：`output/demo/07-team-selection.png`*
+
+- **操作**：async () => {
+      await waitFor(`(()=>{const s=document.getElementById('selection');return s && s.textContent.includes('3');})()`, { label: '队伍已是 3 只' });
+      await sleep(300);
+    }
+- **画面**：默认队伍三只伙伴带 1/2/3 号位标记，名册显示等级与四维；「开始训练」可用。
+
+### 08 · 出征设置侧栏
+
+![08 出征设置侧栏](../output/demo/08-deploy-side.png)
+
+*文件：`output/demo/08-deploy-side.png`*
+
+- **画面**：侧栏汇总本局的模式、关卡、难度与队伍人数。
+
+### 09 · 开局第 1 回合
+
+![09 开局第 1 回合](../output/demo/09-battle-turn1.png)
+
+*文件：`output/demo/09-battle-turn1.png`*
+
+- **操作**：async () => {
+      await selectEl('#speed', '0');
+      await clickEl('#start', {
+        expect: `!document.getElementById('battle').hidden`,
+        label: '开始训练',
+      });
+      await waitVisible('#actions [data-action]');
+      await sleep(800);
+    }
+- **画面**：进入对局：双方队伍、生命与能量、行动面板与战斗记录。播放速度设为「即时」，只是让演示更快走完回合，不改数值。
+
+## 三、对局中的军师
+
+PVE 连续出招 3 回合，记录对战中的教练提示条与「回合回顾」面板里的证据。
+
+### 10 · 对局中的提示条与计算依据
+
+![10 对局中的提示条与计算依据](../output/demo/10-hint-strip-evidence.png)
+
+*文件：`output/demo/10-hint-strip-evidence.png`*
+
+- **操作**：async () => {
+      await waitVisible('#live-coach', { timeout: 15000 });
+      await expandHint();
+      await settleText('#live-provider', '正在组织解释', 25000);
+      await sleep(400);
+    }
+- **画面**：教练条给出本回合的一句话建议；展开后是「计算依据」，写明只比较一回合、不读取电脑待执行行动。
+
+### 11 · 出招 1 次后（第 2 回合）
+
+![11 出招 1 次后（第 2 回合）](../output/demo/11-turn-2.png)
+
+*文件：`output/demo/11-turn-2.png`*
+
+- **操作**：async () => {
+      await playTurn();
+      await sleep(600);
+    }
+- **画面**：回合数推进，双方生命/能量变化，战斗记录新增一条，行动面板重新可用。
+
+### 12 · 出招 2 次后（第 3 回合）
+
+![12 出招 2 次后（第 3 回合）](../output/demo/12-turn-3.png)
+
+*文件：`output/demo/12-turn-3.png`*
+
+- **操作**：async () => {
+      await playTurn();
+      await sleep(600);
+    }
+- **画面**：继续推进；教练条按「关键时搭把手」的档位只在值得说的时候出现。
+
+### 13 · 出招 3 次后（第 4 回合）
+
+![13 出招 3 次后（第 4 回合）](../output/demo/13-turn-4.png)
+
+*文件：`output/demo/13-turn-4.png`*
+
+- **操作**：async () => {
+      await playTurn();
+      await sleep(600);
+    }
+- **画面**：第 3 次出招完成，局面继续演变。
+
+### 14 · 回合回顾面板（含证据）
+
+![14 回合回顾面板（含证据）](../output/demo/14-round-review.png)
+
+*文件：`output/demo/14-round-review.png`*
+
+- **操作**：async () => {
+      await waitIdle();
+      const before = await chatEntryCount();
+      await clickEl('#round-coach', {
+        expect: `!document.getElementById('coach-panel').hidden`,
+        label: '打开回合回顾',
+      });
+      await waitCoachAnswer(before, 90000);
+    }
+- **画面**：右侧教练面板被打开并回答了「回顾上一回合」；回答下方可展开「依据」，逐步核对原始回合记录。
+
+## 四、对局 · PVP 分屏
+
+回到营地，改走「对局 · PVP」：先是真人同机的双面板分屏，再记录 AI 模拟真人的同一套界面。
+
+### 15 · PVP 出征页与对手选择
+
+![15 PVP 出征页与对手选择](../output/demo/15-pvp-deploy.png)
+
+*文件：`output/demo/15-pvp-deploy.png`*
+
+- **操作**：async () => {
+      await backToCamp();
+      await clickEl('#go-pvp', { expect: `!document.getElementById('deploy').hidden`, label: '进入 PVP 出征页' });
+      await waitVisible('#pvp-opponent');
+      await selectEl('#pvp-opponent', 'human');
+      await sleep(400);
+    }
+- **画面**：PVP 模式下不选关卡；出现「对手」下拉框，选中「真人同机（分屏）」，按钮文字变成「开始对战」。（从上一局中途离开时，浏览器会弹原生 confirm 问「离开会结束本次训练且没有奖励」，脚本按真实用户的选择点「确定」；对话框本身无法被截图 API 捕获。）
+
+### 16 · 分屏开局：两侧面板 + 两条教练
+
+![16 分屏开局：两侧面板 + 两条教练](../output/demo/16-pvp-split-two-coaches.png)
+
+*文件：`output/demo/16-pvp-split-two-coaches.png`*
+
+- **操作**：async () => {
+      await clickEl('#start', { expect: `!document.getElementById('battle').hidden`, label: '开始对战' });
+      await waitVisible('#panel-enemy');
+      await waitVisible('#player-coach-text');
+      await waitVisible('#enemy-coach-text');
+      await sleep(800);
+    }
+- **画面**：左右两个行动面板同屏：我方可选，对方也可选；两侧各有一条教练条，只分析自己那一侧的局面。
+
+### 17 · 双方各自锁定行动
+
+![17 双方各自锁定行动](../output/demo/17-pvp-split-both-locked.png)
+
+*文件：`output/demo/17-pvp-split-both-locked.png`*
+
+- **操作**：async () => {
+      await clickEl('#actions [data-action]', { expect: `document.getElementById('message').textContent.includes('已锁定')`, label: '我方锁定' });
+      await clickEl('#enemy-actions [data-action]', { expect: null });
+      await waitIdle(25000);
+      await sleep(800);
+    }
+- **画面**：两边都锁定后才亮牌结算；先锁的一方看不到后锁一方选了什么。
+
+### 18 · AI 模拟真人的同一套界面
+
+![18 AI 模拟真人的同一套界面](../output/demo/18-pvp-ai-opponent.png)
+
+*文件：`output/demo/18-pvp-ai-opponent.png`*
+
+- **操作**：async () => {
+      await backToCamp();
+      await clickEl('#go-pvp', { expect: `!document.getElementById('deploy').hidden`, label: '回到 PVP 出征页' });
+      await waitVisible('#pvp-opponent');
+      await selectEl('#pvp-opponent', 'ai');
+      await sleep(300);
+      await clickEl('#start', { expect: `!document.getElementById('battle').hidden`, label: '开始对战' });
+      await waitVisible('#panel-enemy');
+      await sleep(600);
+      await playTurn({ selector: '#actions [data-action]' });
+      await sleep(600);
+    }
+- **画面**：AI 模式下对方面板只读（提示「已独立出招（看不到你的选择）」），界面结构与真人分屏一致。
+
+## 五、整局复盘
+
+从营地重新开一局 PVE，一直打到分出胜负，记录自动出现的整局复盘。
+
+### 19 · 打完整局：结算与自动复盘
+
+![19 打完整局：结算与自动复盘](../output/demo/19-match-complete.png)
+
+*文件：`output/demo/19-match-complete.png`*
+
+- **操作**：async () => {
+      await backToCamp();
+      await clickEl('#go-pve', { expect: `!document.getElementById('deploy').hidden`, label: '进入 PVE 出征页' });
+      await waitVisible('#start');
+      await selectEl('#speed', '0');
+      await clickEl('#start', { expect: `!document.getElementById('battle').hidden`, label: '开始训练' });
+      await waitVisible('#actions [data-action]');
+      let turns = 0;
+      while (turns < 140) {
+        if (await matchOver()) { finished = true; break; }
+        await playTurn({ timeout: 20000 });
+        turns += 1;
+      }
+      if (!finished && (await matchOver())) finished = true;
+      await waitFor(`!document.getElementById('result').hidden`, { timeout: 30000, label: '本场结束' });
+      await sleep(1500);
+    }
+- **画面**：打满整局直到分出胜负：结算条给出经验与训练点，教练自动产出整局复盘。
+
+### 20 · 自动整局复盘（关键回合与依据）
+
+![20 自动整局复盘（关键回合与依据）](../output/demo/20-match-review.png)
+
+*文件：`output/demo/20-match-review.png`*
+
+- **操作**：async () => {
+      if (!finished) warnings.push('整局复盘：未在 140 回合内确认胜负，仍然抓取了当前真实画面');
+      await waitVisible('#live-coach', { timeout: 20000 });
+      const hasDetails = await evalJs(`!!document.querySelector('#live-coach details')`);
+      if (hasDetails) {
+        const open = await evalJs(`document.querySelector('#live-coach details').open`);
+        if (!open) {
+          await clickEl('#live-coach details summary', { expect: `document.querySelector('#live-coach details').open`, label: '展开关键回合与依据' });
+        }
+      }
+      await settleText('#result-provider', '正在结合整局记录分析', 40000);
+      await sleep(400);
+    }
+- **画面**：对局结束后教练自动给出的整局回顾：一句结论 + 可展开的「关键回合与依据」。
+
+### 21 · 整局复盘落到教练面板
+
+![21 整局复盘落到教练面板](../output/demo/21-match-review-coach.png)
+
+*文件：`output/demo/21-match-review-coach.png`*
+
+- **操作**：async () => {
+      const before = await chatEntryCount();
+      await clickEl('#round-coach', { expect: `!document.getElementById('coach-panel').hidden`, label: '打开整局复盘' });
+      await waitCoachAnswer(before, 90000);
+    }
+- **画面**：此时按钮已变成「整局复盘」；面板里是整局层面的分析，可展开依据核对原始回合。
+
+## 未能覆盖的部分（如实记录）
+
+本次运行五段流程全部按计划走到，没有失败或跳过的步骤。
+## 这份产物不能说明什么
+
+- 它是**静态图文**，没有真实录屏、没有语音播报：本机没有可见桌面与音频设备，「语音提醒」在演示里没有开启。
+- 每张图只是某一时刻的画面，不能证明连续动画、手感或帧率。
+- 截图证明的是「界面与流程在真实浏览器里跑得通」，不是「教学有效」。学习增益需要人类被试实验，本产物不涉及。
+- 为让整局更快打完，演示把播放速度设成「即时」，这只影响播放节奏，不改变任何数值。
+
+## 复现方式
+
+```bash
+# 1) 保证应用已在 8765 运行（不要另起一个服务器）
+npm start
+# 2) 另开一个终端重建演示产物
+node scripts/build-demo.mjs
+```
+
+脚本只写 `output/demo/` 与 `docs/DEMO-WALKTHROUGH.md`，不修改任何现有源码。

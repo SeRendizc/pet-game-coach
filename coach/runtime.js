@@ -134,7 +134,11 @@ export function assembleContext(payload,{window=WORKING_CONTEXT,output=OUTPUT_RE
 export function checkGroundedAnswer(answer){
  const reasons=[],text=answer.text||'',facts=JSON.stringify({evidence:answer.evidence||[],tools:answer.toolTrace||[],state:answer.publicState,events:answer.latestEvents,summary:answer.textFacts});
  if(/先看.{0,8}(?:对手|它).{0,6}出招|看(?:到|完)对手.{0,5}(?:出招|行动)再/.test(text))reasons.push('simultaneous-action-order');
- if(/必胜|稳赢|保证获胜|一定能赢|百分之百|100%/.test(text))reasons.push('unsupported-certainty');
+ // 只在“做出确定性承诺”时判不合格。实测模型写「不是稳赢保证」被误判，
+ // 那是否定，不是承诺——所以先看断言前面有没有否定词。
+ const certainty=/必胜|稳赢|保证获胜|一定能赢|百分之百|100%/.exec(text);
+ if(certainty){const head=text.slice(Math.max(0,certainty.index-6),certainty.index);
+  if(!/(不是|不会|不能|并非|未必|没有|谈不上|不敢说|不可能)/.test(head))reasons.push('unsupported-certainty');}
  // 道具名称漂移：本作只有回复药 / 净化药 / 能量果。实测模型会把净化药叫成「解药」、
  // 能量果叫成「以太」，而数字校验拦不住这种替换——它没有数字。命中即判不合格，
  // 由客户端降级为本地规则结论，而不是把错误名称展示给玩家。
@@ -162,7 +166,10 @@ export function checkGroundedAnswer(answer){
   const part=text.match(new RegExp('第\\s*'+k.turn+'\\s*回合([^。；]*)(?:[。；]|$)'))?.[1]||'';
   if(/(?:撞|打|造成|输出)[^，。；]{0,8}\d+/.test(part)&&!/(?:未|没|无法|取消|本来|假如|如果|预计|可能|可造成)/.test(part))reasons.push('cancelled-action-claimed-as-hit:'+k.turn);
  }
- const supported=new Set((facts.match(/-?\d+(?:\.\d+)?/g)||[]).map(Number));
+ // 事实集要包含模型被允许引用的知识卡原文，否则引用卡片自己的数值会被误判为编造。
+ // 实测「本回合减伤 65%」出自卡片 principle，被判 unsupported-number:65，三条用例全部误报。
+ const cardText=(answer.evidence||[]).join(' ')+' '+((answer.knowledge||[]).map(c=>[c.principle,c.counterexample,c.conditions].filter(Boolean).join(' ')).join(' '));
+ const supported=new Set(((facts+' '+cardText).match(/-?\d+(?:\.\d+)?/g)||[]).map(Number));
  for(const n of text.match(/-?\d+(?:\.\d+)?/g)||[])if(!supported.has(Number(n))&&!['1','2','3'].includes(n))reasons.push('unsupported-number:'+n);
  const available=new Set((answer.knowledge||[]).map(c=>c.id));
  for(const id of text.match(/(?:tactic|ui|rule):[a-z:-]+/g)||[])if(!available.has(id))reasons.push('unsupported-citation:'+id);
