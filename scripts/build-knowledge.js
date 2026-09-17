@@ -9,7 +9,12 @@ const reference=[...Object.entries(SKILLS).map(([id,s])=>({...base,id:'rule:skil
  // 引擎把同系改成 1 倍之后，这里仍在给模型喂旧规则，而且测试不会发现。
  // 现在直接从 RULES 取数，改引擎即自动同步。
 principle:`${TYPES[type]}系攻击克制${targets.map(x=>TYPES[x]).join('、')}系，倍率${RULES.typeAdvantage}；`
-  +`打向克制你的属性时${RULES.typeResist}，其余（含同系）${1}。普通攻击倍率${1}。`,counterexample:'按技能属性而不是宠物属性计算；不含原作同系加成或属性免疫。'}))];
+  +`打向克制你的属性时${RULES.typeResist}，其余（含同系）${1}。普通攻击倍率${1}。`,counterexample:'按技能属性而不是宠物属性计算；不含原作同系加成或属性免疫。'})),
+  // 普通系没有克制关系，所以不在 TYPE_ADVANTAGES 里，上面那个 map 生成不到它，
+  // 结果知识库对普通系完全沉默——玩家和小芽都查不到「普通系怎么运作」。补一张。
+  {...base,id:'rule:type:normal',title:'普通系规则',keywords:'普通系 中性 无克制 normal 倍率',
+   principle:'普通系没有克制关系：它攻击任何属性都是 1 倍，任何属性攻击它也都是 1 倍，既拿不到克制加成，也不会被反克。普通系技能同理。',
+   counterexample:'正因为双向中性，普通系不靠属性取胜；它的价值是不挑对位、结果可预期，强弱来自面板与技能组合。'}];
 const marker='\n// Generated local tactical cards; edit knowledge/tactics.json then regenerate.\n';
 writeFileSync(target,readFileSync(target,'utf8').split(marker)[0]+marker+'export const TACTIC_CARDS = '+JSON.stringify(cards)+';\nexport const REFERENCE_CARDS = '+JSON.stringify(reference)+';\n');
 
