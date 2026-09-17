@@ -262,3 +262,20 @@
 .roster-advice p{margin:4px 0;font-size:11px;line-height:1.55;color:#9fb0c0}
 
 .mode-note{flex:1 1 100%;order:2;font-size:11px;line-height:1.5;margin-top:2px}
+
+/* 底栏回到单行；阵容建议作为独立卡片放在伙伴区 */
+#launch-bar{flex-wrap:nowrap;align-items:center;gap:12px}
+.roster-advice.card{display:block;background:#141f2b;border:1px solid #2f4256;border-radius:10px;padding:9px 11px;margin-top:11px;font-size:12px;color:#bcc9d6}
+.roster-advice.card strong{color:#bdf0c6;font-size:11px;margin-right:6px}
+.roster-advice.card details{margin-top:5px}
+#mode-note{font-size:11px;max-width:52%;text-align:right;line-height:1.45}
+@media(max-width:900px){#launch-bar{flex-wrap:wrap}#mode-note{max-width:100%;text-align:left}}
+
+/* 关卡说明：三行各自独立，不再挤在一起 */
+.stage-detail{gap:5px}
+.stage-desc{font-size:12.5px;color:#cbd6e1}
+.stage-enemy{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.stage-enemy>.muted{flex:0 0 auto;font-size:11px;letter-spacing:.3px}
+.enemy-chip{padding:3px 9px;gap:5px}
+.stage-reward{color:#8fa1b2}
+.roster-advice.card{margin:0 0 11px}

@@ -249,3 +249,21 @@ export function resolveTurn(original,action,opponent,options={}) {
   if(!options.simulation)g.history.push({type:'turn',before,action:structuredClone(action),opponent,events:g.log.slice(start),after:snapshot(g),result:g.result});
   return g;
 }
+
+// 本地对战的对手阵容：12 只里随机选 3 只，各自从可学技能里选 4 个、带一件携带物，
+// 等级由调用方按玩家队伍适配传入。用同一个 seed 可复现，不读取玩家选择。
+export function buildVersusOpponent(seed=17,{level=1}={}){
+ let state=seed>>>0;
+ const rnd=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+ const takeOne=arr=>arr.splice(Math.floor(rnd()*arr.length),1)[0];
+ const pool=[...SPECIES],team=[];
+ while(team.length<3&&pool.length)team.push(takeOne(pool));
+ const itemPool=Object.keys(HELD_ITEMS).filter(k=>k!=='none');
+ const enemyPets={};
+ for(const base of team){
+  const learn=[...base.learnset],loadout=[];
+  while(loadout.length<4&&learn.length)loadout.push(takeOne(learn));
+  enemyPets[base.id]={level:Math.max(1,Math.min(5,Math.round(level))),points:{hp:0,atk:0,speed:0},loadout,heldItem:itemPool.length?itemPool[Math.floor(rnd()*itemPool.length)]:'none'};
+ }
+ return {enemyTeam:team.map(p=>p.id),enemyPets};
+}
