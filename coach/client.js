@@ -19,9 +19,16 @@ async function executeCoach(payload,signal){
  try{
  if(!session||session.configured===false)await connectionStatus();
  if(session.configured===false)return {...local,stateToken:payload.stateToken,fallbackReason:'未连接模型，显示本局规则分析'};
- const response=await fetch('/api/coach',{method:'POST',headers:{'Content-Type':'application/json','X-Coach-CSRF':session.csrf},body:JSON.stringify(assembled.payload),signal});
- let data;try{data=await response.json();}catch{throw Error('后端响应异常');}
- if(!response.ok){if(response.status===403)session=null;throw Error(data.error||'教练请求失败');}const validation=checkGroundedAnswer(data);if(data.provider==='deepseek'&&!validation.valid){const fallback=await runCoach(payload);data={...fallback,provider:'local-fallback',validation,fallbackReason:'模型回答未通过事实检查，显示本局规则分析',stateToken:payload.stateToken};}
+ // 重启后端会清空内存里的会话，页面上还留着旧 cookie，第一个请求必然 403。
+ // 这里重建会话并原样重试一次，不让用户看到一次莫名其妙的失败。
+ const send=async()=>{const r=await fetch('/api/coach',{method:'POST',headers:{'Content-Type':'application/json','X-Coach-CSRF':session.csrf},body:JSON.stringify(assembled.payload),signal});let d;try{d=await r.json();}catch{throw Error('后端响应异常');}return {r,d};};
+ let {r:response,d:data}=await send();
+ if(response.status===403){session=null;await connectionStatus();if(session.configured!==false)({r:response,d:data}=await send());}
+ if(!response.ok){if(response.status===403)session=null;throw Error(data.error||('教练请求失败（HTTP '+response.status+'）'));}const validation=checkGroundedAnswer(data);if(data.provider==='deepseek'&&!validation.valid){const fallback=await runCoach(payload);data={...fallback,provider:'local-fallback',validation,fallbackReason:'模型回答未通过事实检查，显示本局规则分析',stateToken:payload.stateToken};}
  data.memory={...data.memory,journal:payload.memory.journal||[],reflections:payload.memory.reflections||{},watches:payload.memory.watches||[],quizCount:payload.memory.quizCount||0,goal:data.memory?.goal||payload.memory.goal||null};data.memory.dialogue=(data.memory.dialogue||[]).map(m=>m.role==='user'&&m.content===payload.message?{...m,content:originalMessage}:m);data.contextAudit=assembled.audit;return data;
- }catch(error){if(signal?.aborted||error?.name==='AbortError')throw error;const fallback=await runCoach(payload);return {...fallback,provider:'local-fallback',fallbackReason:'模型请求暂不可用，保留本地依据',stateToken:payload.stateToken,contextAudit:assembled.audit};}
+ }catch(error){if(signal?.aborted||error?.name==='AbortError')throw error;const fallback=await runCoach(payload);
+ // 把真实原因带出来，不再一律显示"暂不可用"，否则无法区分会话失效、鉴权失败和超时。
+ const why=error?.message||'网络异常';
+ const reason=/超时|aborted|timeout/i.test(why)?'模型响应超时（'+why+'），保留本地依据':'模型请求未完成：'+why+'（已保留本地依据）';
+ return {...fallback,provider:'local-fallback',fallbackReason:reason,stateToken:payload.stateToken,contextAudit:assembled.audit};}
 }

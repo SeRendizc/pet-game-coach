@@ -24,7 +24,7 @@ export function createCoachServer({fetchImpl=fetch,timeoutMs=35000,semantic=fals
  const {publicKey,privateKey}=generateKeyPairSync('rsa',{modulusLength:2048});
  const spki=publicKey.export({type:'spki',format:'der'}).toString('base64');
  const sessions=new Map();let credential='',model='deepseek-flash',verified=false,generation=0,inflight=false;
- const status=()=>({runtimeVersion:'0.10',configured:!!credential,verified,model,provider:credential?'deepseek':'local'});
+ const status=()=>({runtimeVersion:'0.11',configured:!!credential,verified,model,provider:credential?'deepseek':'local'});
  async function complete(messages,maxTokens=320,callTimeout=timeoutMs,signal){
   const currentKey=credential,currentModel=model,epoch=generation;
   if(!currentKey)throw fail(409,'尚未配置 DeepSeek');
