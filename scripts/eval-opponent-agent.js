@@ -66,7 +66,7 @@ async function playGame({seed,difficulty,arm,session,playerLevel}){
     }catch(error){
      enemyAction=engineChoice;
      stats.fallbacks[error.name==='TimeoutError'?'timeout':'request-failed']=(stats.fallbacks[error.name==='TimeoutError'?'timeout':'request-failed']||0)+1;
-     if(stats.errors.length<3)stats.errors.push(String(error.message).slice(0,100));
+     stats.errors.push(String(error.message||error).slice(0,160));
     }
     if(same(enemyAction,engineChoice))stats.same++;else stats.differed++;
    }
@@ -111,13 +111,21 @@ async function main(){
   const agentArm=await armRun(sessions,{difficulty,arm:'agent',seeds,playerLevel});
   report.arms[key]={engine:summarize(engineArm),agent:summarize(agentArm),
    perSeed:seeds.map((s,i)=>({seed:s,engine:engineArm[i].result,agent:agentArm[i].result,agentTurns:agentArm[i].agentTurns,differed:agentArm[i].differed})),
-   errors:[...new Set(agentArm.flatMap(r=>r.errors||[]))].slice(0,4)};
+   errors:[...new Set(agentArm.flatMap(r=>r.errors||[]))].slice(0,6)};
  }
  // 延迟按难度汇总：两种难度给的帮助不同，往返时间不该混在一起报。
  for(const difficulty of ['normal','hard']){
   const lat=Object.entries(report.arms).filter(([k])=>k.endsWith('/'+difficulty)).flatMap(([,v])=>[v.agent.latency]);
   report.arms['latency-'+difficulty]={n:lat.reduce((a,x)=>a+x.n,0),p50:Math.max(...lat.map(x=>x.p50)),p90:Math.max(...lat.map(x=>x.p90)),max:Math.max(...lat.map(x=>x.max))};
  }
+ // 四次对照里 agent 真正决策过的次数与合并延迟。
+ // p50/p90 取各臂最大值，不是把所有原始样本重排后的全局精确分位；报告引用的就是这个口径。
+ const agentArms=Object.entries(report.arms).filter(([k])=>k.includes('/')).map(([,v])=>v.agent);
+ report.cleanLatency={decisions:agentArms.reduce((a,x)=>a+x.agentTurns,0),
+   latencySamples:agentArms.reduce((a,x)=>a+x.latency.n,0),
+   p50Max:Math.max(...agentArms.map(x=>x.latency.p50)),p90Max:Math.max(...agentArms.map(x=>x.latency.p90)),
+   maxOfMax:Math.max(...agentArms.map(x=>x.latency.max)),
+   fallbacksTotal:agentArms.reduce((a,x)=>a+Object.values(x.fallbacks).reduce((b,c)=>b+c,0),0)};
  console.log(JSON.stringify(report,null,1));
  const {writeFileSync,mkdirSync}=await import('node:fs');
  mkdirSync('reports',{recursive:true});

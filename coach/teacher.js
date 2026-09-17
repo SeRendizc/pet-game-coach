@@ -128,5 +128,5 @@ export function compareTurnAlternatives(h,version='0.6'){
  if(!actual||!ranked[0])return null;
  const rows=ranked.slice(0,2).map(x=>({action:x.action,name:actionName(g,'player',x.action),expected:x.expected,worst:x.worst,score:x.score}));
  return {rows,actualScore:actual.score,gap:ranked[0].score-actual.score,
-  text:rows.map(x=>`${x.name}：平均分${x.expected.toFixed(1)}、最坏分${x.worst.toFixed(1)}`).join('；')+`。你的选择${ranked[0].score-actual.score<=5?'与最高分接近，不能因排序不同就判错':'在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误'}。只用回合前公开状态枚举，不把对方实际出招当成预先已知。`};
+  text:rows.map(x=>`${x.name}：把对手各种应对都算一遍，多数情况 ${x.expected.toFixed(1)} 分、最糟的一种 ${x.worst.toFixed(1)} 分`).join('；')+`。你的选择${ranked[0].score-actual.score<=5?'与最高分接近，不能因排序不同就判错':'在此一回合评分下较低，可比较别的分支，但不能据此断言长期策略错误'}。只看回合开始时的公开局面，不把对方实际出了什么当成事先就知道的。`};
 }

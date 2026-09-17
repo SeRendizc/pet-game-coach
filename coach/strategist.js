@@ -79,7 +79,7 @@ export function applicability(card,game){
  const p=active(game,'player'),q=active(game,'enemy');
  const checks={'battle':!!p&&!!q,'burn':q?.status?.kind==='burn','reserve':game.player.pets.some((x,i)=>x.hp>0&&i!==game.player.active),'energy':p?.energy<=2,'potion':game.player.items.potion>0,'poison':p?.status?.kind==='poison','slow':!!p?.speedDown||!!q?.speedDown};
  for(const key of card.conditions||['battle'])if(!checks[key])absent.push(key);
- return {status:absent.length?'conditions-not-met':'candidate',missing:absent,verified:(card.conditions||['battle']).filter(k=>checks[k]),warning:'匹配条件不等于建议最优；还需比较合法行动及对手分支'};
+ return {status:absent.length?'conditions-not-met':'candidate',missing:absent,verified:(card.conditions||['battle']).filter(k=>checks[k]),warning:'匹配条件不等于建议最优；还要比较双方各自的合法行动'};
 }
 export function resolveCitation(id,rulesVersion=RULES_VERSION){return cards.find(c=>c.id===id&&c.rulesVersion===rulesVersion&&c.status==='active')||null;}
 export function verifyCitations(ids,rulesVersion=RULES_VERSION){return {valid:ids.every(id=>!!resolveCitation(id,rulesVersion)),missing:ids.filter(id=>!resolveCitation(id,rulesVersion))};}

@@ -388,7 +388,7 @@ export function hoverLabel(game,record){
 }
 function mistakeText(game,incident){
  if(incident.kind==='missed-finish')
-  return `刚才这回合有收尾机会：${actionLabel(game,'player',incident.lethal)}对当时的${active(game,'enemy')?.name||'对手'}算 ${incident.lethalHit} 伤害，对手只剩 ${incident.enemyHp}HP，你选了${actionLabel(game,'player',incident.action)}，它在 ${incident.enemyAfterHp}HP 活过了这回合。分差 ${round1(incident.gap)} 是一回合启发式评分，不是胜率，也不代表改这一手就一定能赢。`;
+  return `刚才这回合有收尾机会：${actionLabel(game,'player',incident.lethal)}对当时的${active(game,'enemy')?.name||'对手'}算 ${incident.lethalHit} 伤害，对手只剩 ${incident.enemyHp}HP，你选了${actionLabel(game,'player',incident.action)}，它在 ${incident.enemyAfterHp}HP 活过了这回合。两者的差距（${round1(incident.gap)} 分）只是把下一步双方可能的选择算过一遍后的排序，不是胜率，也不代表改这一手就一定能赢。`;
  if(incident.kind==='preventable-faint')
   return `${incident.pet}在 ${incident.beforeHp}HP 的回合倒下了（这一手之前它还活着），背包里还有 ${incident.potions} 瓶回复药。有药不等于那回合吃药一定更好，但当时确实可以把这两件事放在一起比一比。`;
  return null;

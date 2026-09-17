@@ -1,0 +1,370 @@
+{
+ "generatedAt": "2026-09-17T13:42:11.268Z",
+ "base": "http://127.0.0.1:8765/",
+ "gamesPerArm": 6,
+ "concurrency": 3,
+ "method": "真实 API 调用。对手侧两种大脑（engine=chooseEnemy，agent=/api/opponent 真模型）；玩家侧两臂完全相同，都是 chooseEnemy 的镜像调用。",
+ "boundary": "玩家是脚本策略不是真人；每格 6 局，样本很小，不支持\"更强/更弱\"的断言，只能看方向与兜底次数。",
+ "arms": {
+  "hard/normal": {
+   "engine": {
+    "games": 6,
+    "wins": 6,
+    "losses": 0,
+    "draws": 0,
+    "playerWinRate": "100%",
+    "avgTurns": 18,
+    "unfinished": 0,
+    "agentTurns": 0,
+    "differed": 0,
+    "sameAsEngine": 0,
+    "fallbacks": {},
+    "latency": {
+     "n": 0,
+     "p50": null,
+     "p90": null,
+     "max": null
+    }
+   },
+   "agent": {
+    "games": 6,
+    "wins": 6,
+    "losses": 0,
+    "draws": 0,
+    "playerWinRate": "100%",
+    "avgTurns": 24,
+    "unfinished": 0,
+    "agentTurns": 142,
+    "differed": 74,
+    "sameAsEngine": 68,
+    "fallbacks": {},
+    "latency": {
+     "n": 142,
+     "p50": 1044,
+     "p90": 1323,
+     "max": 2983
+    }
+   },
+   "perSeed": [
+    {
+     "seed": 17,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 24,
+     "differed": 11
+    },
+    {
+     "seed": 42,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 23,
+     "differed": 14
+    },
+    {
+     "seed": 91,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 22,
+     "differed": 12
+    },
+    {
+     "seed": 123,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 25,
+     "differed": 12
+    },
+    {
+     "seed": 777,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 24,
+     "differed": 14
+    },
+    {
+     "seed": 2024,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 24,
+     "differed": 11
+    }
+   ],
+   "errors": []
+  },
+  "hard/hard": {
+   "engine": {
+    "games": 6,
+    "wins": 6,
+    "losses": 0,
+    "draws": 0,
+    "playerWinRate": "100%",
+    "avgTurns": 24,
+    "unfinished": 0,
+    "agentTurns": 0,
+    "differed": 0,
+    "sameAsEngine": 0,
+    "fallbacks": {},
+    "latency": {
+     "n": 0,
+     "p50": null,
+     "p90": null,
+     "max": null
+    }
+   },
+   "agent": {
+    "games": 6,
+    "wins": 6,
+    "losses": 0,
+    "draws": 0,
+    "playerWinRate": "100%",
+    "avgTurns": 22,
+    "unfinished": 0,
+    "agentTurns": 134,
+    "differed": 10,
+    "sameAsEngine": 124,
+    "fallbacks": {},
+    "latency": {
+     "n": 134,
+     "p50": 1091,
+     "p90": 1342,
+     "max": 1552
+    }
+   },
+   "perSeed": [
+    {
+     "seed": 17,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 24,
+     "differed": 0
+    },
+    {
+     "seed": 42,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 20,
+     "differed": 4
+    },
+    {
+     "seed": 91,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 24,
+     "differed": 1
+    },
+    {
+     "seed": 123,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 19,
+     "differed": 4
+    },
+    {
+     "seed": 777,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 23,
+     "differed": 0
+    },
+    {
+     "seed": 2024,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 24,
+     "differed": 1
+    }
+   ],
+   "errors": []
+  },
+  "normal/normal": {
+   "engine": {
+    "games": 6,
+    "wins": 4,
+    "losses": 2,
+    "draws": 0,
+    "playerWinRate": "66.7%",
+    "avgTurns": 19,
+    "unfinished": 0,
+    "agentTurns": 0,
+    "differed": 0,
+    "sameAsEngine": 0,
+    "fallbacks": {},
+    "latency": {
+     "n": 0,
+     "p50": null,
+     "p90": null,
+     "max": null
+    }
+   },
+   "agent": {
+    "games": 6,
+    "wins": 3,
+    "losses": 3,
+    "draws": 0,
+    "playerWinRate": "50%",
+    "avgTurns": 23,
+    "unfinished": 0,
+    "agentTurns": 137,
+    "differed": 70,
+    "sameAsEngine": 67,
+    "fallbacks": {},
+    "latency": {
+     "n": 137,
+     "p50": 1021,
+     "p90": 1255,
+     "max": 1817
+    }
+   },
+   "perSeed": [
+    {
+     "seed": 17,
+     "engine": "loss",
+     "agent": "loss",
+     "agentTurns": 19,
+     "differed": 9
+    },
+    {
+     "seed": 42,
+     "engine": "win",
+     "agent": "loss",
+     "agentTurns": 22,
+     "differed": 8
+    },
+    {
+     "seed": 91,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 40,
+     "differed": 24
+    },
+    {
+     "seed": 123,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 20,
+     "differed": 11
+    },
+    {
+     "seed": 777,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 17,
+     "differed": 9
+    },
+    {
+     "seed": 2024,
+     "engine": "loss",
+     "agent": "loss",
+     "agentTurns": 19,
+     "differed": 9
+    }
+   ],
+   "errors": []
+  },
+  "normal/hard": {
+   "engine": {
+    "games": 6,
+    "wins": 3,
+    "losses": 3,
+    "draws": 0,
+    "playerWinRate": "50%",
+    "avgTurns": 23,
+    "unfinished": 0,
+    "agentTurns": 0,
+    "differed": 0,
+    "sameAsEngine": 0,
+    "fallbacks": {},
+    "latency": {
+     "n": 0,
+     "p50": null,
+     "p90": null,
+     "max": null
+    }
+   },
+   "agent": {
+    "games": 6,
+    "wins": 3,
+    "losses": 3,
+    "draws": 0,
+    "playerWinRate": "50%",
+    "avgTurns": 22,
+    "unfinished": 0,
+    "agentTurns": 130,
+    "differed": 2,
+    "sameAsEngine": 128,
+    "fallbacks": {},
+    "latency": {
+     "n": 130,
+     "p50": 1021,
+     "p90": 1267,
+     "max": 1642
+    }
+   },
+   "perSeed": [
+    {
+     "seed": 17,
+     "engine": "loss",
+     "agent": "loss",
+     "agentTurns": 19,
+     "differed": 0
+    },
+    {
+     "seed": 42,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 25,
+     "differed": 1
+    },
+    {
+     "seed": 91,
+     "engine": "loss",
+     "agent": "loss",
+     "agentTurns": 24,
+     "differed": 0
+    },
+    {
+     "seed": 123,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 25,
+     "differed": 0
+    },
+    {
+     "seed": 777,
+     "engine": "win",
+     "agent": "win",
+     "agentTurns": 18,
+     "differed": 1
+    },
+    {
+     "seed": 2024,
+     "engine": "loss",
+     "agent": "loss",
+     "agentTurns": 19,
+     "differed": 0
+    }
+   ],
+   "errors": []
+  },
+  "latency-normal": {
+   "n": 279,
+   "p50": 1044,
+   "p90": 1323,
+   "max": 2983
+  },
+  "latency-hard": {
+   "n": 264,
+   "p50": 1091,
+   "p90": 1342,
+   "max": 1642
+  }
+ },
+ "cleanLatency": {
+  "decisions": 543,
+  "latencySamples": 543,
+  "p50Max": 1091,
+  "p90Max": 1342,
+  "maxOfMax": 2983,
+  "fallbacksTotal": 0
+ }
+}

@@ -46,11 +46,11 @@
 \toprule
 动作 & 完成标志 & 预计 \\
 \midrule
-让生成脚本从表里推出那句话 & 改表之后不再需要手改文案 & 1 小时 \\
-给提示正文加禁止词表与测试 & “启发式评分”“分支”不再出现在玩家读到的句子里 & 半天 \\
 按新政策重新标注评测集并复测 & 重新标注在看见结果之前完成 & 半天 \\
 给检索加最低分阈值与拒答再对照 & 负例拒答率显著高于 56.25\% & 半天 \\
 补独立标注者，重做检索盲测 & 不是自出题自评测 & 1 天 \\
+把 incident 造进文案检查 & “策略错误”那条正文也在覆盖范围内 & 2 小时 \\
+让对手 agent 的胜率对比有真人样本 & 不是 n=6 的脚本玩家 & 待定 \\
 录一段完整演示 & 五条链路各有一段可播放记录 & 半天 \\
 \bottomrule
 \end{tabular}
@@ -62,11 +62,12 @@
 
 \begin{verbatim}
 npm start                    # 启动，默认 127.0.0.1:8765
-npm test                     # 221 项自动测试
+npm test                     # 249 项自动测试
 npm run test:smoke           # headless Chrome 真打一局
 npm run build:knowledge      # 从引擎重新生成知识卡
 npm run eval:retrieval       # 检索对照实验
 npm run train:intervention   # 干预策略实验
+node scripts/eval-opponent-agent.js   # 对手 agent 实测（需密钥）
 \end{verbatim}
 
 来源清单在 \code{knowledge/sources.json} 与 \code{docs/DOMAIN-RESEARCH.md} 两份文件里，官方文档、公开转载与我的推断分开标注，不混在一起。
