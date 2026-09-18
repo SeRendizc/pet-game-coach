@@ -1,5 +1,5 @@
-% 总图：三种角色共用的执行链。只放图，不放正文段落——
-% 正文（「跑的是同一条链」那段与「链上七步各有出处」那段）在 sections/02-delivery.tex 里。
+% 总图：AI Coach 共用的状态、查证与输出机制。只放图，不放正文段落——
+% 正文（「三种角色共用的机制」那段与工具循环分工那段）在 sections/02-delivery.tex 里。
 %
 % 图号：走 preamble.tex 的 \shotcaption（\refstepcounter{shot}），与 \shot、\shotpair
 %       共用同一个计数器，因此全文图号连续、不会重号。正文用 \ref 引用。
@@ -58,5 +58,5 @@
   \node[anchor=north,inner sep=0pt,font=\scriptsize,text=black!65]
        at ([yshift=-9pt]s7.south) {记忆回流到下一次触发（下一轮从第一步重新开始）};
 \end{tikzpicture}
-\shotcaption{三种角色共用的执行链，以及链上七步各自的出处}\label{fig:pipeline-chain}
+\shotcaption{AI Coach 共用的状态、查证与输出机制，以及七个环节各自的出处}\label{fig:pipeline-chain}
 \end{figure}
