@@ -12,8 +12,10 @@
 % 封面下方原本还有一条通栏长线，已删——它和这两条短线在视觉上重复。
 \begin{center}
 \vspace{0.5em}
-\rule{0.4\linewidth}{0.4pt}\\[0.7em]
-{\small 本报告由 AI 辅助撰写}\\[0.7em]
+% 用 \par\vspace 而不是 \\[..]：后者是「换行 + 再加一段距离」，
+% 实际间距等于 \baselineskip 加上那个值，我给多少都不等于视觉间距。\par\vspace 是精确值。
+\rule{0.4\linewidth}{0.4pt}\par\vspace{9pt}
+{\small\strut 本报告由 AI 辅助撰写\strut}\par\vspace{6.5pt}
 \rule{0.4\linewidth}{0.4pt}
 \end{center}
 
