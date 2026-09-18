@@ -334,3 +334,53 @@ test('整局跑通：agent（假模型）与引擎兜底交替出现，每一步
  assert.ok(g.turn>3,'对局确实推进了');
  assert.ok(legalActions(g,'enemy').length>0||g.result,'每一回合对手的行动都来自当时的合法列表');
 });
+
+// 玩家实测的永久卡死，根因就在这个枚举器里：**补位那一回合它不该抛异常**。
+//
+// app.js 的 act() 每回合都拿镜像局面调它（把两侧对调，让同一个枚举器算"对面会怎么走"）。
+// 而 resolveTurn 在补位阶段会用 `replaceSide` 那一侧的合法行动去校验传进来的第一个参数——
+// 于是"我方回应"里只要有一个号位不在"对手补位可用号位"里，它就抛「当前行动不可用」。
+// 这一句抛在 act() 里、又在真正提交补位之前，所以对手的补位永远提交不出去：
+// 横幅停在「行动未完成，请重试。」、双方互等、怎么点都没用（玩家截图里那一屏）。
+//
+// 枚举器是启发式搜索，不是裁判：算不出来的那一对不是真实分支，跳过就是。
+// 下面两种局面都得给得出一份可用的排序，而且**战斗回合的排序必须一字不变**。
+test('补位局面下 rankEnemyActions 不许抛：算不出的分支跳过，战斗局面的排序不受影响',()=>{
+ const g=createGame(9,['lion','turtle','cat'],{mode:'pvp-local'});
+ // 复刻玩家那一屏：对手队伍 [炽鬃狮·倒下, 潮甲龟·厚, 灵瞳猫]，3 号位（0-based 2）在场 0 血；
+ // 我方 [溪刃獭, 芽角鹿 在场, 灵瞳猫] → 我方合法换宠号位 {0,2}，对手补位目标是 1。
+ g.phase='replace';g.replaceSide='enemy';g.replaceQueue=['enemy'];
+ g.player.active=1;g.enemy.active=2;
+ g.player.pets[0].hp=10;g.player.pets[1].hp=40;g.player.pets[2].hp=10;
+ g.enemy.pets[0].hp=0;g.enemy.pets[1].hp=120;g.enemy.pets[2].hp=0;
+ const mirrored={...g,player:g.enemy,enemy:g.player};
+ assert.doesNotThrow(()=>rankEnemyActions(mirrored),'镜像局面下枚举器不许抛——它一抛，对手的补位就永远提交不出去');
+ assert.doesNotThrow(()=>rankEnemyActions(g),'未镜像的补位局面同样不许抛');
+ // 补位局面里很多分支本来就跨不过去，那一项会标成 -Infinity（"算不出来"），
+ // 但不许出现 NaN：NaN 会让排序失去传递性，那才是真的坏。
+ for(const row of [...rankEnemyActions(mirrored),...rankEnemyActions(g)])
+  assert(!Number.isNaN(row.score),'分数不许是 NaN（排序会失去传递性）：'+JSON.stringify(row.action));
+ // 补位局面里 chooseEnemy 仍然要抛：它回答的是"出什么招"，不是"换上谁"（兜底靠这条分流）
+ assert.throws(()=>chooseEnemy(g),'chooseEnemy 在补位局面必须抛');
+ assert.throws(()=>chooseEnemy(mirrored),'镜像的补位局面同样要抛');
+});
+
+// 战斗回合的排序是长期行为，改枚举器不许顺手改掉它：同一局面、同一目标偏好，
+// 排序必须和"每一对都算得出来"的老实现完全一致（这里用可比较的前三名钉住）。
+test('战斗回合的排序保持稳定：枚举器跳过不可结算分支之后，前三名不变',()=>{
+ const ranked=rankEnemyActions(createGame(7,['fox','turtle','deer']));
+ assert(ranked.length>=3,'战斗开局至少有三个合法行动');
+ const key=a=>a.kind+(a.id||'')+(a.target===undefined?'':':'+a.target);
+ const top=ranked.slice(0,3).map(x=>key(x.action));
+ // 这三个开局的前三名与改动前实测一致（改枚举器之前跑出来的原值，逐字抄在这里）：
+ //   种子 7  狐/龟/鹿 → 舍身烈焰 · 破甲重击 · 撞击
+ //   种子 9  狮/龟/猫 → 毒孢子 · 换上潮甲龟 · 撞击
+ //   种子 17 犀/隼/猫 → 潮汐重击 · 水流 · 疾爪
+ assert.deepEqual(top,['skillflare','skillcrush','skillstrike'],'种子 7 的前三名不许变，实际 '+JSON.stringify(top));
+ assert.deepEqual(rankEnemyActions(createGame(9,['lion','turtle','cat'])).slice(0,3).map(x=>key(x.action)),
+  ['skillspore','switch:1','skillstrike'],'种子 9 的前三名不许变');
+ assert.deepEqual(rankEnemyActions(createGame(17,['rhino','falcon','cat'])).slice(0,3).map(x=>key(x.action)),
+  ['skilltide','skillwave','skilldash'],'种子 17 的前三名不许变');
+ assert.ok(ranked.every(x=>Number.isFinite(x.expected)&&Number.isFinite(x.worst)),'每一项都要有可比较的分数');
+ assert.ok(ranked.every((x,i)=>i===0||ranked[i-1].score>=x.score),'排序必须是从高到低');
+});

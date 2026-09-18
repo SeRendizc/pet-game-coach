@@ -4,7 +4,12 @@ export const RESPONSE_INSTRUCTIONS='\n回答要求：不要向玩家报内部局
 import {runCoach,assembleContext,checkGroundedAnswer} from './runtime.js';
 import {checkCompanionRestraint,playerWords} from './companion.js';
 let session=null;
-export async function connectionStatus(){const response=await fetch('/api/bootstrap',{cache:'no-store'});if(!response.ok)throw Error('请启动新版本机后端');session=await response.json();return session;}
+// 这个 await 必须自带上限：它在 requestOpponentAction 里**不在** try/catch 内，
+// 也不受回合超时（OPPONENT_TIMEOUT_MS）保护——那个超时只包住 /api/opponent 那一次 fetch。
+// 本机后端收下连接却不回包时，整局就停在这一行。实测（修前）：bootstrap 永不返回时，
+// requestOpponentAction(timeoutMs=400) 1.5s 后仍然 pending，界面停在「对手选择」不再推进。
+export const BOOTSTRAP_TIMEOUT_MS=8000;
+export async function connectionStatus(timeoutMs=BOOTSTRAP_TIMEOUT_MS){const response=await fetch('/api/bootstrap',{cache:'no-store',signal:AbortSignal.timeout(timeoutMs)});if(!response.ok)throw Error('请启动新版本机后端');session=await response.json();return session;}
 const scheduler=new CoachScheduler();
 export function invalidateCoachRequests(){scheduler.invalidate();}
 export function requestCoach(payload){

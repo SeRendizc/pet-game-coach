@@ -86,7 +86,10 @@ let pvpEnemyLocked=null,pvpEnemyRevealed=false;
 // 任何一个新回合、重开、退出营地都会换掉 game，旧答案据此自动作废。
 let enemyPlan=null,enemyPlanToken=0;
 let bubbleTimer,companionFlush=null,stageId='meadow',preview=null,suspended=null;
-let selected=['fox','turtle','deer'],focus='fox',game=null,tab='skill',busy=false,matchId='',reward=null,coachSession=companionSession(),companionSaid=new Set(),companionPending=null,companionHover=false,bubbleDeadline=0;
+let selected=['fox','turtle','deer'],focus='fox',game=null,tab='skill',busy=false,busySince=0,matchId='',reward=null,coachSession=companionSession(),companionSaid=new Set(),companionPending=null,companionHover=false,bubbleDeadline=0;
+// 最近一次「行动未完成」的原文。它要能撑过 finally 里的重画，否则 #message 会被等待文案盖掉。
+let actError=null;
+function freshActError(){if(!actError||!game)return '';if(game.turn!==actError.turn||game.phase!==actError.phase)return '';if(Date.now()-actError.at>15000)return '';return actError.text+'（界面已恢复，可以继续操作）';}
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const badge=p=>`<span class="type ${p.type}">${TYPES[p.type]}</span>`;
 function save(){try{localStorage.setItem(storageKey,JSON.stringify(profile));}catch{$('save-message').textContent='保存失败：当前成长仍可使用，刷新后可能丢失。';}wallet();}
@@ -267,7 +270,7 @@ function renderLoadout(){
 }
 document.querySelectorAll('[data-train]').forEach(b=>b.onclick=()=>{try{advanceContext();profile=train(profile,focus,b.dataset.train);save();camp();}catch(e){$('save-message').textContent=e.message;}});$('reset-training').onclick=()=>{advanceContext();profile=resetTraining(profile,focus);save();camp();};$('cultivation-coach').onclick=()=>{openCoach();ask('怎么培养');};$('growth-dismiss').onclick=()=>$('growth-scene').hidden=true;if(preview==='growth')$('growth-scene').hidden=false;renderGrowthCoach();}
 function hp(p){return `<div class="hp-track"><div class="hp-fill ${p.hp/p.maxHp<.3?'low':''}" style="width:${p.hp/p.maxHp*100}%"></div></div>`;}
-function sideView(state,side){const s=state[side],p=active(state,side);return `<div class="pet-active"><div class="pet-heading"><span class="pet-icon">${p.icon}</span><h3>${p.name}</h3>${badge(p)}<small>Lv.${p.level}</small></div><p class="stats">${p.bio} · 攻 ${p.atk} / 防 ${p.def} / 速 ${effectiveSpeed(p)}${p.speedDown?`（减速${p.speedDown.amount}）`:""}${Object.entries(p.buffs||{}).map(([stat,b])=>` · ${stat==='atk'?'攻击':'防御'}+${Math.round(ruleFacts().buff.perStack*b.stacks*100)}%/${b.remaining}回合`).join('')}${p.heldItem&&p.heldItem!=='none'?` · ${HELD_ITEMS[p.heldItem].name}${p.heldUsed?'（已触发）':''}`:''}</p><div class="hp-line"><span>${p.status?`${p.status.kind==='burn'?'灼烧':'中毒'} ${p.status.remaining} 回合`:'生命'}</span><strong>${p.hp} / ${p.maxHp}</strong></div>${hp(p)}<div class="energy">${'●'.repeat(p.energy)}${'○'.repeat(Math.max(0,ruleFacts().energy.max-p.energy))} <small>${p.energy}/${ruleFacts().energy.max} · 在场存活回合末 +${ruleFacts().energy.perTurn}</small></div></div><div class="bench">${s.pets.map((p,i)=>`<div class="bench-pet ${i===s.active?'current':''} ${p.hp<=0?'fainted':''}">${p.name}<div class="stats">${p.hp<=0?'已倒下':`${p.hp}HP · ${p.energy}能量`}${p.status?' · 异常':''}</div>${hp(p)}</div>`).join('')}</div><p class="inventory">回复药 ${s.items.potion} · 净化药 ${s.items.cleanse} · 能量果 ${s.items.ether}</p>`;}
+function sideView(state,side){const s=state[side],p=active(state,side);return `<div class="pet-active"><div class="pet-heading"><span class="pet-icon">${p.icon}</span><h3>${p.name}</h3>${badge(p)}<small>Lv.${p.level}</small></div><p class="stats">${p.bio} · 攻 ${p.atk} / 防 ${p.def} / 速 ${effectiveSpeed(p)}${p.speedDown?`（减速${p.speedDown.amount}）`:""}${Object.entries(p.buffs||{}).map(([stat,b])=>` · ${stat==='atk'?'攻击':'防御'}+${Math.round(ruleFacts().buff.perStack*b.stacks*100)}%/${b.remaining}回合`).join('')}${p.heldItem&&p.heldItem!=='none'?` · ${HELD_ITEMS[p.heldItem].name}${p.heldUsed?'（已触发）':''}`:''}</p><div class="hp-line"><span>${p.hp<=0?'已倒下 · 等待补位':p.status?`${p.status.kind==='burn'?'灼烧':'中毒'} ${p.status.remaining} 回合`:'生命'}</span><strong>${p.hp} / ${p.maxHp}</strong></div>${hp(p)}<div class="energy">${'●'.repeat(p.energy)}${'○'.repeat(Math.max(0,ruleFacts().energy.max-p.energy))} <small>${p.energy}/${ruleFacts().energy.max} · 在场存活回合末 +${ruleFacts().energy.perTurn}</small></div></div><div class="bench">${s.pets.map((p,i)=>`<div class="bench-pet ${i===s.active?'current':''} ${p.hp<=0?'fainted':''}">${p.name}<div class="stats">${p.hp<=0?'已倒下':`${p.hp}HP · ${p.energy}能量`}${p.status?' · 异常':''}</div>${hp(p)}</div>`).join('')}</div><p class="inventory">回复药 ${s.items.potion} · 净化药 ${s.items.cleanse} · 能量果 ${s.items.ether}</p>`;}
 const available=a=>!busy&&legalActions(game).some(b=>a.kind===b.kind&&a.id===b.id&&a.target===b.target);
 function button(a,title,desc,extra=''){return `<button class="action" data-action='${JSON.stringify(a)}' ${available(a)?'':'disabled'}><div class="action-heading"><span>${title}</span>${extra?`<em>${extra}</em>`:''}</div><small>${desc}</small></button>`;}
 function renderSides(state){$('player').innerHTML=sideView(state,'player');$('enemy').innerHTML=sideView(state,'enemy');}
@@ -301,7 +304,7 @@ function actionPanelHtml(side,whichTab){
  const ok=a=>(side==='player'||humanOpponent())&&!busy&&!g.result&&legal.some(b=>a.kind===b.kind&&a.id===b.id&&a.target===b.target);
  const btn=(a,title,desc,extra='')=>`<button class="action" data-side="${side}" data-action='${JSON.stringify(a)}' ${ok(a)?'':'disabled'}><div class="action-heading"><span>${escape(title)}</span>${extra?`<em>${escape(extra)}</em>`:''}</div><small>${escape(desc)}</small></button>`;
  if(whichTab==='skill')return p.skills.map(id=>{const sk=SKILLS[id];return btn({kind:'skill',id},sk.name,sk.desc,`${sk.power?'威力 '+sk.power+' · ':''}${sk.priority===1?'先制 · ':''}消耗 ${sk.cost} 豆`);}).join('');
- if(whichTab==='switch')return s.pets.map((q,target)=>btn({kind:'switch',target},q.name,`${TYPES[q.type]}系 · ${q.hp}/${q.maxHp} HP · ${q.energy} 能量`,target===s.active?'正在场上':q.hp<=0?'已倒下':(g.phase==='replace'&&replaceOwner(g)===side)?'免费补位':'换宠占用整回合')).join('');
+ if(whichTab==='switch')return s.pets.map((q,target)=>btn({kind:'switch',target},q.name,`${TYPES[q.type]}系 · ${q.hp}/${q.maxHp} HP · ${q.energy} 能量`,q.hp<=0?'已倒下':target===s.active?'正在场上':(g.phase==='replace'&&replaceOwner(g)===side)?'免费补位':'换宠占用整回合')).join('');
  if(whichTab==='item')return Object.entries(ITEMS).map(([id,item])=>`<div class="item-group"><p>${item.name} ×${s.items[id]}<br><span class="muted">${escape(item.desc)}</span></p><div class="targets">${s.pets.map((q,target)=>`<button data-side="${side}" data-action='${JSON.stringify({kind:'item',id,target})}' ${ok({kind:'item',id,target})?'':'disabled'}>${escape(q.name)}</button>`).join('')}</div></div>`).join('');
  // 认输只对本地玩家开放：对手认输会走另一条结算（引擎的 escape 语义属于我方撤退）。
  return `<div class="item-group"><p>认输立即结束本场，不获得经验与训练点。</p><button data-side="${side}" data-action='{"kind":"escape"}' ${side==='player'&&ok({kind:'escape'})?'':'disabled'}>确认撤退</button></div>`;
@@ -362,7 +365,9 @@ function renderSplitPanels(){
  const mineLocked=!!pvpPicks.player||busy||!!game.result||(replacing&&rs!=='player');
  if(mineLocked)document.querySelectorAll('#actions [data-action]').forEach(b=>b.disabled=true);
  // 补位这一段只有一侧能点，所以牌被禁用时必须说清楚等的是谁。
- $('message').textContent=pvpPicks.player?'已锁定，等对方选择…':(replacing&&rs!=='player'?'对手正在选择补位伙伴，稍等（补位不消耗回合）':'');
+ // 但**异常原文优先**：act() 失败后 #message 里写的是"为什么没走成"（引擎那句话），
+ // 这里若照常盖成等待提示，玩家就永远看不到原因——截图里那一行被盖掉过一次，别再犯。
+ $('message').textContent=freshActError()||(pvpPicks.player?'已锁定，等对方选择…':(replacing&&rs!=='player'?'对手正在选择补位伙伴，稍等（补位不消耗回合）':''));
 }
 // 每回合先让对手独立做决定（只看回合前的公开局面），然后才轮到我选。
 // 决定的时刻早于我的选择，所以它不可能参考我的行动——这就是隔离。
@@ -449,12 +454,20 @@ async function planEnemyAction(snapshot,plan){
 // 实际最坏等待是 X + 一个心跳周期（≤0.25 秒，状态检测的延迟上限），仍然在 5 秒内。
 const REPLACE_HEARTBEAT_MS=250;                          // 心跳周期＝状态检测的延迟上限
 const ENEMY_REPLACE_CEILING_MS=OPPONENT_TIMEOUT_MS+600;  // X：进入该状态后最多等这么久
+// busy 的信任上限：比"一次 act() 真正可能要等的时间"更宽（对手预算 4.3 秒 + 逐帧动画），
+// 超过它就不再把这个标志当成"真的有人在提交"。见 replaceWatchdogStep 的 ⓪。
+const BUSY_GRACE_MS=8000;
 let replaceEpisode=null;      // 当前这一段等待对应的局面（按 game 对象认）
 let replaceDeadline=0;        // 这一段的硬期限（绝对时刻）
 let replaceHeartbeat=null;
 function enemyReplacePending(){return !!game&&!game.result&&enemyReplacing();}
 function resetReplaceWatchdog(){replaceEpisode=null;replaceDeadline=0;}
 function replaceWatchdogStep(){
+ // ⓪ busy 兜底：看门狗存在的意义就是兜住"没有人提交"，所以它**不能有任何能永远挡住自己的
+ //    前置条件**。busy 自己也可能被异常或挂起的 await 卡在 true（它曾在 try 之外被写过一次），
+ //    那时按钮全禁、点击被吞、连下面几步都进不去。忙超过这个上限就不再信任这个标志：
+ //    先解开它并重画一次（玩家立刻能重新操作），再照常往下走。
+ if(busy&&Date.now()-(busySince||Date.now())>=BUSY_GRACE_MS){busy=false;busySince=0;render();}
  // ① 已经不在"等对手补位"了（有人提交了 / 本场结束 / 回营地 / 换成真人同机）→
  //    交班，等下一次进入这个状态时重新计时。
  if(!enemyReplacePending()||humanOpponent()){resetReplaceWatchdog();return;}
@@ -465,6 +478,7 @@ function replaceWatchdogStep(){
  // ④ 确实有 act() 正在飞 → 让一拍。这不是"放弃"：心跳下一拍还会来，期限也早已越过，
  //    所以 busy 一结束就会立刻提交。act() 里每一次等待都有硬上限（client.js 的
  //    AbortSignal、enemyActionFor 的 race），所以这个让路有界，不会变成"永远等下去"。
+ //    （⓪ 已经把"busy 永远为真"这种坏情况解开，这里的让路因此确实是有限的。）
  if(busy)return;
  // ⑤ 到点、且确实没有人在提交 → 用引擎自己的补位语义替他提交。
  //    engine.js 的强制补位不消耗回合，与 PVE 里引擎自动补位是同一套规则：
@@ -474,7 +488,9 @@ function replaceWatchdogStep(){
  if(action)act(action);else render();                  // 理论上一定有牌可换（否则本场已结束）
 }
 // 心跳只在加载时起一次。它不靠任何一条 UI 路径"记得装它"，所以没有装漏的可能。
-function startReplaceHeartbeat(){if(replaceHeartbeat===null)replaceHeartbeat=setInterval(replaceWatchdogStep,REPLACE_HEARTBEAT_MS);}
+// 整段自带兜底：看门狗自己抛异常 = 兜底机制自己坏了，那比原缺陷更难查，
+// 所以这里只允许它静默跳过这一拍（下一拍照常来）。
+function startReplaceHeartbeat(){if(replaceHeartbeat===null)replaceHeartbeat=setInterval(()=>{try{replaceWatchdogStep();}catch{}},REPLACE_HEARTBEAT_MS);}
 startReplaceHeartbeat();
 function enemyThinking(){return !!enemyPlan&&enemyPlan.match===game&&!pvpEnemyLocked&&!humanOpponent()&&!!game&&!game.result;}
 // 只改状态文字，不重绘按钮：对手答案到达时玩家可能正按着某个按钮，
@@ -567,15 +583,34 @@ function updateSideCoaches(){
 }
 
 async function act(action,enemyAction){if(busy)return;
- cancelVoice();advanceContext();hintEpoch++;busy=true;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;const old=game;
+ // old 先记下来：catch 要靠它回滚，而且它必须留在 try 外（在 try 里抛异常时 catch 会踩到 TDZ）。
+ // busy=true 紧跟着它，**其余副作用全部搬进 try**——取消语音、推进上下文、收起两个提示条。
+ // 这几句原来在 busy=true 之后、try 之前：其中任何一句抛异常，busy 就永远停在 true，
+ // 按钮全禁、点击被吞，连看门狗都会被 busy 挡住。异常路径绝不能让 busy 卡住。
+ const old=game;busy=true;busySince=Date.now();actError=null;
+ try{
+ cancelVoice();advanceContext();hintEpoch++;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;
  // busy 必须整段被 finally 兜住。下面这几行（引擎枚举、render()、横幅）以前在 try 之外：
  // 其中任何一句抛异常，busy 就永远停在 true——状态行卡在「正在出招…」（phaseText 只在
  // busy 时返回这句）、重新开始/返回营地/导出全部 disabled、之后每一次 act() 都被开头的
- // if(busy)return 静默吃掉，连看门狗都会因为 busy 而不敢提交。那正是玩家截图里的样子：
- // 横幅和两侧说明还停在"对手补位"，状态行却是「正在出招…」，一步补位就此变成永久卡死。
+ // if(busy)return 静默吃掉，连看门狗都会因为 busy 而不敢提交。
  // 放进 try 之后，同样的异常只会变成一次"行动未完成，请重试"，finally 照常兜底。
+ //
+ // ── 教练记账绝不允许把一步棋卡死（玩家实测：换宠/对手补位时永久卡死）──────────
+ // 这一段读局面用的 rankEnemyActions 是**镜像**调用（把两侧对调，让同一个枚举器算"对面会怎么走"）。
+ // 它只在战斗回合成立：补位那一回合 replaceSide 会让枚举器拿一侧的合法行动去校验另一侧的行动
+ // （engine.js 的 resolveTurn 用 actingSide=replaceSide 校验第一个参数），于是只要"对手补位目标
+ // 的序号"不在"我方合法换宠序号"里，它就抛「当前行动不可用」。玩家截图里那一屏正是这样：
+ // 对手队伍顺序 [烬尾狐·倒下, 灵瞳猫·118, 潮甲龟·0/152 在场]，补位目标是 1 号；
+ // 我方 [岚翎隼·2, 伏光貂·8 在场, 灵瞳猫·10] 的合法换宠是 {0,2}——1 不在里面，于是一次
+ // "训练记录"把对手的补位永远提交不出去，横幅停在"行动未完成"，双方互等，永久卡死。
+ // 所以：① 只在战斗回合枚举；② 整段记账自带兜底——记账失败最多是这一课不记，绝不影响出招。
+ let decision=null,shown=false;
  try{
- const shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');const decision={...assessDecision(old,action,rankEnemyActions({...old,player:old.enemy,enemy:old.player})),caseKey:active(old,'player').id+':'+active(old,'enemy').id};
+  const ranked=old.phase==='battle'?rankEnemyActions({...old,player:old.enemy,enemy:old.player}):[];
+  shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');
+  decision={...assessDecision(old,action,ranked),caseKey:active(old,'player').id+':'+active(old,'enemy').id};
+ }catch{decision=null;}
  // 出招之前先记下当时还有没有收尾机会；结算之后才拿 after 快照判断这一手有没有造成后果。
  const info=old.phase==='battle'?incidentInfo(old,decision):null;
  turnIncident=info?{...info,action:structuredClone(action)}:null;
@@ -617,7 +652,13 @@ game=next;
     // 再放在横幅上是同一信息出现两遍。动画过程中仍然逐帧叙述（见上面的 frames 循环），
     // 这里只留「接下来做什么」。
     $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':enemyReplacing()?'对手倒下了，正在选择下一只出场；补位不消耗回合，你先不用操作。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':'下一回合由你决定。';
-}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
+}catch(e){
+ // 异常要留下**可读的原文**，而且必须留得住：finally 里的 renderSplitPanels() 会用
+ // 「对手正在选择补位伙伴，稍等」这类等待文案把 #message 盖掉——玩家截图里那一行
+ // 只剩等待提示，真正的原因（引擎那句「当前行动不可用」）被抹掉了，排查只能靠猜。
+ // 现在把原文记进 actError，由 freshActError() 在重画时优先显示（见 renderSplitPanels）。
+ actError={text:String(e&&e.message||e),at:Date.now(),turn:old?old.turn:null,phase:old?old.phase:null};
+ game=old;$('message').textContent=actError.text;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;busySince=0;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
 function notify(event){if(preview)return null;const text=coachEvent(event,coachContext(game,profile,coachMemory),coachSession);if(text)queueCompanionCue(text);return text||null;}
 
 // —— 陪练的在场方式（#coach-bubble）─────────────────────────────────────────────

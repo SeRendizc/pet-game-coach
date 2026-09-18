@@ -114,3 +114,128 @@ test('turning the coach off does not disable any rule, and the version stays con
   assert.ok(legalActions(game).length>0);
   assert.ok(!('coach' in game),'对局对象里不应有教练状态');
 });
+
+// ── 模型不可用 / 模型异常时的降级 ──────────────────────────────────────────────
+//
+// 这一节补的是「关闭 AI」的**另一半**：前面证明的是「不用模型也能玩完一局」，
+// 这里证明的是「模型在、但坏了的时候，玩家看到的仍然是本机引擎的结论 + 为什么退回」。
+//
+// 实测口径（2026-09 用真无头 Chrome + 真 server 各跑过一次，控制台零报错）：
+//   · 无密钥            → 面板顶部「未连接模型，显示本局规则分析」，/api/coach 一次都不发
+//   · 模型超时          → 服务端 8s 上限、502；界面「等模型太久了，先按本局规则给你结论」
+//   · 空正文/非JSON/缺字段/HTTP 500 → 502；界面「模型暂时没答上来，先按本局规则给你结论」
+// 降级发生在 coach/client.js（先算好本机结论，再用 try/catch 包住网络那一步），
+// 所以这些用例断的是那条链路，而不是服务端的 502 —— 服务端的失败形状由 server.test.js 管。
+const FIXED_SEED=20240611;   // 固定种子：本机结论必须逐字可复现，否则「退回了本机引擎」无法断言
+const degradePayload=async()=>{
+ const {createGame}=await import('./engine.js');
+ const {newProfile}=await import('./progression.js');
+ const {buildContext}=await import('./coach/runtime.js');
+ const {freshMemory}=await import('./coach/memory.js');
+ return {message:'这回合怎么打',role:'strategist',
+  context:buildContext(createGame(FIXED_SEED),newProfile(),'fox'),memory:freshMemory(),conversation:[],stateToken:7};
+};
+const localAnswerFor=async payload=>{
+ const {runCoach}=await import('./coach/runtime.js');
+ return (await runCoach(structuredClone(payload))).text;   // 默认 provider = localProvider
+};
+const stubModel=({configured,coach})=>{
+ const calls=[];
+ const saved=globalThis.fetch;
+ globalThis.fetch=async(url,args)=>{
+  const u=String(url);
+  if(u.includes('/api/bootstrap')){calls.push('bootstrap');
+   const st={configured,verified:configured,csrf:'csrf-'+calls.length,nonce:'nonce-'+calls.length,publicKey:'pk'};
+   return new Response(JSON.stringify(st),{status:200,headers:{'content-type':'application/json'}});}
+  if(u.includes('/api/coach')){calls.push('coach');return coach();}
+  throw Error('用例不该请求这个地址：'+u);
+ };
+ return {calls,restore:()=>{globalThis.fetch=saved;}};
+};
+
+test('没配密钥时教练只用本机引擎，而且一个模型请求都不发',async t=>{
+ const payload=await degradePayload();
+ const expected=await localAnswerFor(payload);
+ const {calls,restore}=stubModel({configured:false,coach:()=>{throw Error('无密钥时不该发 /api/coach');}});
+ t.after(restore);
+ const {requestCoach}=await import('./coach/client.js');
+ const answer=await requestCoach(payload);
+ assert.equal(answer.provider,'local','无密钥时必须标成本机');
+ assert.equal(answer.fallbackReason,'未连接模型，显示本局规则分析');
+ assert.ok(answer.text.trim().length>0,'必须给出可读结论');
+ assert.equal(answer.text,expected,'无密钥时界面显示的必须就是本机引擎的结论');
+ assert.deepEqual(calls,['bootstrap'],'无密钥时只查一次连接状态，不请求模型');
+});
+
+test('模型返回非法结构时退回本机引擎，并说明为什么退回',async t=>{
+ const json=(v,status=502)=>new Response(JSON.stringify(v),{status,headers:{'content-type':'application/json'}});
+ const cases=[
+  ['返回非 JSON',()=>new Response('<html>502 Bad Gateway</html>',{status:502,headers:{'content-type':'text/html'}}),'模型暂时没答上来，先按本局规则给你结论'],
+  ['返回空正文',()=>json({error:'DeepSeek 未返回有效正文'}),'模型暂时没答上来，先按本局规则给你结论'],
+  ['返回缺字段 JSON',()=>json({error:'DeepSeek 返回格式异常'}),'模型暂时没答上来，先按本局规则给你结论'],
+  ['HTTP 500',()=>json({error:'DeepSeek 暂时不可用（HTTP 500）'}),'模型暂时没答上来，先按本局规则给你结论'],
+  ['请求超时',()=>json({error:'DeepSeek 网络连接失败或超时，请稍后重试'}),'等模型太久了，先按本局规则给你结论'],
+ ];
+ const payload=await degradePayload();
+ const expected=await localAnswerFor(payload);
+ const {requestCoach}=await import('./coach/client.js');
+ for(const [name,coach,reason] of cases){
+  const {restore}=stubModel({configured:true,coach});
+  try{
+   const started=Date.now();
+   const answer=await requestCoach(payload);   // 不抛 = 玩家不会看到崩溃
+   assert.equal(answer.provider,'local-fallback',`${name}：必须退回本机`);
+   assert.equal(answer.fallbackReason,reason,`${name}：必须说清为什么退回`);
+   assert.equal(answer.text,expected,`${name}：退回后显示的必须就是本机引擎的结论`);
+   assert.ok(Date.now()-started<30000,`${name}：降级必须有上限，不能悬挂`);
+  }finally{restore();}
+ }
+});
+
+test('模型悬挂时不会卡死：对手决策与请求调度都自带超时上限',async()=>{
+ const {decideOpponentAction}=await import('./coach/opponent.js');
+ const {createGame}=await import('./engine.js');
+ const never=()=>new Promise(()=>{});          // 比真 fetch 更坏：连 abort 都不理会
+ let started=Date.now();
+ const decision=await decideOpponentAction({game:createGame(FIXED_SEED),difficulty:'hard',complete:never,timeoutMs:120});
+ assert.equal(decision.action,null,'拿不到答案时必须交还给引擎兜底，而不是挂着');
+ assert.equal(decision.source,'timeout');
+ assert.ok(Date.now()-started<3000,`对手决策必须在超时上限内结束，实际 ${Date.now()-started}ms`);
+
+ const {CoachScheduler}=await import('./coach/scheduler.js');
+ const scheduler=new CoachScheduler({timeoutMs:80});
+ started=Date.now();
+ // 同样要在外面竞速：撤掉修复后这里不是"红"而是"永远挂着"，挂着不算失败。
+ const scheduled=await Promise.race([
+  scheduler.run('k',()=>never()).then(()=> 'resolved',error=>'rejected:'+error.name),
+  new Promise(r=>setTimeout(()=>r('STILL-PENDING'),2000)),
+ ]);
+ assert.equal(scheduled,'rejected:AbortError','调度器超时后必须明确失败，不能永远 pending');
+ assert.ok(Date.now()-started<3000,`调度器必须在超时上限内失败，实际 ${Date.now()-started}ms`);
+
+ // 连接状态那次 fetch 也必须自带上限：它在 requestOpponentAction 里不受回合超时保护。
+ // 桩要和真 fetch 一样**尊重 signal**，否则测的就不是「有上限」而是「桩肯不肯自己结束」。
+ const {connectionStatus,BOOTSTRAP_TIMEOUT_MS}=await import('./coach/client.js');
+ assert.ok(Number.isFinite(BOOTSTRAP_TIMEOUT_MS)&&BOOTSTRAP_TIMEOUT_MS<=15000,
+  `默认的连接状态超时必须是个有限值，实际 ${BOOTSTRAP_TIMEOUT_MS}`);
+ // 桩必须自己**有界**：断言写在 Promise 执行器里会被 assert.rejects 当成"如期失败"吃掉
+ // （负向验证时正是这样骗过一次：撤掉 signal 之后用例照样全绿）。
+ // 所以这里改成记录事实 + 外部竞速，没有 signal 就是 STILL-PENDING，一定会红。
+ const savedFetch=globalThis.fetch;
+ let sawSignal=false;
+ globalThis.fetch=(url,args)=>new Promise((_,reject)=>{
+  sawSignal=sawSignal||!!args?.signal;
+  if(!args?.signal)return;   // 没有 signal：真 fetch 同样不会被中止 → 永久 pending
+  args.signal.addEventListener('abort',()=>reject(Object.assign(new Error('This operation was aborted'),{name:'AbortError'})));
+ });
+ try{
+  started=Date.now();
+  const outcome=await Promise.race([
+   connectionStatus(60).then(()=> 'resolved',error=>'rejected:'+error.name),
+   new Promise(r=>setTimeout(()=>r('STILL-PENDING'),2000)),
+  ]);
+  assert.equal(outcome,'rejected:AbortError','连接状态卡住时必须自己失败，不能永远 pending');
+  assert.ok(Date.now()-started<3000,`连接状态必须在超时上限内失败，实际 ${Date.now()-started}ms`);
+ }finally{globalThis.fetch=savedFetch;}
+ assert.ok(sawSignal,'连接状态必须把 signal 交给 fetch，否则真 fetch 不会被中止');
+});

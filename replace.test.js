@@ -454,3 +454,174 @@ test('③ 对战准备页左栏只有「加入队伍 / 移出队伍」：PVP 对
   await close();
  }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ④ 玩家实测的第二次永久卡死：换到 1 号位之后，对手的补位永远提交不出去
+//
+// 玩家原话是「换第二只宠物会卡死」，截图里那一屏是：
+//   横幅「行动未完成，请重试。」/ 顶部「免费补位 · 对手正在补位…」/
+//   对手 0 血还画在场上 / 双方各自写着"在等对方补位" / 我方三张牌全禁。
+//
+// 根因不是补位逻辑，而是 act() 开头那段**教练记账**：它用镜像局面调 rankEnemyActions
+// （把两侧对调，让同一个枚举器算"对面会怎么走"）。补位那一回合 replaceSide 会让
+// engine.js 的 resolveTurn 拿一侧的合法行动去校验另一侧的行动 —— 于是只要
+// 「对手补位目标的号位」不在「我方合法换宠号位」里，它就抛「当前行动不可用」。
+// 这一句在 try 里、又在真正提交补位之前，所以对手的补位**永远**提交不出去：
+// 横幅从此停在"行动未完成"，双方互等，怎么点都没用（截图里就是这样）。
+//
+// 触发条件用号位就能说清：我方合法换宠 = {0,2}（1 号位在场），对手补位目标是 1 号位。
+// 所以这条用例真的走一遍玩家的路径（真点击、真人同机＝双方都能点，局面完全可控）：
+//   ① 第一步换到 1 号位 → 我方合法换宠变成 {0,2}
+//   ② 让 1 号位倒下，用 0 号位补位（战斗继续，合法换宠只剩 {2}）
+//   ③ 打倒对手首发（0 号位）→ 对手停在补位，补位目标是 1 号位 → 触发条件成立
+//   ④ 替对手点 1 号位补位（玩家那句"换第二只"的位置）
+//   ⑤ 断言：界面不许停在「行动未完成」，补位必须落地，回合必须能继续推进
+// 负向验证（实测做过）：把 app.js 的记账兜底撤掉 → 第 ⑤ 步变红（横幅停在"行动未完成"、
+// 状态行停在「对手正在补位…」、我方牌全禁），补位永远不落地。
+test('④ 换到 1 号位后再打倒对手首发：对手补位必须落地，界面必须能继续',{timeout:300000},async t=>{
+ if(!chromePath)return t.skip('本机没有 Chrome，跳过真浏览器端到端（见文件头说明）');
+ const {server,base,close}=await startServer();
+ let chrome=null;
+ try{
+  chrome=await connect(base,'never-lands');
+  chrome.base=base;
+  const {js,errors}=chrome;
+
+  // 一屏读全：两侧面板的牌、号位、血量、状态文案
+  const readState=()=>js(`(()=>{
+   const $=i=>document.getElementById(i);
+   const clean=s=>String(s==null?'':s).replace(/\\s+/g,' ').trim();
+   const hp=sel=>{const t=document.querySelector(sel+' .hp-line strong');const m=clean(t&&t.textContent).match(/(\\d+)\\s*\\/\\s*(\\d+)/);return m?Number(m[1]):null;};
+   const name=sel=>clean(document.querySelector(sel+' .pet-heading h3')&&document.querySelector(sel+' .pet-heading h3').textContent);
+   const bench=sel=>[...document.querySelectorAll(sel+' .bench-pet')].map(b=>clean(b.textContent));
+   const cards=sel=>[...document.querySelectorAll(sel+' [data-action]')].map((b,i)=>({i,text:clean(b.textContent),dis:!!b.disabled}));
+   return {turn:clean($('turn').textContent),phase:clean($('phase').textContent),banner:clean($('action-banner').textContent),
+    message:clean($('message').textContent),pNote:clean($('player-side-note').textContent),eNote:clean($('enemy-side-note').textContent),
+    myActive:name('#player'),foeActive:name('#enemy'),myHp:hp('#player'),foeHp:hp('#enemy'),
+    myBench:bench('#player'),foeBench:bench('#enemy'),
+    mine:cards('#actions'),foe:cards('#enemy-actions'),
+    enabled:cards('#actions').filter(c=>!c.dis).length,foeEnabled:cards('#enemy-actions').filter(c=>!c.dis).length,
+    result:!$('result').hidden};})()`);
+
+  // 真点击：先切到该页签，再点第 index 张（或威力最大的那张）
+  const clickCard=(side,tab,which)=>js(`(()=>{
+   const clean=s=>String(s==null?'':s).replace(/\\s+/g,' ');
+   const tabBox=${JSON.stringify('player')}==='x'?'':'';
+   const t=[...document.querySelectorAll('${side==='player'?'#tabs':'#enemy-tabs'} [data-tab]')].find(b=>b.dataset.tab===${JSON.stringify(tab)});
+   if(t&&!t.disabled)t.click();
+   const bs=[...document.querySelectorAll('${side==='player'?'#actions':'#enemy-actions'} [data-action]')];
+   const pick=${JSON.stringify(which)};
+   let b=null;
+   if(typeof pick==='number')b=bs[pick];
+   else {const p=x=>{const m=clean(x.textContent).match(/威力\\s*(\\d+)/);return m?Number(m[1]):-1;};
+    b=bs.filter(x=>!x.disabled&&p(x)>0).sort((a,c)=>p(c)-p(a))[0];}
+   if(!b||b.disabled)return null;
+   b.click();return b.dataset.action;})()`);
+
+  // 一次交锋：我方先锁定，对手再锁定（都锁定才亮牌结算）
+  const exchange=async(mine,foe)=>{
+   const a=await clickCard('player',typeof mine==='number'?'switch':'skill',mine).catch(()=>null);
+   await sleep(120);
+   const b=await clickCard('enemy','skill',foe===undefined?'power':foe).catch(()=>null);
+   await sleep(1250);
+   return {a,b};
+  };
+
+  await chrome.send('Page.navigate',{url:base});
+  await sleep(2500);
+  await js(`(()=>{const d=[...document.querySelectorAll('dialog')].find(x=>x.open);if(d)d.querySelector('button')?.click();})()`);
+  await sleep(200);
+  await js(`document.getElementById('go-pvp').click()`);await sleep(400);
+  await js(`(()=>{const s=document.getElementById('pvp-opponent');s.value='human';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  await sleep(400);
+  // 我方：0 号位 溪刃獭（水，克火）、1 号位 芽角鹿（草，怕火，用来献祭）、2 号位 灵瞳猫
+  for(let i=0;i<8;i++){
+   const removed=await js(`(()=>{const b=[...document.querySelectorAll('#roster [data-pet]')].find(x=>x.textContent.includes('移出队伍'));if(!b)return false;b.click();return true;})()`);
+   if(!removed)break;
+   await sleep(150);
+  }
+  for(const id of ['otter','deer','cat']){
+   await js(`(()=>{const b=[...document.querySelectorAll('#roster [data-pet="${id}"]')].find(x=>x.textContent.includes('加入队伍'));if(b)b.click();})()`);
+   await sleep(220);
+  }
+  // 对手（点选顺序＝号位）：0 号位 炽鬃狮（火，要先打倒它）、1 号位 潮甲龟（补位目标）、2 号位 灵瞳猫
+  for(const id of ['lion','turtle','cat']){
+   await js(`(()=>{const b=document.querySelector('#roster-enemy [data-enemy-pet="${id}"]');if(b&&!b.disabled)b.click();})()`);
+   await sleep(220);
+  }
+  await js(`(()=>{const s=document.getElementById('speed');if(s){s.value='0';s.dispatchEvent(new Event('change',{bubbles:true}));}})()`);
+  await sleep(150);
+  assert.equal(await js(`document.getElementById('start').disabled`),false,'双方各三只之后「开始对战」必须可点');
+  await js(`document.getElementById('start').click()`);
+  await sleep(1500);
+  assert.equal(await js(`document.getElementById('battle').hidden`),false,'没能进入对局');
+
+  let s=await readState();
+  assert.match(s.myActive,/溪刃獭/,`开局我方场上应是 0 号位「溪刃獭」，实际「${s.myActive}」`);
+  assert.match(s.foeActive,/炽鬃狮/,`开局对手场上应是 0 号位「炽鬃狮」，实际「${s.foeActive}」`);
+
+  // ① 换上 1 号位：我方合法换宠从 {1,2} 变成 {0,2}
+  const switched=await clickCard('player','switch',1);
+  assert.equal(switched,'{"kind":"switch","target":1}','「换宠」到 1 号位必须真的点得动');
+  await sleep(150);
+  await clickCard('enemy','skill','power');
+  await sleep(1300);
+  s=await readState();
+  assert.match(s.myActive,/芽角鹿/,`换宠之后我方场上应是 1 号位「芽角鹿」，实际「${s.myActive}」`);
+
+  // ② 1 号位倒下 → 用 0 号位补位；此后我方合法换宠只剩 {2}
+  for(let i=0;i<10&&!/已倒下/.test((await readState()).myBench[1]);i++)await exchange('power');
+  s=await readState();
+  assert.match(s.myBench[1],/已倒下/,`1 号位应已倒下，实际「${s.myBench[1]}」——这条用例的前提没成立`);
+  const refill=await clickCard('player','switch',0);
+  assert.equal(refill,'{"kind":"switch","target":0}','倒下的 1 号位要用 0 号位补位，这一下必须点得动');
+  await sleep(1300);
+  s=await readState();
+  assert.match(s.myActive,/溪刃獭/,`补位后我方场上应是「溪刃獭」，实际「${s.myActive}」`);
+
+  // ③ 打倒对手首发；对手随即停在补位等它自己那一步
+  for(let i=0;i<20;i++){
+   s=await readState();
+   if(s.result)assert.fail('本场提前结束，没走到对手补位：'+JSON.stringify({turn:s.turn,myBenchs:s.myBench,foeBench:s.foeBench}));
+   if(s.phase.includes('补位'))break;
+   await exchange('power');
+  }
+  s=await readState();
+  assert.match(s.foeBench[0],/已倒下/,`对手 0 号位应已倒下，实际「${s.foeBench[0]}」`);
+  assert.match(s.phase,/补位/,`对手倒下后应停在补位，实际状态行「${s.phase}」`);
+  assert.match(s.pNote,/对手/,`对手补位时我方行动栏要说明等的是对手，实际「${s.pNote}」`);
+  assert.equal(s.enabled,0,'对手补位时我方的牌必须全是禁用的');
+  // 玩家截图里最刺眼的那处自相矛盾：对手 0 血还画在场上。场上那张大牌必须写明它已经倒下、
+  // 正在等补位；换宠页里那一张也不许再写「正在场上」（以前它正是这么写的）。
+  const foePanel=await js(`(()=>{const b=document.getElementById('enemy');return b?b.textContent.replace(/\\s+/g,' ').trim():'';})()`);
+  assert.match(foePanel,/已倒下 · 等待补位/,`对手场上那张 0 血的牌必须写明「已倒下 · 等待补位」，实际「${foePanel.slice(0,90)}」`);
+  assert.ok(!/正在场上/.test(s.foe.map(c=>c.text).join(' ')),'0 血的伙伴不许再写「正在场上」：'+JSON.stringify(s.foe.map(c=>c.text)));
+
+  // ④ 替对手点 1 号位补位 —— 正是玩家那句「换第二只」的位置，也是抛异常的那一步
+  const fixed=await clickCard('enemy','switch',1);
+  assert.equal(fixed,'{"kind":"switch","target":1}','对手的补位牌必须点得动（它以前是点不动的）');
+  // ⑤ 补位必须真的落地，界面不许停在"行动未完成"
+  // 判据用「对手场上的伙伴换了人」而不是「状态行里没有补位两个字」：提交的那一瞬间
+  // busy=true，状态行会短暂变成「正在出招…」——那时 DOM 还是旧的，按文案判断会抢跑。
+  let after=null;
+  for(let i=0;i<50&&!after;i++){
+   const x=await readState();
+   if(!x.phase.includes('补位')&&x.foeHp>0&&x.foeActive!==s.foeActive)after=x;
+   else await sleep(200);
+  }
+  assert.ok(after,`对手的补位没有落地：状态行还停在「${(await readState()).phase}」，横幅「${(await readState()).banner}」`);
+  assert.notEqual(after.banner,'行动未完成，请重试。','这一手不许以「行动未完成」收场：'+JSON.stringify({message:after.message,phase:after.phase}));
+  assert.notEqual(after.foeActive,s.foeActive,'对手应该换上了另一只伙伴');
+  assert.ok(after.enabled>0,`补位落地后我方必须重新点得动，实际可点 ${after.enabled} 张`);
+
+  // ⑥ 而且要真的能继续打：再出一招，回合推进
+  const beforeTurn=after.turn;
+  await exchange('power');
+  const ended=await readState();
+  assert.notEqual(ended.turn,beforeTurn,`补位之后对局必须能继续，回合标签没有推进（${beforeTurn} → ${ended.turn}）`);
+  assert.equal(errors.length,0,'过程中不应有未捕获的控制台报错：'+errors.slice(0,3).join(' | '));
+ }finally{
+  if(chrome)chrome.kill();
+  await close();
+ }
+});

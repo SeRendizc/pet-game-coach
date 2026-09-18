@@ -180,17 +180,40 @@ export function rankEnemyActions(g,{goal=null}={}) {
   const w=goal==='稳健'?{expected:.45,worst:.55}:goal==='速攻'?{expected:.82,worst:.18}:{expected:.65,worst:.35};
   const switchPenalty=goal==='速攻'?2.5:goal==='稳健'?1:1.5;
   return actions.map(action=>{
-    const scores=replies.map(reply=>{
+    // 每一对（对手行动 × 玩家回应）都要真的能被引擎结算。**结算不了的那一对不是真实分支**，
+    // 直接跳过：局面停在补位时，resolveTurn 会用 replaceSide 那一侧的合法行动去校验传进来的
+    // 第一个参数，于是"跨过补位边界"的组合必然抛「当前行动不可用」。
+    //
+    // 以前这个异常直接抛给调用方——也就是说，一次"算算对面会怎么走"的教练记账就能让整局卡死：
+    // 玩家实测的那一屏（对手 0 血还留在场上、双方互等、横幅「行动未完成，请重试。」）正是
+    // app.js 那句镜像 rankEnemyActions 在"对手补位"这一步抛出、把补位永远提交不出去造成的。
+    // 枚举器是启发式搜索，不是裁判：它只该给出它算得出的那些分支。
+    const pairs=[];
+    for(let i=0;i<replies.length;i++){
+      const reply=replies[i];
       // Both tie orders are evaluated, so search cannot exploit a hidden RNG outcome.
       const state={...g,history:[],log:[],frames:[]};
-      return (evaluate(resolveTurn(state,reply,action,{simulation:true,tieFirst:'player'}))+evaluate(resolveTurn(state,reply,action,{simulation:true,tieFirst:'enemy'})))/2;
-    });
-    const expected=scores.reduce((v,n,i)=>v+n*rawWeights[i]/total,0);
-    const score=expected*w.expected+Math.min(...scores)*w.worst-(action.kind==='switch'?switchPenalty:0);
-    return {action,score,expected,worst:Math.min(...scores),switchScore:replies.some(a=>a.kind==='switch')?Math.min(...scores.filter((_,i)=>replies[i].kind==='switch')):null};
-  }).sort((a,b)=>b.score-a.score);
+      try{
+        const a=evaluate(resolveTurn(state,reply,action,{simulation:true,tieFirst:'player'}));
+        const b=evaluate(resolveTurn(state,reply,action,{simulation:true,tieFirst:'enemy'}));
+        pairs.push({reply,weight:rawWeights[i],score:(a+b)/2});
+      }catch{/* 这一对不是真实分支，跳过 */}
+    }
+    if(!pairs.length)return {action,score:Number.NEGATIVE_INFINITY,expected:Number.NEGATIVE_INFINITY,worst:Number.NEGATIVE_INFINITY,switchScore:null};
+    const weight=pairs.reduce((n,p)=>n+p.weight,0)||1;
+    const expected=pairs.reduce((v,p)=>v+p.score*p.weight/weight,0);
+    const worst=Math.min(...pairs.map(p=>p.score));
+    const switchScores=pairs.filter(p=>p.reply.kind==='switch').map(p=>p.score);
+    const score=expected*w.expected+worst*w.worst-(action.kind==='switch'?switchPenalty:0);
+    return {action,score,expected,worst,switchScore:switchScores.length?Math.min(...switchScores):null};
+    // 全不可结算时两边都是 -Infinity，差值会是 NaN，排序会失去传递性——这里按"相等"处理。
+  }).sort((a,b)=>(b.score-a.score)||0);
 }
 export function chooseEnemy(g) {
+  // 补位局面下"这一手出什么招"这个问题本身不成立——要回答的是"换上谁"。
+  // 这条异常以前是 rankEnemyActions 顺手抛出来的；枚举器改成跳过不可结算的组合之后，
+  // 契约必须显式写在这里：coach/client.js 的 enemyFallbackAction 靠它分流到补位语义。
+  if(g.phase==='replace')throw Error('当前行动不可用');
   if(!g.difficulty||g.difficulty==='hard') {
     const recent=(g.history||[]).filter(h=>h.type==='turn').slice(-3);
     let streak=0; for(const h of recent.reverse()){if(h.opponent?.kind!=='switch')break;streak++;}

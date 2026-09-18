@@ -9,8 +9,15 @@ export class CoachScheduler {
   const task=this.tail.catch(()=>{}).then(async()=>{
    if(epoch!==this.epoch)throw new DOMException('局面已改变','AbortError');
    const controller=new AbortController();this.active=controller;
-   const timer=setTimeout(()=>controller.abort(),this.timeoutMs);
-   try{const value=await work(controller.signal);if(epoch!==this.epoch||controller.signal.aborted)throw new DOMException('建议已过期','AbortError');
+   // 到点要**自己 reject**，不能只 abort 然后等 work 自觉。
+   // work 里可能有不肯收 signal 的 await（connectionStatus() 的 /api/bootstrap 就是），
+   // 只 abort 的话那个 await 会永远挂着，「超时」就退化成「永久 pending」：
+   // 建议永远不落地、发送键永远不回弹。对手那条链路早就用同样的双保险防住了这件事
+   // （coach/opponent.js 的 deadline + Promise.race），这里补齐同一条不变式。
+   // 实测（修前）：timeoutMs=80 的调度器遇到不理会 signal 的 work，1.5s 后仍然 pending。
+   let timer=null;
+   const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new DOMException('等模型太久，已取消','AbortError'));},this.timeoutMs);});
+   try{const value=await Promise.race([work(controller.signal),deadline]);if(epoch!==this.epoch||controller.signal.aborted)throw new DOMException('建议已过期','AbortError');
     if(cache){this.cache.set(full,{value:structuredClone(value),expires:Date.now()+this.ttlMs});while(this.cache.size>this.maxCache)this.cache.delete(this.cache.keys().next().value);}
     return value;
    }finally{clearTimeout(timer);if(this.active===controller)this.active=null;}
