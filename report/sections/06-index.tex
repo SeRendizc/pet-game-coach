@@ -1,8 +1,5 @@
 \section{运行与使用}
 
-代码在 \url{https://github.com/SeRendizc/pet-game-coach}。核心 Demo 使用 Node.js 20+，没有第三方 npm 运行依赖；语义检索和离线模型实验另有 Python 与模型依赖。启动就是一条命令：\code{npm start}，然后浏览器打开 \url{http://127.0.0.1:8765/} 就能玩。
+代码在 \url{https://github.com/SeRendizc/pet-game-coach}。核心 Demo 使用 Node.js 20+，没有第三方 npm 运行依赖；语义检索和离线模型实验另有 Python 与模型依赖。启动就是一条命令：\code{npm start}，然后浏览器打开 \url{http://127.0.0.1:8765/} 就能玩。另附约 4 分钟实机演示视频（随提交材料附上）。
 
-不接模型也能完整游玩，规则建议、复盘和小测都由本机引擎给。想接模型，就打开 \url{http://127.0.0.1:8765/connect.html} 填上 DeepSeek API Key，密钥只留在后端进程内存里；也可以先跑一次 \code{./scripts/start.sh --save-key} 存进钥匙串。想看某个能力：营地是培养配招，出征选关卡与伙伴，对局里提示条在战斗区顶部、陪练在左下角，复盘和加点对照在局后与培养页。
-
-\vspace{0.2em}
-{\normalsize 开发中使用 AI agent 辅助代码实现、单元测试与文档整理；需求理解、系统架构、角色边界与最终验收由我负责——功能有没有真的生效，我只看自己把页面打开、真打一局的结果。}
+不接模型也能完整游玩，规则建议、结构化复盘和小测等确定性能力仍由本机引擎提供；但开放式提问、跨记录语义理解以及自然语言解释会退化或不可用。想接模型，就打开 \url{http://127.0.0.1:8765/connect.html} 填上 DeepSeek API Key，密钥只留在后端进程内存里；也可以先跑一次 \code{./scripts/start.sh --save-key} 存进钥匙串。想看某个能力：营地是培养配招，出征选关卡与伙伴，对局里提示条在战斗区顶部、陪练在左下角，复盘和加点对照在局后与培养页。
