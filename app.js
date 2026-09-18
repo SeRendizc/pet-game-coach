@@ -138,11 +138,21 @@ function petCard(base,{order=-1,level=1,action='',stats=null}={}){
 }
 function deployView(){
  wallet();$('deploy-record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
+ // 每次重画都从干净状态开始：上一条「队伍已满」不许留在屏幕上（否则移出一只之后它还挂着）。
+ $('roster-message').textContent='';
  renderStages();renderTypeFilter('roster-pages',()=>deployView());
  $('roster').innerHTML=filteredSpecies().map(base=>{
   const capped=matchMode==='pvp'&&pvpLevel==='cap';
   const p=capped?grownAt(base.id,LEVEL_CAP):grown(base.id),order=selected.indexOf(p.id);
-  const act=`<button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}" ${selected.length>=3?'disabled':''}>加入队伍</button>`}`;
+  // 对战准备页的左栏只做一件事：把伙伴加进出战队伍。
+  // 这里原来还挂着一个「培养」主按钮，点了会跳回营地的养成面板——可玩家在选人这一步想做的事
+  // 是「把这只加进队伍」，多一个按钮就多一次点错的机会（截图里点的就是它）。
+  // 养成面板留在营地页（camp()），那边一个字没改。
+  // 这一行也**不按对手分叉**：PVP 对真人、PVP 对 AI、PVE 走的是同一段渲染，
+  // 所以两种 PVP 模式的左栏天然一致（右栏的对手身份才由 renderPickSplit 决定）。
+  // 队伍满了同样不置灰：置灰点下去毫无反应，玩家只会以为页面卡了（这个坑踩过）；
+  // 现在按钮照常可点，点了由 #roster-message 说清下一步。
+  const act=order>=0?`<button data-pet="${p.id}">移出队伍</button>`:`<button data-pet="${p.id}">加入队伍</button>`;
   return petCard(base,{order,level:p.level,action:act,stats:p});}).join('');
  $('selection').innerHTML=selected.length?selected.map((id,i)=>`<span class="slot"><em>${i+1}</em>${SPECIES.find(p=>p.id===id).name}</span>`).join(''):'<span class="muted">按 1 → 2 → 3 的出场顺序选择三只伙伴</span>';
  const advice=selected.length?rosterAdvice(selected.map(grown)):null;
@@ -152,11 +162,11 @@ function deployView(){
  renderPickSplit();
  $('start').disabled=!!preview||selected.length!==3||(matchMode==='pvp'&&pvpOpponent==='human'&&enemySelected.length!==3);
  document.querySelectorAll('#roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;
- // 上限三道保险：按钮 disabled、这里再挡一次、startMatch 也校验。
+ // 上限两道保险：这里挡一次，startMatch 也校验。
  // 之前重构卡片模板时新加了「加入队伍」按钮却没有上限，能选到 6、7 只。
- if(!selected.includes(id)&&selected.length>=3)return;
+ // 满了不静默 return（也不靠置灰）：在卡片上方写清下一步，让玩家知道该先移出一只。
+ if(!selected.includes(id)&&selected.length>=3){$('roster-message').textContent='队伍已满 3 只：先点一只伙伴的「移出队伍」，再把它换进来。';return;}
  selected=selected.includes(id)?selected.filter(x=>x!==id):[...selected,id];deployView();});
- document.querySelectorAll('#roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();camp();});
  const pvp=matchMode==='pvp',stage=STAGES.find(x=>x.id===stageId),avg=selected.length?Math.round(selected.reduce((a,id)=>a+(profile.pets[id]?.level||1),0)/selected.length):1;
  // 模式一行删掉：顶部徽标已经在显示同一件事，同一屏上出现两遍是重复。
  $('deploy-side').innerHTML=''
