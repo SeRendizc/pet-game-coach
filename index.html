@@ -11,6 +11,10 @@
  <section class="pick-side" id="pick-side-enemy" hidden>
   <div id="enemy-advice" class="roster-advice card"></div>
   <nav id="enemy-pages" aria-label="按属性筛选对方伙伴"></nav>
+  <!-- 与左栏 #roster-message 同一行轨道：两栏的网格必须从同一条水平线开始，
+       这里少一行、那边多一行，下面的卡片就会差 34px（用户看到的就是「对不齐」）。
+       右栏的满员反馈用不上（第四只的按钮本来就是禁用的），所以这一行留空占位。 -->
+  <p id="enemy-message" role="status"></p>
   <div id="roster-enemy" class="roster"></div>
  </section>
 </div>

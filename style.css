@@ -411,17 +411,14 @@
 .pick-split.split .roster{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 /* 卡片本身是 grid，且写死了四行轨道（48px / minmax(68px,1fr) / 38px / 34px）。
    只把 bio 与 stats 设为 display:none 不够——轨道仍然占着高度，卡片还是 228px。
-   小卡片模式下必须重写轨道。 */
-.pick-split.split .pet-option{padding:6px 4px;border-radius:8px;text-align:center;align-items:center;
- grid-template-rows:auto auto;gap:4px}
+   小卡片模式下必须换掉布局：见下面「同一行卡片必须一样高」那一段（布局只写一次）。 */
 .pick-split.split .pet-option .pet-top{flex-direction:column;gap:2px;align-items:center}
 .pick-split.split .pet-option .pet-icon{font-size:22px}
 .pick-split.split .pet-option .pet-top h3{font-size:12px}
 .pick-split.split .pet-option .pet-top .muted{font-size:10px}
 .pick-split.split .pet-option p,
 .pick-split.split .pet-option .stats{display:none}
-.pick-split.split .pet-option .order{position:static;display:block;font-size:10px;margin-bottom:2px}
-.pick-split.split .pet-option .buttons{margin-top:4px;width:100%}
+.pick-split.split .pet-option .order{position:static;display:block;font-size:10px}
 .pick-split.split .pet-option .buttons button{width:100%;padding:3px 4px;font-size:11px}
 /* 对方的教练建议：AI 对局时糊掉——看得见有，读不出内容 */
 .roster-advice.card.blurred{position:relative;filter:blur(4px);user-select:none;pointer-events:none}
@@ -464,14 +461,29 @@
 .pick-split.split .pick-side>.roster-advice.card{height:42px;overflow:hidden}
 .pick-split.split .pick-side>nav{height:30px;align-items:center}
 
-/* 两侧卡片必须一样高：AI 那侧的卡没有按钮（不可点），会比可点的那侧矮 34px，
-   四行下来就差出一大截。给卡片一个固定高度，按钮缺席时由空白占位。 */
-/* 卡片高度与内部行位置恒定。badge 那个 span 现在恒常渲染（未选中时为空），
-   但行轨道也写死，两道保险：否则有 badge 的卡片比没 badge 的多占一行，按钮跟着下移。 */
-.pick-split.split .pet-option{height:144px;grid-template-rows:16px 1fr 30px;align-content:start;gap:0}
-.pick-split.split .pet-option>.order{height:16px;line-height:16px}
-.pick-split.split .pet-option>.buttons{height:30px;align-items:center}
+/* ── 同一行（其实是整个网格）里，所有卡片必须一样高 ──────────────────────────
+   不管有没有「N号位」徽标、按钮是「加入队伍」还是「AI 已选」、名字与属性名长短。
+   等高由**结构**给出来，不靠写死的高度：
+     · .roster 的 grid-auto-rows:1fr + align-items:stretch：一行里所有卡都撑到该行最高，
+       整个网格的每一行也一样高；
+     · 卡片是 flex 列：徽标槽在最上面，中间那块 flex:1 顶着，按钮用 margin-top:auto
+       落在卡片底部；
+     · 徽标槽恒常渲染（没号位时里面是不可见占位，见 app.js 的 orderSlot()）——
+       有徽标的卡因此不会比同伴多占一行，图标、名字、按钮都还在同一条水平线上。
+   之前的写法是 height:144px + grid-template-rows:16px 1fr 30px + 给空徽标写死
+   height:16px：那三个数字必须刚好等于当天内容的高度，字号、名字、按钮文案一变就
+   溢出或被裁；「等高」于是变成了「三个数字凑巧还对」。 */
+.pick-split.split .roster{grid-auto-rows:1fr;align-items:stretch}
+.pick-split.split .pet-option{display:flex;flex-direction:column;gap:6px;align-items:center;
+ padding:7px 8px;border-radius:8px;text-align:center;min-height:0}
+.pick-split.split .pet-option>.order{flex:0 0 auto;margin:0;white-space:nowrap;line-height:1.4}
+.pick-split.split .pet-option>.pet-top{flex:1 1 auto;justify-content:center;width:100%}
+.pick-split.split .pet-option>.buttons{flex:0 0 auto;margin-top:auto;width:100%}
 .pick-split.split .pet-option>.buttons button{height:24px;line-height:1;padding:0 8px}
+/* 徽标槽的占位：没有号位时槽里是一个不可见字符——占的是位置，不是一个空徽标。
+   营地页与 PVE 页的徽标是绝对定位，占位在那里本来就看不见；这一条是那道保险：
+   任何页面都不许把占位画出来。 */
+.order.empty{visibility:hidden}
 /* 两侧的筛选条对齐：边框与内边距在左右两侧写法不同，差 2px，用同高的行轨道吸收掉。 */
 .pick-split.split .pick-side>nav{height:30px;box-sizing:border-box}
 
@@ -492,5 +504,8 @@
    同一张卡在「加入队伍 / 移出队伍」两种状态下高度与宽度都不跳。
    营地页（#camp-roster）一个字没改：那边的单按钮仍是原来的宽度。 */
 #roster .pet-option .buttons button:only-child{flex:1}
-/* 队伍满员时的反馈行：点「加入队伍」加不进第四只时，在这里说清先移出一只。 */
-#roster-message{font-size:12px;color:#f4bb8d;margin:0 0 8px;min-height:16px}
+/* 队伍满员时的反馈行：点「加入队伍」加不进第四只时，在这里说清先移出一只。
+   右栏那行是它的镜像（同样是 16px + 8px）：两栏的卡片网格必须从同一条水平线开始——
+   左栏有这一行、右栏没有，左边的网格就会整整低 34px，两栏的卡片在同一个高度上看过去
+   就是一高一矮（用户报的「所有高度不一致」）。这一行等高、等距，两边都占住。 */
+#roster-message,#enemy-message{font-size:12px;color:#f4bb8d;margin:0 0 8px;min-height:16px}

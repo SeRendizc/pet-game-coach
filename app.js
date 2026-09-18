@@ -103,7 +103,9 @@ function camp(){
  wallet();$('record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
  renderTypeFilter('camp-pages',()=>camp());
  $('camp-roster').innerHTML=filteredSpecies().map(base=>{const p=grown(base.id),order=selected.indexOf(p.id);
-  return `<article class="pet-option ${order>=0?'chosen':''}">${order>=0?`<span class="order">${order+1}号位</span>`:''}<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div><p><strong>${p.bio}</strong> · ${p.trait}</p><div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div><div class="buttons"><button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:''}</div></article>`;}).join('');
+  // 徽标槽同样走 orderSlot()：营地页的徽标是绝对定位（不占行），但两侧用同一个槽，
+  // 免得「有的页面占位、有的页面不占位」这种差别以后又变成一张卡高一张卡矮。
+  return `<article class="pet-option ${order>=0?'chosen':''}">${orderSlot(order)}<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div><p><strong>${p.bio}</strong> · ${p.trait}</p><div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div><div class="buttons"><button data-focus="${p.id}" class="primary">培养</button>${order>=0?`<button data-pet="${p.id}">移出队伍</button>`:''}</div></article>`;}).join('');
  document.querySelectorAll('#camp-roster [data-focus]').forEach(b=>b.onclick=()=>{advanceContext();focus=b.dataset.focus;showCamp();cultivation();});
  document.querySelectorAll('#camp-roster [data-pet]').forEach(b=>b.onclick=()=>{const id=b.dataset.pet;selected=selected.filter(x=>x!==id);camp();});
  cultivation();
@@ -124,13 +126,26 @@ function renderTypeFilter(navId,rerender,which='rosterType'){
 // 选宠卡片只有这一个模板，两侧共用。
 // 之前对方那侧另写了一份简化模板（只有图标、名字、等级），于是两栏的文字高度不一样——
 // 同一件事两套渲染，是这轮反复出现的毛病。
+//
+// 「N号位」徽标槽：**有没有号位都渲染同一个元素**。
+// 徽标是卡片里的第一行：有号位的卡多一行文字、没有号位的卡少一行，两张卡的内容就从
+// 图标开始逐行错位，同一行里也就一张高一张矮（营地页、出征页都栽过这个）。
+// 所以这里不再「有号位才渲染」，而是永远渲染槽位；没有号位时槽里是一个不可见的占位
+// 字符（CSS 里 .order.empty{visibility:hidden}），它和真徽标一样有行盒，槽高天然相同
+// ——不必再写死 16px，换字号、换字体、换语言仍然是同一个高度。
+// 占位是**看不见的空位**，不是空徽标：看不见，也读不出来（aria-hidden）。
+function orderSlot(order){
+ return order>=0
+  ?`<span class="order">${order+1}号位</span>`
+  :`<span class="order empty" aria-hidden="true">\u00a0</span>`;
+}
 function petCard(base,{order=-1,level=1,action='',stats=null}={}){
  // stats 传入的是 grown() 的结果（已含等级与加点）。不传就退回物种基础面板。
  // 抽这个函数时只传了 base，出征页于是显示基础数值（烬尾狐 98 生命），
  // 而营地显示 137——同一只宠物在两张页面上面板不同。
  const p=stats||{...base,level};
  return `<article class="pet-option ${order>=0?'chosen':''}">`
-  +`<span class="order">${order>=0?`${order+1}号位`:''}</span>`
+  +orderSlot(order)
   +`<div class="pet-top"><span class="pet-icon">${p.icon}</span><div><h3>${p.name}</h3>${badge(p)} <span class="muted">Lv.${p.level}</span></div></div>`
   +`<p><strong>${p.bio}</strong> · ${p.trait}</p>`
   +`<div class="stats"><span>生命 ${p.maxHp}</span><span>攻击 ${p.atk}</span><span>防御 ${p.def}</span><span>速度 ${p.speed}</span></div>`
@@ -139,7 +154,10 @@ function petCard(base,{order=-1,level=1,action='',stats=null}={}){
 function deployView(){
  wallet();$('deploy-record').textContent=`完成 ${profile.battles} 场 · 胜利 ${profile.wins} 场`;
  // 每次重画都从干净状态开始：上一条「队伍已满」不许留在屏幕上（否则移出一只之后它还挂着）。
+ // 右栏那行是同一件事的镜像：两栏的卡片网格必须从同一条水平线开始，
+ // 所以右栏也要有这一行（内容为空），否则左栏的网格会被这 34px 推下去（见 style.css）。
  $('roster-message').textContent='';
+ const enemyMessage=$('enemy-message');if(enemyMessage)enemyMessage.textContent='';
  renderStages();renderTypeFilter('roster-pages',()=>deployView());
  $('roster').innerHTML=filteredSpecies().map(base=>{
   const capped=matchMode==='pvp'&&pvpLevel==='cap';
