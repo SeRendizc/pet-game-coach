@@ -379,7 +379,9 @@ async function planEnemyAction(snapshot,plan){
  plan.advice=answer?.advice||null;
  plan.agreedWithEngineScore=!!answer?.agreedWithEngineScore;
  // 局面已经换了（新回合、重开、回营地）就丢掉这个答案，绝不写进新对局。
- if(plan.token!==enemyPlanToken||game!==snapshot){armReplaceWatchdog();return null;}  // 答案被丢掉=这一步没人提交了，重新找人兜底
+ // 丢掉之后这一步就没人提交了——但这里不需要再"补装"什么：兜底是常驻心跳（见下面
+ // replaceWatchdogStep），只要局面还停在"对手该补位"，它自己会到点提交。
+ if(plan.token!==enemyPlanToken||game!==snapshot)return null;
  pvpEnemyLocked=resolved.action;
  updateEnemyNote();
  // 敌方补位时玩家点不了（pvpPick 会因为 replaceSide 不是他而直接返回），
@@ -389,42 +391,63 @@ async function planEnemyAction(snapshot,plan){
  if(splitMode()){renderSplitPanels();commitPvpPick();}
  return resolved.action;
 }
-// 对手补位这一步的看门狗。
+// 对手补位这一步的看门狗——一个**常驻心跳**，不是"在某条路径上装一个定时器"。
 //
 // 为什么光靠上面那句 act(resolved.action) 不够：那一步依赖 planEnemyAction 真的走到最后。
-// 它中途有一个过期闸门（上一行的 plan.token!==enemyPlanToken||game!==snapshot），命中就
+// 它中途有一个过期闸门（上面的 plan.token!==enemyPlanToken||game!==snapshot），命中就
 // return null——**没有任何重试**。对手的补位就这样被丢掉时，引擎永远停在 replace、
 // replaceSide='enemy'，而玩家这一侧的所有牌都被 renderSplitPanels 禁用，
 // pvpPick 又会因为 replaceSide 不是他而直接 return：界面彻底不动，也没有任何报错。
-// 请求本身虽然有 4 秒超时兜底，但那 4 秒里玩家同样什么都做不了，看起来就是死机。
 //
-// 所以补位这里不看 plan，只看**局面**：只要还停在"对手该补位"，到点就用引擎自己的补位
-// 语义替他提交（engine.js 的强制补位不消耗回合，与 PVE 里引擎自动补位是同一套规则，
-// 不改任何数值，也不是替对手做战术选择——只是不让一步补位把整局卡住）。
+// 上一版把补救做成了"在两条路径上各 arm 一个 setTimeout"，而它自己又变成了新的卡死源：
+//   · 安装点只有两处（planEnemyAction 的过期闸门、act() 的 finally），任何没经过它们
+//     的进入路径都没有兜底；
+//   · 定时器是一次性的：回调里一旦 busy（有人正在提交）或者局面对象换了，它就直接
+//     return ——**不再续期**。兜底机制自己"放弃"之后，再也没有任何东西会提交这一步；
+//   · 期限还分 1.5 秒 / 4.6 秒两档，上限取决于"当时有没有请求在飞"，不是确定值。
+// 所以改成心跳：每 REPLACE_HEARTBEAT_MS 看一眼"还停在对手补位吗"。它没有任何安装点
+// 可以被绕过（补位开始 / 渲染 / 请求失败 / 请求超时 / 答案被过期闸门丢掉，全都自动覆盖），
+// 也没有"放弃"这个分支——期限只由"这一段等了多久"决定。
 //
-// 期限分两档，这样看门狗不会抢走对手 agent 的决定权：
-//   · 请求还在飞（plan 仍是 pending）→ 给足它自己的预算：OPPONENT_TIMEOUT_MS 再加 0.6 秒余量。
-//     正常回答永远先到，看门狗只负责"本来就没有人会提交"的那一类故障。
-//   · 已经没有人在提交（请求被过期闸门丢掉、或压根没建起来）→ 1.5 秒内替他补位。
-const ENEMY_REPLACE_DEADLINE_MS=1500;
-const ENEMY_REPLACE_PENDING_GRACE_MS=OPPONENT_TIMEOUT_MS+600;
-let replaceWatchdog=null;
+// 真人同机时对面是活人，等多久由他们决定，不能替他落子（这一步必须留在最前面）。
+//
+// X 为什么取 OPPONENT_TIMEOUT_MS+600 = 4.6 秒：
+//   · 对手 agent 自己的硬预算就是 OPPONENT_TIMEOUT_MS=4 秒（coach/client.js 用
+//     AbortSignal.timeout 保证到点必 reject），X 不短于它，正常回答才永远先到——
+//     看门狗只处理"本来就没有人会提交"，不抢对方的决定权，也不改它的答案；
+//   · 600ms 是请求序列化 + 事件调度 + 一次渲染的余量；
+//   · X 也不能再长：超过 5 秒玩家就会认定界面死了，而不是"对手在想"；
+//   · 无论有没有请求在飞，X 都是同一个值——上限是确定值，不是"看情况的某个数"。
+// 实际最坏等待是 X + 一个心跳周期（≤0.25 秒，状态检测的延迟上限），仍然在 5 秒内。
+const REPLACE_HEARTBEAT_MS=250;                          // 心跳周期＝状态检测的延迟上限
+const ENEMY_REPLACE_CEILING_MS=OPPONENT_TIMEOUT_MS+600;  // X：进入该状态后最多等这么久
+let replaceEpisode=null;      // 当前这一段等待对应的局面（按 game 对象认）
+let replaceDeadline=0;        // 这一段的硬期限（绝对时刻）
+let replaceHeartbeat=null;
 function enemyReplacePending(){return !!game&&!game.result&&enemyReplacing();}
-function clearReplaceWatchdog(){clearTimeout(replaceWatchdog);replaceWatchdog=null;}
-function armReplaceWatchdog(){
- clearReplaceWatchdog();
- // 真人同机时对面是活人，等多久由他们决定，不能替他落子。
- if(!enemyReplacePending()||humanOpponent())return;
- const snapshot=game;
- const pending=!!enemyPlan&&enemyPlan.match===snapshot&&enemyPlan.source==='pending';
- replaceWatchdog=setTimeout(()=>{
-  replaceWatchdog=null;
-  if(game!==snapshot||busy||!enemyReplacePending())return;
-  enemyPlanToken++;enemyPlan=null;pvpEnemyLocked=null;  // 丢掉可能还在飞的那次请求，避免它回来再交一次
-  const action=enemyFallbackAction(game);
-  if(action)act(action);else render();                  // 理论上一定有牌可换（否则本场已结束）
- },pending?ENEMY_REPLACE_PENDING_GRACE_MS:ENEMY_REPLACE_DEADLINE_MS);
+function resetReplaceWatchdog(){replaceEpisode=null;replaceDeadline=0;}
+function replaceWatchdogStep(){
+ // ① 已经不在"等对手补位"了（有人提交了 / 本场结束 / 回营地 / 换成真人同机）→
+ //    交班，等下一次进入这个状态时重新计时。
+ if(!enemyReplacePending()||humanOpponent()){resetReplaceWatchdog();return;}
+ // ② 局面换成了新的一个（新一局，或上一次兜底没走通）→ 从这一刻起重新给一个 X。
+ if(replaceEpisode!==game){replaceEpisode=game;replaceDeadline=Date.now()+ENEMY_REPLACE_CEILING_MS;return;}
+ // ③ 还没到点，继续等：对手 agent 的正常回答一定在这之前到。
+ if(Date.now()<replaceDeadline)return;
+ // ④ 确实有 act() 正在飞 → 让一拍。这不是"放弃"：心跳下一拍还会来，期限也早已越过，
+ //    所以 busy 一结束就会立刻提交。act() 里每一次等待都有硬上限（client.js 的
+ //    AbortSignal、enemyActionFor 的 race），所以这个让路有界，不会变成"永远等下去"。
+ if(busy)return;
+ // ⑤ 到点、且确实没有人在提交 → 用引擎自己的补位语义替他提交。
+ //    engine.js 的强制补位不消耗回合，与 PVE 里引擎自动补位是同一套规则：
+ //    不改任何数值，也不是替对手做战术选择——只是不让一步补位把整局卡住。
+ enemyPlanToken++;enemyPlan=null;pvpEnemyLocked=null;  // 丢掉可能还在飞的那次请求，避免它回来再交一次
+ const action=enemyFallbackAction(game);
+ if(action)act(action);else render();                  // 理论上一定有牌可换（否则本场已结束）
 }
+// 心跳只在加载时起一次。它不靠任何一条 UI 路径"记得装它"，所以没有装漏的可能。
+function startReplaceHeartbeat(){if(replaceHeartbeat===null)replaceHeartbeat=setInterval(replaceWatchdogStep,REPLACE_HEARTBEAT_MS);}
+startReplaceHeartbeat();
 function enemyThinking(){return !!enemyPlan&&enemyPlan.match===game&&!pvpEnemyLocked&&!humanOpponent()&&!!game&&!game.result;}
 // 只改状态文字，不重绘按钮：对手答案到达时玩家可能正按着某个按钮，
 // 整块重绘会让他的点击落空（render() 会重建所有 [data-action] 节点）。
@@ -516,11 +539,19 @@ function updateSideCoaches(){
 }
 
 async function act(action,enemyAction){if(busy)return;
- cancelVoice();advanceContext();hintEpoch++;busy=true;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;const old=game;const shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');const decision={...assessDecision(old,action,rankEnemyActions({...old,player:old.enemy,enemy:old.player})),caseKey:active(old,'player').id+':'+active(old,'enemy').id};
+ cancelVoice();advanceContext();hintEpoch++;busy=true;clearTimeout(nudgeTimer);$('attention-cue').hidden=true;$('live-coach').hidden=true;const old=game;
+ // busy 必须整段被 finally 兜住。下面这几行（引擎枚举、render()、横幅）以前在 try 之外：
+ // 其中任何一句抛异常，busy 就永远停在 true——状态行卡在「正在出招…」（phaseText 只在
+ // busy 时返回这句）、重新开始/返回营地/导出全部 disabled、之后每一次 act() 都被开头的
+ // if(busy)return 静默吃掉，连看门狗都会因为 busy 而不敢提交。那正是玩家截图里的样子：
+ // 横幅和两侧说明还停在"对手补位"，状态行却是「正在出招…」，一步补位就此变成永久卡死。
+ // 放进 try 之后，同样的异常只会变成一次"行动未完成，请重试"，finally 照常兜底。
+ try{
+ const shown=(coachMemory.journal||[]).some(e=>e.matchId===matchId&&e.turn===old.turn&&e.kind==='hint');const decision={...assessDecision(old,action,rankEnemyActions({...old,player:old.enemy,enemy:old.player})),caseKey:active(old,'player').id+':'+active(old,'enemy').id};
  // 出招之前先记下当时还有没有收尾机会；结算之后才拿 after 快照判断这一手有没有造成后果。
  const info=old.phase==='battle'?incidentInfo(old,decision):null;
  turnIncident=info?{...info,action:structuredClone(action)}:null;
- render();$('action-banner').textContent='双方正在选择并结算行动…';try{await pause(20);// 对手这一手在玩家思考的时候就已经定好了（见 decideEnemyFirst）：agent 的答案，
+ render();$('action-banner').textContent='双方正在选择并结算行动…';await pause(20);// 对手这一手在玩家思考的时候就已经定好了（见 decideEnemyFirst）：agent 的答案，
 // 超时/未配置/非法时退回 chooseEnemy。这里只等到预算用完为止，等不到就用引擎兜底，
 // 所以"对手在思考"最多让这一回合慢一个固定上限，不会无限期挂住界面。
  const plan=enemyPlan&&enemyPlan.match===old?enemyPlan:null;
@@ -558,7 +589,7 @@ game=next;
     // 再放在横幅上是同一信息出现两遍。动画过程中仍然逐帧叙述（见上面的 frames 循环），
     // 这里只留「接下来做什么」。
     $('action-banner').textContent=game.result?'本场已结束。成长奖励见上方。':enemyReplacing()?'对手倒下了，正在选择下一只出场；补位不消耗回合，你先不用操作。':game.phase==='replace'?'伙伴倒下了，请选择下一只出场，补位不消耗回合。':'下一回合由你决定。';
-}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();armReplaceWatchdog();updateSideCoaches();updateCoach();}}
+}catch(e){game=old;$('message').textContent=e.message;$('action-banner').textContent='行动未完成，请重试。';}finally{busy=false;for(const side of ['player','enemy'])$(side+'-card').classList.remove('hit','act','guarding');render();trackAttention(attention,game.turn+':'+game.phase,null,Date.now());pvpPicks={player:null,enemy:null};decideEnemyFirst();renderSplitPanels();updateSideCoaches();updateCoach();}}
 function notify(event){if(preview)return null;const text=coachEvent(event,coachContext(game,profile,coachMemory),coachSession);if(text)queueCompanionCue(text);return text||null;}
 
 // —— 陪练的在场方式（#coach-bubble）─────────────────────────────────────────────
@@ -743,7 +774,7 @@ function rerollSeed(){
  const el=$('seed');
  el.value=Math.floor(Math.random()*4294967295);
 }
-function startMatch(){advanceContext();clearReplaceWatchdog();
+function startMatch(){advanceContext();resetReplaceWatchdog();
  // 第三道保险：队伍必须是三只。上限曾经失效过（能选到 7 只），
  // 与其相信界面上那两道，这里直接挡住。
  if(selected.length!==3){document.getElementById('save-message').textContent='请选择三只伙伴再开始。';return;}

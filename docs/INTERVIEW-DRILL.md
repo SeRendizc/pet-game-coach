@@ -88,7 +88,7 @@
 **要考的是**：你能不能准确说出被更新的参数是什么、奖励是什么、边界在哪。这一题最容易夸大。
 
 要点：
-- 更新的是**教练何时开口的干预策略**：表格 Q-learning，状态是（档位、风险、玩家熟练度、置信度、疲劳等）离散组合，动作是"提示/沉默"，奖励里显式罚打扰。产物 `reports/intervention.json`、`checkpoints/`。
+- 更新的是**AI Coach 何时开口的干预策略**：表格 Q-learning，状态是（档位、风险、玩家熟练度、置信度、疲劳等）离散组合，动作是"提示/沉默"，奖励里显式罚打扰。产物 `reports/intervention.json`、`checkpoints/`。
 - 另一条是**工具选择的小实验**：SmolLM2-135M 冻结骨干，只训练两个输出行（1152 参数），REINFORCE，3 种子×250 轮；16 条留出题从 8 正确到 15 正确。产物 `reports/tool-router-rl.json`、`reports/tool-router-summary.txt`。
 - **明确不是什么**：不是训练敌方 AI；不是更新 DeepSeek 权重；不是完整多步 Agentic RL（Agent Lightning 的资源依赖在 `reports/resources.json`：无 CUDA 后端、`cloud_budget: not supplied`）。
 - 奖励投机检查做了：刷提示、操纵采纳率、只帮容易场景、把玩家本来做对的归功于 AI（`reports/intervention.json` 的审计段 + `R06`）。

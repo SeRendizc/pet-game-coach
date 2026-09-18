@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test engine.test.js rules.test.js offline.test.js mechanics.test.js pvp.test.js browser.test.js features.test.js coach.test.js companion.test.js strategist.test.js server.test.js opponent.test.js knowledge.test.js evals/agent.test.js evals/regression.test.js evals/slow-model.test.js wiring.test.js copy.test.js evals/player-copy.test.js evals/tool-arguments.test.js replace.test.js",
+    "test": "npm run test:unit && npm run test:browser",
     "start": "node server.js",
     "test:opponent": "node --test opponent.test.js",
     "test:knowledge": "node --test knowledge.test.js",
@@ -22,6 +22,7 @@
     "train:intervention": "node scripts/train-intervention.js",
     "test:smoke": "node scripts/browser-smoke.mjs",
     "test:opponent-smoke": "node scripts/opponent-smoke.mjs",
-    "test:browser": "node --test browser.test.js"
+    "test:browser": "node --test --test-concurrency=1 browser.test.js replace.test.js",
+    "test:unit": "node --test engine.test.js rules.test.js offline.test.js mechanics.test.js pvp.test.js features.test.js coach.test.js companion.test.js strategist.test.js server.test.js opponent.test.js knowledge.test.js evals/agent.test.js evals/regression.test.js evals/slow-model.test.js wiring.test.js copy.test.js evals/player-copy.test.js evals/tool-arguments.test.js"
   }
 }
