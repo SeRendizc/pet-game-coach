@@ -485,3 +485,12 @@
 #chat-threads{flex:1;min-width:0;max-width:none;font-size:12px;padding:5px 7px}
 #chat-new{flex:none;padding:5px 10px;font-size:12px}
 @media(max-width:560px){.chat-history-label{display:none}}
+
+/* 对战准备页（#roster）每张卡现在只有一个按钮：加入队伍 / 移出队伍。
+   .pet-option .buttons button:last-child{flex:0} 是为「培养 + 移出队伍」两个按钮写的，
+   只剩一个按钮时会把按钮缩成一小块，所以这里让它在整行撑开——
+   同一张卡在「加入队伍 / 移出队伍」两种状态下高度与宽度都不跳。
+   营地页（#camp-roster）一个字没改：那边的单按钮仍是原来的宽度。 */
+#roster .pet-option .buttons button:only-child{flex:1}
+/* 队伍满员时的反馈行：点「加入队伍」加不进第四只时，在这里说清先移出一只。 */
+#roster-message{font-size:12px;color:#f4bb8d;margin:0 0 8px;min-height:16px}

@@ -357,3 +357,100 @@ test('② PVP 对手宠物倒下时：界面说清是谁在补位，请求永不
   await close();
  }
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 对战准备页的左栏按钮：只看渲染后的真实文案
+//
+// 玩家截图里那一屏是「对局 · PVP」的准备界面：左栏 14 张卡，每张下面挂着一个「培养」
+// 主按钮。可这一页是选人出战的地方——点「培养」会跳回营地养成面板，而玩家在这一步
+// 想做的事是「把这只加进队伍」。改完之后左栏每张卡只有一个按钮：
+// 未选中「加入队伍」、已选中「移出队伍」；这一页不再有「培养」。
+//
+// 为什么这条也放在这份文件里：这里已经有「本进程内的真 server + 真 app.js + 真 Chrome +
+// 真点击」的脚手架，另起一份 CDP 代码就是把同一个东西写两遍。静态检查（browser.test.js）
+// 只能读模板字符串，看不出真实 DOM 里还剩没剩别的按钮、营地页那一个有没有被连带改掉。
+// 三种模式都核对：PVP 对 AI、PVP 对真人、PVE——左栏是同一段渲染，必须长得一样。
+test('③ 对战准备页左栏只有「加入队伍 / 移出队伍」：PVP 对真人、对 AI 与 PVE 一致',{timeout:120000},async t=>{
+ if(!chromePath)return t.skip('本机没有 Chrome，跳过真浏览器端到端（见文件头说明）');
+ const {server,base,close}=await startServer();
+ let chrome=null;
+ try{
+  chrome=await connect(base,'never-lands');
+  chrome.base=base;
+  const {js,errors}=chrome;
+  await chrome.send('Page.navigate',{url:base});
+  await sleep(2500);
+  await js(`(()=>{const d=[...document.querySelectorAll('dialog')].find(x=>x.open);if(d)d.querySelector('button')?.click();})()`);
+  await sleep(200);
+
+  // 读一屏：左栏每张卡的按钮文案 + 这一页所有按钮的文案 + 满员反馈行 + 已选位
+  const readPrep=()=>js(`(()=>{
+   const $=i=>document.getElementById(i);
+   const clean=s=>String(s||'').replace(/\\s+/g,' ').trim();
+   const cards=[...document.querySelectorAll('#roster .pet-option')].map(card=>({
+    name:clean(card.querySelector('h3')?.textContent),
+    buttons:[...card.querySelectorAll('.buttons button')].map(b=>clean(b.textContent))}));
+   return {cards,leftText:clean($('roster')?.textContent),
+    pageButtons:[...document.querySelectorAll('#deploy button')].map(b=>clean(b.textContent)),
+    message:clean($('roster-message')?.textContent),
+    slots:[...document.querySelectorAll('#selection .slot')].map(s=>clean(s.textContent))};})()`);
+  const clickCardButton=async name=>{await js(`(()=>{const c=[...document.querySelectorAll('#roster .pet-option')].find(x=>(x.querySelector('h3')?.textContent||'').trim()===${JSON.stringify(name)});c.querySelector('.buttons button').click();})()`);await sleep(300);};
+
+  const seen={};
+  for(const mode of ['ai','human','pve']){
+   await js(`document.getElementById(${JSON.stringify(mode==='pve'?'go-pve':'go-pvp')}).click()`);
+   await sleep(400);
+   if(mode!=='pve'){
+    await js(`(()=>{const s=document.getElementById('pvp-opponent');s.value=${JSON.stringify(mode)};s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await sleep(400);
+   }
+   const view=seen[mode]=await readPrep();
+   assert.equal(view.cards.length,14,`${mode}：左栏应是全部 14 只伙伴，实际 ${view.cards.length} 张卡`);
+   for(const card of view.cards){
+    assert.equal(card.buttons.length,1,`${mode}：「${card.name}」卡上应只剩一个按钮，实际 ${JSON.stringify(card.buttons)}`);
+    assert.ok(['加入队伍','移出队伍'].includes(card.buttons[0]),
+     `${mode}：「${card.name}」的按钮文案是「${card.buttons[0]}」，只允许「加入队伍」或「移出队伍」`);
+   }
+   assert.ok(view.cards.some(c=>c.buttons[0]==='加入队伍'),`${mode}：至少要有一只没选中的伙伴，否则这条断言看不出东西`);
+   assert.equal(view.cards.filter(c=>c.buttons[0]==='移出队伍').length,3,`${mode}：开局默认三只应在队里`);
+   // 这一页不许再有「培养」按钮；左栏整段文字里也不许出现「培养」两个字
+   assert.ok(!view.pageButtons.some(x=>x.includes('培养')),`${mode}：对战准备页不该再有「培养」按钮：${JSON.stringify(view.pageButtons)}`);
+   assert.ok(!view.leftText.includes('培养'),`${mode}：左栏不该出现「培养」：${view.leftText.slice(0,120)}`);
+   assert.equal(view.slots.length,3,`${mode}：开局应已选好三只`);
+  }
+  assert.deepEqual(seen.human.cards,seen.ai.cards,'PVP 对真人与对 AI 的左栏必须是同一份（同一段渲染）');
+  assert.deepEqual(seen.pve.cards,seen.ai.cards,'PVE 的准备页与 PVP 用的是同一个左栏，不该有第二套文案');
+
+  // 点下去真的加得进队伍：移出一只 → 它变成「加入队伍」→ 再点回来 → 又回到 3 只
+  const out=seen.ai.cards.find(c=>c.buttons[0]==='移出队伍').name;
+  await clickCardButton(out);
+  const removed=await readPrep();
+  assert.deepEqual(removed.cards.find(c=>c.name===out).buttons,['加入队伍'],`移出「${out}」之后它的按钮应变成「加入队伍」`);
+  assert.equal(removed.slots.length,2,'移出一只之后队伍应是 2 只');
+  await clickCardButton(out);
+  const back=await readPrep();
+  assert.equal(back.slots.length,3,`把「${out}」加回来之后队伍应回到 3 只`);
+
+  // 满员时点「加入队伍」：第四只加不进去，但必须给出明确反馈（不是静默失败）
+  const fourth=back.cards.find(c=>c.buttons[0]==='加入队伍');
+  assert.ok(fourth,'前提：还有没选中的伙伴可以点');
+  await clickCardButton(fourth.name);
+  const full=await readPrep();
+  assert.equal(full.slots.length,3,`队伍上限仍是三只，点第四只不许加进去（现在 ${full.slots.length} 只）`);
+  assert.match(full.message,/队伍已满/,'满员时点「加入队伍」必须给出明确反馈，不能点了没反应：'+JSON.stringify(full.message));
+  assert.equal(full.cards.find(c=>c.name===fourth.name).buttons[0],'加入队伍',`加不进第四只，「${fourth.name}」的按钮应还是「加入队伍」`);
+  // 移出一只之后，这条提示要收起来（不能一直挂在屏幕上）
+  await clickCardButton(out);
+  assert.equal((await readPrep()).message,'','移出一只之后「队伍已满」的提示必须收起来');
+
+  // 养成页（营地）的「培养」还在：只改了准备页，不许把养成入口一起改没
+  await js(`document.getElementById('camp-tab').click()`);
+  await sleep(400);
+  const camp=await js(`(()=>[...document.querySelectorAll('#camp-roster .pet-option .buttons button')].map(b=>b.textContent.trim()))()`);
+  assert.ok(camp.includes('培养'),'营地养成页的「培养」必须还在：'+JSON.stringify(camp));
+  assert.equal(errors.length,0,'过程中不应有控制台报错：'+errors.slice(0,3).join(' | '));
+ }finally{
+  if(chrome)chrome.kill();
+  await close();
+ }
+});

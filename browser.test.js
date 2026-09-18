@@ -90,11 +90,47 @@ test('app.js wires the companion presence layer and leaves the bubble to the com
 test('队伍上限是三只，且开始前会被校验',async()=>{
  // 这条是补的回归：重构卡片模板时新加了一个「加入队伍」按钮却没有数量上限，
  // 于是能一路选到 6、7 只，startMatch 还照样开打。
+ //
+ // 第三轮改了「满员时怎么办」：原来把「加入队伍」置灰，点下去一点反应都没有——
+ // 玩家说的正是「点了没反应，以为页面坏了」。现在按钮照常可点，点了由
+ // #roster-message 明确说明要先移出一只。上限本身不变，仍然挡在这里，startMatch 也照旧校验。
  const {readFileSync}=await import('node:fs');
  const src=readFileSync(new URL('./app.js',import.meta.url),'utf8');
- assert.match(src,/selected\.length>=3\?'disabled'/,'满员时「加入队伍」必须禁用');
- assert.match(src,/if\(!selected\.includes\(id\)&&selected\.length>=3\)return;/,'点选处理必须挡上限');
+ assert(!src.includes("selected.length>=3?'disabled'"),'满载时不再靠置灰挡上限：置灰＝点了没反应＝静默失败');
+ assert.match(src,/if\(!selected\.includes\(id\)&&selected\.length>=3\)\{[^}]*roster-message[^}]*\}/,
+  '满员时点选必须给出明确反馈（写进 #roster-message），不能静默 return');
  assert.match(src,/if\(selected\.length!==3\)\{[^}]*请选择三只伙伴/,'开始前必须校验队伍是三只');
+});
+
+// 对战准备页（PVE 与 PVP 共用 deployView）的左栏只做一件事：把伙伴加进出战队伍。
+//
+// 起因是玩家截图：这一页每张卡下面挂着一个「培养」主按钮，点了会跳回营地养成面板——
+// 可他在这一步想做的事是「把这只加进队伍」。这一组钉住三件事
+// （渲染后的真实按钮文案由 replace.test.js 的用例③在真 Chrome 里核对）：
+//   ① 左栏每张卡只有一个按钮：未选中写「加入队伍」、已选中写「移出队伍」；
+//   ② 这一页不再有「培养」按钮，连跳回养成面板的入口（data-focus）也一起撤掉；
+//   ③ 营地（养成页）的「培养」还在——②不许靠"把培养全删掉"来通过。
+// 另外这一行不许按对手分叉：对真人 / 对 AI / PVE 走同一段渲染，两种 PVP 模式才会一致。
+test('对战准备页左栏是「加入队伍」，营地页的「培养」还在',()=>{
+ const src=readFileSync(new URL('./app.js',import.meta.url),'utf8');
+ const html=readFileSync(new URL('./index.html',import.meta.url),'utf8');
+ const start=src.indexOf('function deployView('),end=src.indexOf('function renderPickSplit(');
+ assert(start>0&&end>start,'deployView / renderPickSplit 的边界变了，先确认这两段还是不是同一个页面');
+ const deploy=src.slice(start,end);
+ // ① 一只按钮，两种文案
+ assert.match(deploy,/const act=order>=0\?`<button data-pet="\$\{p\.id\}">移出队伍<\/button>`:`<button data-pet="\$\{p\.id\}">加入队伍<\/button>`/,
+  '左栏每张卡应只有一个按钮：未选中「加入队伍」、已选中「移出队伍」');
+ // ② 准备页不再有「培养」按钮，也没有回养成面板的入口
+ assert(!deploy.includes('培养</button>'),'对战准备页不许再出现「培养」按钮');
+ assert(!deploy.includes('data-focus'),'对战准备页不再有跳去养成面板的入口');
+ // 两种 PVP 模式共用这一段：左栏按对手分叉就会让真人和 AI 不一致
+ assert(!/const act=[^\n]*?(pvpOpponent|\bai\?)/.test(deploy),'左栏按钮不许按 pvpOpponent / ai 分叉');
+ // 满员的反馈要有地方可写（wiring.test.js 还会核对这个 id 真的存在，这里钉住它是状态行）
+ assert(html.includes('id="roster-message" role="status"'),'满员反馈行要在 index.html 里，且是 role="status"');
+ // ③ 营地养成页的「培养」必须保留
+ const camp=src.slice(src.indexOf('function camp('),src.indexOf("let enemyRosterType"));
+ assert(camp.length>0,'camp() 的边界变了，先确认营地页那一段还在');
+ assert.match(camp,/data-focus="\$\{p\.id\}" class="primary">培养<\/button>/,'营地养成页的「培养」必须还在');
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

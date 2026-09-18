@@ -12,11 +12,14 @@
 % 封面下方原本还有一条通栏长线，已删——它和这两条短线在视觉上重复。
 \begin{center}
 \vspace{0.5em}
-% 用 \par\vspace 而不是 \\[..]：后者是「换行 + 再加一段距离」，
-% 实际间距等于 \baselineskip 加上那个值，我给多少都不等于视觉间距。\par\vspace 是精确值。
-\rule{0.4\linewidth}{0.4pt}\par\vspace{5pt}
-{\small 本报告由 AI 辅助撰写}\par\vspace{3pt}
+% 上下用同一个构造（\\[..]），但数值不等：0.42em 对 0.5em。
+% 之前几版失败的原因：\strut 把行盒撑成对称的、而汉字在盒子里偏上，看着就下面沉；
+% \par\vspace 在 center 里会被吞掉。这一版回到最朴素的写法。
+\begin{center}
+\rule{0.4\linewidth}{0.4pt}\\[0.42em]
+{\small 本报告由 AI 辅助撰写}\\[0.5em]
 \rule{0.4\linewidth}{0.4pt}
+\end{center}
 \end{center}
 
 \vspace{0.7em}
